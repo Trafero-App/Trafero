@@ -4,32 +4,34 @@ import os
 conn = psycopg2.connect(database=os.getenv("db_name"),
                         user=os.getenv("db_user"),
                         host= os.getenv("db_host"),
-                        password = os.getenv("password"),
+                        password = os.getenv("db_password"),
                         port = int(os.getenv("db_port"))
                         )
 
 cur = conn.cursor()
 
 cur.execute("""
+            DROP TABLE passenger;
+            DROP TABLE vehicle_location;
+            DROP TABLE vehicle;
             CREATE TABLE passenger (id SERIAL PRIMARY KEY,
-                                    user_name VARCHAR(255),
-                                    password TEXT,
-                                    first_name VARCHAR(255),
-                                    last_name VARCHAR(255),
-                                    phone_number VARCHAR(20)
+                                    user_name VARCHAR(255) NOT NULL,
+                                    password TEXT NOT NULL,
+                                    first_name VARCHAR(255) NOT NULL,
+                                    last_name VARCHAR(255) NOT NULL,
+                                    phone_number VARCHAR(20) NOT NULL
                                     );
             CREATE TABLE vehicle   (id SERIAL PRIMARY KEY,
-                                    route_number INT,
-                                    phone_number VARCHAR(20)
+                                    route_number INT NOT NULL,
+                                    phone_number VARCHAR(20) NOT NULL
                                     );
-            CREATE TABLE vehicle_locations (id SERIAL PRIMARY KEY,
-                                            longitude DECIMAL,
-                                            latitude DECIMAL,
-                                            vehicle_id INT,
-                                            CONSTRAINT fk_vehicle
+            CREATE TABLE vehicle_location (id SERIAL PRIMARY KEY,
+                                           longitude DECIMAL NOT NULL,
+                                           latitude DECIMAL NOT NULL,
+                                           vehicle_id INT NOT NULL,
+                                           CONSTRAINT fk_vehicle
                                                 FOREIGN KEY(vehicle_id) 
                                                     REFERENCES vehicle(id)
-                                                    ON DELETE SET NULL
                                     );
             """)
 
