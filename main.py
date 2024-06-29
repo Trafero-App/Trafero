@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 
 from contextlib import asynccontextmanager
 import asyncpg
@@ -7,6 +8,7 @@ import os
 from dotenv import load_dotenv, find_dotenv
 
 from pydantic import BaseModel
+
 
 # For data validation
 class vehicle_location(BaseModel):
@@ -30,25 +32,51 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+# Allow only specific origins to make requests
+origins = [
+    "http://127.0.0.1:8000",
+    "http://localhost:8000"
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins, # allow requests from the specified origins
+    allow_credentials=True, # allow credentials to be sent (e.g cookies)
+    allow_methods=["*"], # allow POST, GET, PUT ... `*` is "all"
+    allow_headers=["*"]
+
+)
+
 
 @app.get("/vehicle_location/{vehicle_id}")
 async def get_vehicle_location(vehicle_id: int):
-    entry = await app.state.db.fetchrow("""SELECT * FROM vehicle_location WHERE vehicle_id=$1
-                         """, vehicle_id)
-    
-    return {'longitude': entry["longitude"], "latitude" : entry["latitude"]}
+    entry = await app.state.db.fetchrow("SELECT * FROM vehicle_location WHERE vehicle_id=$1", vehicle_id)
+    if entry is None:
+        return {"found" : False, "longitude": None, "latitude" : None}
+    return {"found" : True, "longitude": entry["longitude"], "latitude" : entry["latitude"]}
 
 @app.post("/vehicle_location")
 async def post_vehicle_location(vehicle_location_data: vehicle_location):
     vehicle_id, latitude, longitude = vehicle_location_data.id, vehicle_location_data.latitude, vehicle_location_data.longitude
-    await app.state.db.execute("""INSERT INTO vehicle_location 
+    try:
+        await app.state.db.execute("""INSERT INTO vehicle_location 
                                (vehicle_id, latitude, longitude) VALUES ($1, $2, $3)""", vehicle_id, latitude, longitude)
+        return {"added" : True}
+    except asyncpg.exceptions.UniqueViolationError:
+        return {"added" : False, "error":"UniqueViolationError"}
+    except asyncpg.exceptions.ForeignKeyViolationError:
+        return {"added" : False, "error":"ForeignKeyViolationError"}
 
 
 @app.put("/vehicle_location")
 async def post_vehicle_location(vehicle_location_data: vehicle_location):
     vehicle_id, latitude, longitude = vehicle_location_data.id, vehicle_location_data.latitude, vehicle_location_data.longitude
-    await app.state.db.execute("UPDATE vehicle_location SET longitude=$1, latitude=$2 WHERE vehicle_id=$3", longitude, latitude, vehicle_id)
+    result = await app.state.db.execute("""UPDATE vehicle_location SET longitude=$1, 
+                                        latitude=$2 WHERE vehicle_id=$3""", longitude, latitude, vehicle_id)
+    # False signifies that you tried to update the location of a vehicle whose location isn't in the db yet
+    if result == "UPDATE 0":
+        return {"updated" : False}
+    else:
+        return {"updated" : True}
     
 
 # Automatically redirect requests for "/" to react
