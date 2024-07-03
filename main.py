@@ -34,8 +34,8 @@ app = FastAPI(lifespan=lifespan)
 
 # Allow only specific origins to make requests
 origins = [
-    "http://127.0.0.1:8000",
-    "http://localhost:8000"
+    "http://127.0.0.1:3000",
+    "http://localhost:3000"
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -77,8 +77,3 @@ async def post_vehicle_location(vehicle_location_data: vehicle_location):
         return {"updated" : False}
     else:
         return {"updated" : True}
-    
-
-# Automatically redirect requests for "/" to react
-app.mount("/", StaticFiles(directory="my-app/build", html=True), name="React-Project")
-
