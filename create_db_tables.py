@@ -17,6 +17,8 @@ cur = conn.cursor()
 cur.execute(""" DROP TABLE IF EXISTS passenger;
                 DROP TABLE IF EXISTS vehicle_location;
                 DROP TABLE IF EXISTS vehicle;
+                DROP TABLE IF EXISTS route;
+            
                 CREATE TABLE passenger (id SERIAL PRIMARY KEY,
                                         user_name VARCHAR(255) NOT NULL UNIQUE,
                                         password TEXT NOT NULL,
@@ -24,10 +26,18 @@ cur.execute(""" DROP TABLE IF EXISTS passenger;
                                         last_name VARCHAR(255) NOT NULL,
                                         phone_number VARCHAR(20) NOT NULL UNIQUE
                                         );
+            
+                CREATE TABLE route (id SERIAL PRIMARY KEY,
+                                    file_name VARCHAR(30) NOT NULL
+                                    );
+            
                 CREATE TABLE vehicle   (id SERIAL PRIMARY KEY,
-                                        route_number INT NOT NULL,
-                                        phone_number VARCHAR(20) NOT NULL
+                                        route_id INT NOT NULL,
+                                        phone_number VARCHAR(20) NOT NULL,
+                                        CONSTRAINT fk_route
+                                            FOREIGN KEY(route_id) REFERENCES route(id)
                                         );
+            
                 CREATE TABLE vehicle_location (id SERIAL PRIMARY KEY,
                                             longitude DECIMAL NOT NULL,
                                             latitude DECIMAL NOT NULL,
@@ -35,7 +45,7 @@ cur.execute(""" DROP TABLE IF EXISTS passenger;
                                             CONSTRAINT fk_vehicle
                                                     FOREIGN KEY(vehicle_id) 
                                                         REFERENCES vehicle(id)
-                                        );
+                                               );
             """)
 
 conn.commit()
