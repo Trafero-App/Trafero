@@ -26,10 +26,11 @@ DB_URL = os.getenv("db_url")
 # and close the connection when the app shuts down
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.db = await asyncpg.connect(DB_URL)
+    app.state.db_pool = await asyncpg.create_pool(DB_URL)
     # app.state.db.fetch()
     yield
-    await app.state.db.close()
+    print("Closing app...")
+    await app.state.db_pool.close()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -51,7 +52,8 @@ app.add_middleware(
 
 @app.get("/vehicle_location/{vehicle_id}")
 async def get_vehicle_location(vehicle_id: int):
-    entry = await app.state.db.fetchrow("SELECT * FROM vehicle_location WHERE vehicle_id=$1", vehicle_id)
+    async with app.state.db_pool.acquire() as con:
+        entry = await con.fetchrow("SELECT * FROM vehicle_location WHERE vehicle_id=$1", vehicle_id)
     if entry is None:
         return {"found" : False, "longitude": None, "latitude" : None}
     return {"found" : True, "longitude": entry["longitude"], "latitude" : entry["latitude"]}
@@ -60,8 +62,9 @@ async def get_vehicle_location(vehicle_id: int):
 async def post_vehicle_location(vehicle_location_data: vehicle_location):
     vehicle_id, latitude, longitude = vehicle_location_data.id, vehicle_location_data.latitude, vehicle_location_data.longitude
     try:
-        await app.state.db.execute("""INSERT INTO vehicle_location 
-                               (vehicle_id, latitude, longitude) VALUES ($1, $2, $3)""", vehicle_id, latitude, longitude)
+        async with app.state.db_pool.acquire() as con: 
+            await con.execute("""INSERT INTO vehicle_location 
+                                (vehicle_id, latitude, longitude) VALUES ($1, $2, $3)""", vehicle_id, latitude, longitude)
         return {"added" : True}
     except asyncpg.exceptions.UniqueViolationError:
         return {"added" : False, "error":"UniqueViolationError"}
@@ -72,8 +75,9 @@ async def post_vehicle_location(vehicle_location_data: vehicle_location):
 @app.put("/vehicle_location")
 async def post_vehicle_location(vehicle_location_data: vehicle_location):
     vehicle_id, latitude, longitude = vehicle_location_data.id, vehicle_location_data.latitude, vehicle_location_data.longitude
-    result = await app.state.db.execute("""UPDATE vehicle_location SET longitude=$1, 
-                                        latitude=$2 WHERE vehicle_id=$3""", longitude, latitude, vehicle_id)
+    async with app.state.db_pool.acquire() as con:
+        result = await con.execute("""UPDATE vehicle_location SET longitude=$1, 
+                                            latitude=$2 WHERE vehicle_id=$3""", longitude, latitude, vehicle_id)
     # False signifies that you tried to update the location of a vehicle whose location isn't in the db yet
     if result == "UPDATE 0":
         return {"updated" : False}
@@ -82,7 +86,8 @@ async def post_vehicle_location(vehicle_location_data: vehicle_location):
 
 @app.get("/route/{requested_route_id}", status_code=status.HTTP_200_OK)
 async def route(requested_route_id: int, response: Response):
-    route_file_name = (await app.state.db.fetchrow("SELECT file_name FROM route WHERE id=$1", requested_route_id))
+    async with app.state.db_pool.acquire() as con:
+        route_file_name = await con.fetchrow("SELECT file_name FROM route WHERE id=$1", requested_route_id)
     if route_file_name is None:
         return {"Message": "Invalid route id. Not found in database."}
     route_file_name = route_file_name["file_name"]
