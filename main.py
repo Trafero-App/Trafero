@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Response, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,6 +9,7 @@ from dotenv import load_dotenv, find_dotenv
 
 from pydantic import BaseModel
 
+import geojson
 
 # For data validation
 class vehicle_location(BaseModel):
@@ -26,6 +27,7 @@ DB_URL = os.getenv("db_url")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.db = await asyncpg.connect(DB_URL)
+    # app.state.db.fetch()
     yield
     await app.state.db.close()
 
@@ -77,3 +79,20 @@ async def post_vehicle_location(vehicle_location_data: vehicle_location):
         return {"updated" : False}
     else:
         return {"updated" : True}
+
+@app.get("/route/{requested_route_id}", status_code=status.HTTP_200_OK)
+async def route(requested_route_id: int, response: Response):
+    route_file_name = (await app.state.db.fetchrow("SELECT file_name FROM route WHERE id=$1", requested_route_id))
+    if route_file_name is None:
+        return {"Message": "Invalid route id. Not found in database."}
+    route_file_name = route_file_name["file_name"]
+    
+    try:
+        route_file = open("routes/" + route_file_name)
+    except FileNotFoundError:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"Message": "Route is defined in the database, but the file is not found. Contact backend."}
+    
+    geojson_route_data = dict(geojson.load(route_file))
+    route_file.close()
+    return {"Message" : "All Good.", "route_data": geojson_route_data}
