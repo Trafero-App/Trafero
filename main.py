@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Response, status
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from contextlib import asynccontextmanager
@@ -9,6 +8,7 @@ from dotenv import load_dotenv, find_dotenv
 
 from pydantic import BaseModel
 
+import geojson
 
 # For data validation
 class vehicle_location(BaseModel):
@@ -25,9 +25,11 @@ DB_URL = os.getenv("db_url")
 # and close the connection when the app shuts down
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.db = await asyncpg.connect(DB_URL)
+    app.state.db_pool = await asyncpg.create_pool(DB_URL)
+    # app.state.db.fetch()
     yield
-    await app.state.db.close()
+    print("Closing app...")
+    await app.state.db_pool.close()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -49,7 +51,8 @@ app.add_middleware(
 
 @app.get("/vehicle_location/{vehicle_id}", status_code=status.HTTP_200_OK)
 async def get_vehicle_location(vehicle_id: int, response: Response):
-    entry = await app.state.db.fetchrow("SELECT * FROM vehicle_location WHERE vehicle_id=$1", vehicle_id)
+    async with app.state.db_pool.acquire() as con:
+        entry = await con.fetchrow("SELECT * FROM vehicle_location WHERE vehicle_id=$1", vehicle_id)
     if entry is None:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"Message" : "Error: Vehicle location is not available."}
@@ -61,8 +64,9 @@ async def get_vehicle_location(vehicle_id: int, response: Response):
 async def post_vehicle_location(vehicle_location_data: vehicle_location, response: Response):
     vehicle_id, latitude, longitude = vehicle_location_data.id, vehicle_location_data.latitude, vehicle_location_data.longitude
     try:
-        await app.state.db.execute("""INSERT INTO vehicle_location 
-                               (vehicle_id, latitude, longitude) VALUES ($1, $2, $3)""", vehicle_id, latitude, longitude)
+        async with app.state.db_pool.acquire() as con: 
+            await con.execute("""INSERT INTO vehicle_location 
+                                (vehicle_id, latitude, longitude) VALUES ($1, $2, $3)""", vehicle_id, latitude, longitude)
         return {"Message": "All Good 👍"}
     except asyncpg.exceptions.UniqueViolationError:
         response.status_code = status.HTTP_400_BAD_REQUEST
@@ -78,8 +82,9 @@ async def post_vehicle_location(vehicle_location_data: vehicle_location, respons
 @app.put("/vehicle_location", status_code=status.HTTP_200_OK)
 async def post_vehicle_location(vehicle_location_data: vehicle_location, response: Response):
     vehicle_id, latitude, longitude = vehicle_location_data.id, vehicle_location_data.latitude, vehicle_location_data.longitude
-    result = await app.state.db.execute("""UPDATE vehicle_location SET longitude=$1, 
-                                        latitude=$2 WHERE vehicle_id=$3""", longitude, latitude, vehicle_id)
+    async with app.state.db_pool.acquire() as con:
+        result = await con.execute("""UPDATE vehicle_location SET longitude=$1, 
+                                            latitude=$2 WHERE vehicle_id=$3""", longitude, latitude, vehicle_id)
     # False signifies that you tried to update the location of a vehicle whose location isn't in the db yet
     if result == "UPDATE 0":
         response.status_code = status.HTTP_400_BAD_REQUEST
@@ -87,3 +92,21 @@ async def post_vehicle_location(vehicle_location_data: vehicle_location, respons
                             Maybe you mean to send a POST request?"""}
     else:
         return {"Message": "All Good 👍"}
+
+@app.get("/route/{requested_route_id}", status_code=status.HTTP_200_OK)
+async def route(requested_route_id: int, response: Response):
+    async with app.state.db_pool.acquire() as con:
+        route_file_name = await con.fetchrow("SELECT file_name FROM route WHERE id=$1", requested_route_id)
+    if route_file_name is None:
+        return {"Message": "Invalid route id. Not found in database."}
+    route_file_name = route_file_name["file_name"]
+    
+    try:
+        route_file = open("routes/" + route_file_name)
+    except FileNotFoundError:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"Message": "Route is defined in the database, but the file is not found. Contact backend."}
+    
+    geojson_route_data = dict(geojson.load(route_file))
+    route_file.close()
+    return {"Message" : "All Good.", "route_data": geojson_route_data}
