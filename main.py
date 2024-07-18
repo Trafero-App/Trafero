@@ -6,15 +6,13 @@ import asyncpg
 import os
 from dotenv import load_dotenv, find_dotenv
 
-from pydantic import BaseModel
+from validation_classes import Point, vehicle_location
 
 import geojson
 
+import helper
+
 # For data validation
-class vehicle_location(BaseModel):
-    id: int
-    latitude: float
-    longitude: float
 
 
 # Get access credentials to database
@@ -110,3 +108,46 @@ async def route(requested_route_id: int, response: Response):
     geojson_route_data = dict(geojson.load(route_file))
     route_file.close()
     return {"Message" : "All Good.", "route_data": geojson_route_data}
+
+
+
+
+
+
+
+
+#############################################################################################################
+
+
+@app.get("/available_vehicles/{route_id}", status_code=status.HTTP_200_OK)
+def available_vehicles(route_id:int, pick_up_point:Point|None=None):
+
+    vehicles_list = input ()   #data base according to route_number (ID,lon,lat)
+    vehicles = []
+    way_points = input()       #data base list of waypoints (this list should contain points of form A(lon,lat,index in geojson))
+
+    route = input ()           #geojson file according to route_number
+
+
+
+
+
+
+
+    # ASSOCIATING EACH VEHICLE TO A POINT AND SAVING THE INDEX
+    for vehicle in vehicles_list:
+
+        index = helper.project_point_on_route(vehicle[1:3], route)
+        vehicles.append(vehicle+(index,))      #(ID, lon, lat, index)
+
+
+    # ASSOCIATING THE PICK UP POINT TO A POIT AND SAVING THE INDEX
+    projected_pick_up_point = helper.project_point_on_route(pick_up_point, route)
+
+
+    # SORTING THE VEHICLES FROM CLOSEST TO FARTHEST
+    available_vehicles = sorted(vehicles, key=lambda x: x[3], reverse = True)
+    for i in range (len(available_vehicles)):
+        if available_vehicles[i][3] <= projected_pick_up_point:
+            available_vehicles = available_vehicles[i:]
+            break
