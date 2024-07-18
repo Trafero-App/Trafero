@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Response, status
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from contextlib import asynccontextmanager
@@ -50,39 +49,49 @@ app.add_middleware(
 )
 
 
-@app.get("/vehicle_location/{vehicle_id}")
-async def get_vehicle_location(vehicle_id: int):
+@app.get("/vehicle_location/{vehicle_id}", status_code=status.HTTP_200_OK)
+async def get_vehicle_location(vehicle_id: int, response: Response):
     async with app.state.db_pool.acquire() as con:
         entry = await con.fetchrow("SELECT * FROM vehicle_location WHERE vehicle_id=$1", vehicle_id)
     if entry is None:
-        return {"found" : False, "longitude": None, "latitude" : None}
-    return {"found" : True, "longitude": entry["longitude"], "latitude" : entry["latitude"]}
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"Message" : "Error: Vehicle location is not available."}
+    
+    
+    return {"longitude": entry["longitude"], "latitude" : entry["latitude"], "Message": "All Good 👍"}
 
-@app.post("/vehicle_location")
-async def post_vehicle_location(vehicle_location_data: vehicle_location):
+@app.post("/vehicle_location", status_code=status.HTTP_200_OK)
+async def post_vehicle_location(vehicle_location_data: vehicle_location, response: Response):
     vehicle_id, latitude, longitude = vehicle_location_data.id, vehicle_location_data.latitude, vehicle_location_data.longitude
     try:
         async with app.state.db_pool.acquire() as con: 
             await con.execute("""INSERT INTO vehicle_location 
                                 (vehicle_id, latitude, longitude) VALUES ($1, $2, $3)""", vehicle_id, latitude, longitude)
-        return {"added" : True}
+        return {"Message": "All Good 👍"}
     except asyncpg.exceptions.UniqueViolationError:
-        return {"added" : False, "error":"UniqueViolationError"}
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+                "Message":
+                """Error: You have attempted to add the location of a vehicle who's location has already been added. Maybe you meant to send a PUT request?"""
+                }
     except asyncpg.exceptions.ForeignKeyViolationError:
-        return {"added" : False, "error":"ForeignKeyViolationError"}
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"Message": "Error: You have attempted to add the location of a vehicle that doesn't exist."}
 
 
-@app.put("/vehicle_location")
-async def post_vehicle_location(vehicle_location_data: vehicle_location):
+@app.put("/vehicle_location", status_code=status.HTTP_200_OK)
+async def post_vehicle_location(vehicle_location_data: vehicle_location, response: Response):
     vehicle_id, latitude, longitude = vehicle_location_data.id, vehicle_location_data.latitude, vehicle_location_data.longitude
     async with app.state.db_pool.acquire() as con:
         result = await con.execute("""UPDATE vehicle_location SET longitude=$1, 
                                             latitude=$2 WHERE vehicle_id=$3""", longitude, latitude, vehicle_id)
     # False signifies that you tried to update the location of a vehicle whose location isn't in the db yet
     if result == "UPDATE 0":
-        return {"updated" : False}
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"Message" : """Error: You have attempted to update the location of a vehicle who's location hasn't been added.
+                            Maybe you mean to send a POST request?"""}
     else:
-        return {"updated" : True}
+        return {"Message": "All Good 👍"}
 
 @app.get("/route/{requested_route_id}", status_code=status.HTTP_200_OK)
 async def route(requested_route_id: int, response: Response):
