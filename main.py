@@ -89,10 +89,8 @@ async def post_vehicle_location(vehicle_location_data: vehicle_location, respons
 @app.get("/route/{requested_route_id}", status_code=status.HTTP_200_OK)
 async def route(requested_route_id: int, response: Response):
     route_file_name = await db.get_route_file_name(requested_route_id)
-    print("#############################################################################################################################")
     if route_file_name is None:
-        return {"Message": "Invalid route id. Not found in database."}
-    print("#############################################################################################################################")
+        return {"Message": "Route not found."}
     route_file_name = route_file_name["file_name"]
     
     try:
@@ -101,57 +99,43 @@ async def route(requested_route_id: int, response: Response):
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"Message": "Route is defined in the database, but the file is not found. Contact backend."}
     
-    print("#############################################################################################################################", type(route_geojson))
     return {"Message" : "All Good.", "route_data": route_geojson}
 
 
-# @app.get("/available_vehicles/{route_id}", status_code=status.HTTP_200_OK)
-# async def available_vehicles(route_id:int, response: Response, pick_up_point:Point|None=None):
-#     async with app.state.db_pool.acquire() as con: 
-#         # data base according to route_number (ID,lon,lat)
-#         vehicle_list = await con.fetch(""" SELECT (vehicle_id, longitude, latitude) FROM vehicle_location WHERE 
-#                                         vehicle_id IN (
-#                                                 SELECT id FROM vehicle WHERE route_id = $1
-#                                         )""", route_id)
-#         vehicle_list = [tuple(vehicle_info[0]) for vehicle_info in vehicle_list]
-#         route_file_name = await con.fetchrow("SELECT file_name FROM route WHERE id=$1", route_id)
-#         if route_file_name is None:
-#             return {"Message": "Invalid route id. Not found in database."}
-#         route_file_name = route_file_name["file_name"]
-        
-#         try:
-#             route_file = open("routes/" + route_file_name)
-#         except FileNotFoundError:
-#             response.status_code = status.HTTP_404_NOT_FOUND
-#             return {"Message": "Route is defined in the database, but the file is not found. Contact backend."}
-        
-#         geojson_route_data = dict(geojson.load(route_file))
-#         route_file.close()
-#         route = geojson_route_data["features"][0]["geometry"]["coordinates"]
-#         print(route)
-#         print()
-#         print()
-#         print()
-#         print()
-#         print()
-#     vehicles = []
-#     way_points = input()       #data base list of waypoints (this list should contain points of form A(lon,lat,index in geojson))
+@app.get("/available_vehicles/{route_id}", status_code=status.HTTP_200_OK)
+async def available_vehicles(route_id:int, response: Response, long:float|None=None, lat:float|None = None):
+    
+    vehicles = await db.get_route_vehicles(route_id)
+    if vehicles is None:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"Message": "Route not found."}
+    print(vehicles)
+    
+    try:
+        route_file_name = await db.get_route_file_name(route_id)
+    except FileNotFoundError:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"Message": "Route is defined in the database, but the file is not found. Contact backend."}
+    
 
+    route_file_name = route_file_name["file_name"]
+    route_geojson = await db.get_route_geojson(route_file_name)
 
-#     # ASSOCIATING EACH VEHICLE TO A POINT AND SAVING THE INDEX
-#     for vehicle in vehicle_list:
+    route = route_geojson["features"][0]["geometry"]["coordinates"]
 
-#         index = helper.project_point_on_route(vehicle[1:3], route)
-#         vehicles.append(vehicle+(index,))      #(ID, lon, lat, index)
+    projection_indices = {}
+    for vehicle in vehicles:
 
+        projection_index = helper.project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route)
+        vehicle["projection_index"] = projection_index
 
-#     # # ASSOCIATING THE PICK UP POINT TO A POIT AND SAVING THE INDEX
-#     projected_pick_up_point = helper.project_point_on_route(pick_up_point, route)
+    projected_pick_up_point_index = helper.project_point_on_route((long, lat), route)
 
-
-#     # # SORTING THE VEHICLES FROM CLOSEST TO FARTHEST
-#     available_vehicles = sorted(vehicles, key=lambda x: x[3], reverse = True)
-#     for i in range (len(available_vehicles)):
-#         if available_vehicles[i][3] <= projected_pick_up_point:
-#             available_vehicles = available_vehicles[i:]
-#             break
+    available_vehicles = sorted(vehicles, key=lambda x: x["projection_index"], reverse = True)
+    for i, vehicle in enumerate(available_vehicles):
+        if vehicle["projection_index"] <= projected_pick_up_point_index:
+            available_vehicles = available_vehicles[i:]
+            for vehicle2 in available_vehicles:
+                del vehicle2["projection_index"]
+            break
+    return {"Message" : "All Good.", "available_vehicles" : available_vehicles}
