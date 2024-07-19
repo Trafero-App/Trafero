@@ -17,6 +17,7 @@ def recreate_tables():
     cur.execute(""" DROP TABLE IF EXISTS passenger;
                     DROP TABLE IF EXISTS vehicle_location;
                     DROP TABLE IF EXISTS vehicle;
+                    DROP TABLE IF EXISTS waypoint;
                     DROP TABLE IF EXISTS route;
                 
                     CREATE TABLE passenger (id SERIAL PRIMARY KEY,
@@ -45,6 +46,15 @@ def recreate_tables():
                                                 CONSTRAINT fk_vehicle
                                                         FOREIGN KEY(vehicle_id) 
                                                             REFERENCES vehicle(id)
+                                                );
+                
+                    CREATE TABLE waypoint (id SERIAL PRIMARY KEY,
+                                           longitude DECIMAL NOT NULL,
+                                           latitude DECIMAL NOT NULL,
+                                           route_id INT NOT NULL,
+                                           CONSTRAINT fk_route
+                                                FOREIGN KEY(route_id)
+                                                    REFERENCES route(id)
                                                 );
                 """)
 
