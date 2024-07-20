@@ -19,7 +19,7 @@ def haversine(pointA, pointB):
 
 
 def project_point_on_route(point, route):
-    minimum_distance = 1000
+    minimum_distance = float('inf')
     for i,route_point in enumerate(route):
         temp_distance = haversine(point, route_point)
         if temp_distance <= minimum_distance :
@@ -28,7 +28,7 @@ def project_point_on_route(point, route):
     return closest_point_index
 
 
-def get_time_estimation(start, end, way_points, routepoints):
+def get_time_estimation(start, end, way_points):
     if start[2] == end[2]:
         return 0
     

@@ -123,19 +123,22 @@ async def available_vehicles(route_id:int, response: Response, long:float|None=N
 
     route = route_geojson["features"][0]["geometry"]["coordinates"]
 
-    projection_indices = {}
     for vehicle in vehicles:
 
         projection_index = helper.project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route)
         vehicle["projection_index"] = projection_index
 
-    projected_pick_up_point_index = helper.project_point_on_route((long, lat), route)
+    if long is not None and lat is not None:
+        projected_pick_up_point_index = helper.project_point_on_route((long, lat), route)
 
-    available_vehicles = sorted(vehicles, key=lambda x: x["projection_index"], reverse = True)
-    for i, vehicle in enumerate(available_vehicles):
-        if vehicle["projection_index"] <= projected_pick_up_point_index:
-            available_vehicles = available_vehicles[i:]
-            for vehicle2 in available_vehicles:
-                del vehicle2["projection_index"]
-            break
+        # Note that this doesn't take the time to reach the pickup location into consideration
+        available_vehicles = sorted(vehicles, key=lambda x: x["projection_index"], reverse = True)
+        for i, vehicle in enumerate(available_vehicles):
+            if vehicle["projection_index"] <= projected_pick_up_point_index:
+                available_vehicles = available_vehicles[i:]
+                for vehicle2 in available_vehicles:
+                    del vehicle2["projection_index"]
+                break
     return {"Message" : "All Good.", "available_vehicles" : available_vehicles}
+
+
