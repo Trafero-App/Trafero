@@ -32,8 +32,14 @@ class db:
     @classmethod
     async def get_route_file_name(cls, route_id):
         async with cls.db_pool.acquire() as con:
-            return await con.fetchrow("SELECT file_name FROM route WHERE id=$1", route_id)
-        
+            return await con.fetchrow("SELECT file_name FROM route WHERE id=$1", route_id)["file_name"]
+
+    @classmethod
+    async def get_all_routes_data(cls):
+        async with cls.db_pool.acquire() as con:
+            file_names = [(record[0], record[1]) for record in (await con.fetch("SELECT id, file_name FROM route"))]
+            return file_names
+
     @classmethod
     async def get_route_geojson(cls, file_name):
         route_file = open("routes/" + file_name)

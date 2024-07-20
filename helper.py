@@ -25,7 +25,9 @@ def project_point_on_route(point, route):
         if temp_distance <= minimum_distance :
             minimum_distance = temp_distance
             closest_point_index = i
-    return closest_point_index
+    return (closest_point_index, minimum_distance)
+
+
 
 
 def get_time_estimation(start, end, way_points):

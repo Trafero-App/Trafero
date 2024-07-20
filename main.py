@@ -118,18 +118,18 @@ async def available_vehicles(route_id:int, response: Response, long:float|None=N
         return {"Message": "Route is defined in the database, but the file is not found. Contact backend."}
     
 
-    route_file_name = route_file_name["file_name"]
+    route_file_name = route_file_name
     route_geojson = await db.get_route_geojson(route_file_name)
 
     route = route_geojson["features"][0]["geometry"]["coordinates"]
 
     for vehicle in vehicles:
 
-        projection_index = helper.project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route)
+        projection_index, _ = helper.project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route)
         vehicle["projection_index"] = projection_index
 
     if long is not None and lat is not None:
-        projected_pick_up_point_index = helper.project_point_on_route((long, lat), route)
+        projected_pick_up_point_index, _ = helper.project_point_on_route((long, lat), route)
 
         # Note that this doesn't take the time to reach the pickup location into consideration
         available_vehicles = sorted(vehicles, key=lambda x: x["projection_index"], reverse = True)
@@ -141,4 +141,21 @@ async def available_vehicles(route_id:int, response: Response, long:float|None=N
                 break
     return {"Message" : "All Good.", "available_vehicles" : available_vehicles}
 
+@app.get("/nearby_routes", status_code=status.HTTP_200_OK)
+async def nearby_routes(long:float, lat:float, radius:float):
+    routes_data = await db.get_all_routes_data()
 
+    routes_geojson = []
+    # Maybe load them once on startup???
+    for id, file_name in routes_data:
+        route_geojson = await db.get_route_geojson(file_name)
+        route_coords = route_geojson["features"][0]["geometry"]["coordinates"]
+        _, min_distance = helper.project_point_on_route((long, lat), route_coords)
+        if min_distance <= radius:
+            routes_geojson.append({
+                                    "type": "Feature",
+                                    "geometry": {"type": "LineString", "coordinates": route_coords},
+                                    "properties": {"id": id}
+                                })
+            
+    return {"Message": "All Good.", "routes": {"type": "FeatureCollection", "features": routes_geojson}}
