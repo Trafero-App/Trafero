@@ -51,3 +51,18 @@ def get_time_estimation(start, end, way_points):
                 break
     
     way_points = [(start[0],start[1])] + way_points[start_way_point_index:end_way_point_index] + [(end[0],end[1])]
+
+def gsonify_vehicle_list(vehicle_list):
+    for i, vehicle in enumerate(vehicle_list):
+         vehicle_list[i] = {
+                            "type": "Feature", 
+                            "properties": {
+                                 "vehicle_id": vehicle["vehicle_id"]
+                                },
+                            "geometry": {
+                                 "type": "Point",
+                                 "coordinates": [
+                                      vehicle["longitude"],
+                                      vehicle["latitude"]
+                                 ] 
+                            } }

@@ -37,8 +37,8 @@ class db:
     @classmethod
     async def get_all_routes_data(cls):
         async with cls.db_pool.acquire() as con:
-            file_names = [(record[0], record[1]) for record in (await con.fetch("SELECT id, file_name FROM route"))]
-            return file_names
+            routes_data = [(record[0], record[1]) for record in (await con.fetch("SELECT id, file_name FROM route"))]
+            return routes_data
 
     @classmethod
     async def get_route_geojson(cls, file_name):
