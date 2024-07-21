@@ -139,7 +139,11 @@ async def available_vehicles(route_id:int, response: Response, long:float|None=N
                 break
     else:
         return {"Message" : "TO DO"}
+<<<<<<< HEAD
     helper.geojsonify_vehicle_list(available_vehicles)
+=======
+    helper.gsonify_vehicle_list(available_vehicles)
+>>>>>>> 332dc115d032f41bc47cc1da6beb7d0cf453dcfa
     return {"Message" : "All Good.", "available_vehicles" : {"type": "FeatureCollection", "features": available_vehicles}}
 
 @app.get("/nearby_routes", status_code=status.HTTP_200_OK)
