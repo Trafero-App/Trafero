@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
 class vehicle_location(BaseModel):
-    id: int
+    vehicle_id: int
     longitude: float
     latitude: float
 

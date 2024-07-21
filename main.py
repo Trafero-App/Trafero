@@ -21,9 +21,18 @@ DB_URL = os.getenv("db_url")
 
 # Open connection to database when app starts up
 # and close the connection when the app shuts down
+# Also load routes
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await db.connect(DB_URL)
+
+    app.state.routes = {}
+    
+    routes_data = await db.get_all_routes_data()
+    for route_id, file_name in routes_data:
+        route_geojson = await db.get_route_geojson(file_name)
+        route_geojson["properties"]["route_id"] = route_id
+        app.state.routes[route_id] = route_geojson
 
     yield
     
@@ -59,7 +68,7 @@ async def get_vehicle_location(vehicle_id: int, response: Response):
 
 @app.post("/vehicle_location", status_code=status.HTTP_200_OK)
 async def post_vehicle_location(vehicle_location_data: vehicle_location, response: Response):
-    vehicle_id, latitude, longitude = vehicle_location_data.id, vehicle_location_data.latitude, vehicle_location_data.longitude
+    vehicle_id, latitude, longitude = vehicle_location_data.vehicle_id, vehicle_location_data.latitude, vehicle_location_data.longitude
     try:
         await db.add_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
         return {"Message": "All Good."}
@@ -67,7 +76,8 @@ async def post_vehicle_location(vehicle_location_data: vehicle_location, respons
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {
                 "Message":
-                """Error: You have attempted to add the location of a vehicle who's location has already been added. Maybe you meant to send a PUT request?"""
+                """Error: You have attempted to add the location of a vehicle who's location has
+                already been added. Maybe you meant to send a PUT request?"""
                 }
     except asyncpg.exceptions.ForeignKeyViolationError:
         response.status_code = status.HTTP_400_BAD_REQUEST
@@ -75,8 +85,8 @@ async def post_vehicle_location(vehicle_location_data: vehicle_location, respons
 
 
 @app.put("/vehicle_location", status_code=status.HTTP_200_OK)
-async def post_vehicle_location(vehicle_location_data: vehicle_location, response: Response):
-    vehicle_id, latitude, longitude = vehicle_location_data.id, vehicle_location_data.latitude, vehicle_location_data.longitude
+async def put_vehicle_location(vehicle_location_data: vehicle_location, response: Response):
+    vehicle_id, latitude, longitude = vehicle_location_data.vehicle_id, vehicle_location_data.latitude, vehicle_location_data.longitude
     result = await db.update_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
     # False signifies that you tried to update the location of a vehicle whose location isn't in the db yet
     if result == "UPDATE 0":
@@ -88,43 +98,31 @@ async def post_vehicle_location(vehicle_location_data: vehicle_location, respons
 
 @app.get("/route/{requested_route_id}", status_code=status.HTTP_200_OK)
 async def route(requested_route_id: int, response: Response):
-    route_file_name = await db.get_route_file_name(requested_route_id)
-    if route_file_name is None:
-        return {"Message": "Route not found."}
-    route_file_name = route_file_name["file_name"]
-    
-    try:
-        route_geojson = await db.get_route_geojson(route_file_name)
-    except FileNotFoundError:
+    route_geojson = app.state.routes.get(requested_route_id)
+    if route_geojson is None:
         response.status_code = status.HTTP_404_NOT_FOUND
-        return {"Message": "Route is defined in the database, but the file is not found. Contact backend."}
+        return {"Message": "Error: Route not found."}
     
     return {"Message" : "All Good.", "route_data": route_geojson}
 
 
 @app.get("/available_vehicles/{route_id}", status_code=status.HTTP_200_OK)
-async def available_vehicles(route_id:int, response: Response, long:float|None=None, lat:float|None = None):
-    
+async def available_vehicles(route_id:int, response: Response, long:float|None=None, lat:float|None = None): 
+    if route_id not in app.state.routes:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"Message": "Route not found."}
+    route_geojson = app.state.routes[route_id]
+
     vehicles = await db.get_route_vehicles(route_id)
     if vehicles is None:
         response.status_code = status.HTTP_404_NOT_FOUND
-        return {"Message": "Route not found."}
+        return {"Message": "No vehicles available on the route with id '" + route_id  + "'.", 
+                "available_vehicle" : []}
     print(vehicles)
-    
-    try:
-        route_file_name = await db.get_route_file_name(route_id)
-    except FileNotFoundError:
-        response.status_code = status.HTTP_404_NOT_FOUND
-        return {"Message": "Route is defined in the database, but the file is not found. Contact backend."}
-    
 
-    route_file_name = route_file_name
-    route_geojson = await db.get_route_geojson(route_file_name)
-
-    route = route_geojson["features"][0]["geometry"]["coordinates"]
+    route = route_geojson["geometry"]["coordinates"]
 
     for vehicle in vehicles:
-
         projection_index, _ = helper.project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route)
         vehicle["projection_index"] = projection_index
 
@@ -139,23 +137,19 @@ async def available_vehicles(route_id:int, response: Response, long:float|None=N
                 for vehicle2 in available_vehicles:
                     del vehicle2["projection_index"]
                 break
-    return {"Message" : "All Good.", "available_vehicles" : available_vehicles}
+    else:
+        return {"Message" : "TO DO"}
+    helper.gsonify_vehicle_list(available_vehicles)
+    return {"Message" : "All Good.", "available_vehicles" : {"type": "FeatureCollection", "features": available_vehicles}}
 
 @app.get("/nearby_routes", status_code=status.HTTP_200_OK)
 async def nearby_routes(long:float, lat:float, radius:float):
-    routes_data = await db.get_all_routes_data()
-
     routes_geojson = []
     # Maybe load them once on startup???
-    for id, file_name in routes_data:
-        route_geojson = await db.get_route_geojson(file_name)
-        route_coords = route_geojson["features"][0]["geometry"]["coordinates"]
+    for _, route in app.state.routes.items():
+        route_coords = route["geometry"]["coordinates"]
         _, min_distance = helper.project_point_on_route((long, lat), route_coords)
         if min_distance <= radius:
-            routes_geojson.append({
-                                    "type": "Feature",
-                                    "geometry": {"type": "LineString", "coordinates": route_coords},
-                                    "properties": {"id": id}
-                                })
+            routes_geojson.append(route)
             
     return {"Message": "All Good.", "routes": {"type": "FeatureCollection", "features": routes_geojson}}
