@@ -143,13 +143,19 @@ async def available_vehicles(route_id:int, response: Response, long:float|None=N
     return {"Message" : "All Good.", "available_vehicles" : {"type": "FeatureCollection", "features": available_vehicles}}
 
 @app.get("/nearby_routes", status_code=status.HTTP_200_OK)
-async def nearby_routes(long:float, lat:float, radius:float):
+async def nearby_routes(long:float, lat:float, radius:float,
+                        long2:float | None = None, lat2: float | None = None, radius2: float | None = None):
     routes_geojson = []
-    # Maybe load them once on startup???
     for _, route in app.state.routes.items():
         route_coords = route["geometry"]["coordinates"]
-        _, min_distance = helper.project_point_on_route((long, lat), route_coords)
-        if min_distance <= radius:
-            routes_geojson.append(route)
+        proj1_i, min_distance1 = helper.project_point_on_route((long, lat), route_coords)
+        if long2 is not None and lat2 is not None and radius2 is not None:
+            proj2_i, min_distance2 = helper.project_point_on_route((long2, lat2), route_coords)
+            if min_distance1 <= radius and min_distance2 <= radius2 and proj1_i < proj2_i:
+                routes_geojson.append(route)
+        else:
+            if min_distance1 <= radius:
+                routes_geojson.append(route)
+
             
     return {"Message": "All Good.", "routes": {"type": "FeatureCollection", "features": routes_geojson}}
