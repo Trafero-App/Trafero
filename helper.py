@@ -19,16 +19,18 @@ def haversine(pointA, pointB):
 
 
 def project_point_on_route(point, route):
-    minimum_distance = 1000
+    minimum_distance = float('inf')
     for i,route_point in enumerate(route):
         temp_distance = haversine(point, route_point)
         if temp_distance <= minimum_distance :
             minimum_distance = temp_distance
             closest_point_index = i
-    return closest_point_index
+    return (closest_point_index, minimum_distance)
 
 
-def get_time_estimation(start, end, way_points, routepoints):
+
+
+def get_time_estimation(start, end, way_points):
     if start[2] == end[2]:
         return 0
     
@@ -49,3 +51,18 @@ def get_time_estimation(start, end, way_points, routepoints):
                 break
     
     way_points = [(start[0],start[1])] + way_points[start_way_point_index:end_way_point_index] + [(end[0],end[1])]
+
+def geojsonify_vehicle_list(vehicle_list):
+    for i, vehicle in enumerate(vehicle_list):
+         vehicle_list[i] = {
+                            "type": "Feature", 
+                            "properties": {
+                                 "vehicle_id": vehicle["vehicle_id"]
+                                },
+                            "geometry": {
+                                 "type": "Point",
+                                 "coordinates": [
+                                      vehicle["longitude"],
+                                      vehicle["latitude"]
+                                 ] 
+                            } }
