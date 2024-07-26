@@ -98,12 +98,11 @@ async def put_vehicle_location(vehicle_location_data: vehicle_location, response
 
 @app.get("/route/{requested_route_id}", status_code=status.HTTP_200_OK)
 async def route(requested_route_id: int, response: Response):
-    route_geojson = app.state.routes.get(requested_route_id)
-    if route_geojson is None:
+    if requested_route_id not in app.state.routes:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"Message": "Error: Route not found."}
     
-    return {"Message" : "All Good.", "route_data": route_geojson}
+    return {"Message" : "All Good.", "route_data": app.state.routes.get(requested_route_id)}
 
 
 @app.get("/available_vehicles/{route_id}", status_code=status.HTTP_200_OK)
@@ -134,13 +133,13 @@ async def available_vehicles(route_id:int, response: Response, long:float|None=N
         for i, vehicle in enumerate(available_vehicles):
             if vehicle["projection_index"] <= projected_pick_up_point_index:
                 available_vehicles = available_vehicles[i:]
-                for vehicle2 in available_vehicles:
-                    del vehicle2["projection_index"]
                 break
+        
+        helper.geojsonify_vehicle_list(available_vehicles)
+        return {"Message" : "All Good.", "available_vehicles" : {"type": "FeatureCollection", "features": available_vehicles}}
+
     else:
         return {"Message" : "TO DO"}
-    helper.geojsonify_vehicle_list(available_vehicles)
-    return {"Message" : "All Good.", "available_vehicles" : {"type": "FeatureCollection", "features": available_vehicles}}
 
 @app.get("/nearby_routes", status_code=status.HTTP_200_OK)
 async def nearby_routes(long:float, lat:float, radius:float):

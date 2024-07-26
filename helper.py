@@ -57,7 +57,8 @@ def geojsonify_vehicle_list(vehicle_list):
          vehicle_list[i] = {
                             "type": "Feature", 
                             "properties": {
-                                 "vehicle_id": vehicle["vehicle_id"]
+                                 "vehicle_id": vehicle["vehicle_id"],
+                                 "status": vehicle["status"]
                                 },
                             "geometry": {
                                  "type": "Point",
