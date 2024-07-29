@@ -1,4 +1,5 @@
 import math
+import requests
 
 def haversine(pointA, pointB):
     lon1 = pointA[0]
@@ -30,27 +31,39 @@ def project_point_on_route(point, route):
 
 
 
-def get_time_estimation(start, end, way_points):
-    if start[2] == end[2]:
-        return 0
+def trim_waypoints_list(waypoints, start, end, route=None, start_projection_index=None, end_projection_index=None):
+    if start_projection_index is None:
+        start_projection_index = project_point_on_route(start, route)[0]
+    if end_projection_index is None:
+        end_projection_index = project_point_on_route(end, route)[0]
+
+    if start_projection_index == end_projection_index:
+        return None
     
-    if (start[0],start[1]) == (way_points[0][0], way_points[0][1]):
+    if start == waypoints[0][:2]:
             start_way_point_index = 0
     else:
-        for i, way_point in enumerate(way_points):
-            if way_point[2] > start[3]:
+        for i, way_point in enumerate(waypoints):
+            if way_point[2] > start_projection_index:
                 start_way_point_index = i
                 break
+        else:
+            start_way_point_index = 0
 
-    if (end[0],end[1]) == (way_points[-1][0], way_points[-1][1]):
-            end_way_point_index = len(way_points)-1
+    if end == waypoints[-1][:2]:
+            end_way_point_index = len(waypoints)-1
     else:
-        for i, way_point in enumerate(way_points):
-            if way_point[2] >= end[2]:
+        for i, way_point in enumerate(waypoints):
+            if way_point[2] >= end_projection_index:
                 end_way_point_index = i
                 break
+        else:
+            end_way_point_index = -1
     
-    way_points = [(start[0],start[1])] + way_points[start_way_point_index:end_way_point_index] + [(end[0],end[1])]
+    return  [tuple(route[start_projection_index]) + (start_projection_index,)] \
+            + waypoints[start_way_point_index:end_way_point_index] + \
+            [tuple(route[end_projection_index]) + (end_projection_index,)]
+
 
 def geojsonify_vehicle_list(vehicle_list):
     for i, vehicle in enumerate(vehicle_list):
@@ -66,3 +79,15 @@ def geojsonify_vehicle_list(vehicle_list):
                                       vehicle["latitude"]
                                  ] 
                             } }
+         
+def get_time_estimation(waypoints, api_key):
+    url = "https://api.mapbox.com/directions/v5/mapbox/driving-traffic/" + \
+    ';'.join([",".join(map(str, x)) for x in waypoints])
+    params = {'access_token': api_key,
+              'geometries': 'geojson',
+              'overview': 'full'
+              }
+    response = requests.get(url, params=params)
+    return response.json()["routes"][0]["duration"]
+
+     
