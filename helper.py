@@ -82,12 +82,13 @@ def geojsonify_vehicle_list(vehicle_list):
          
 def get_time_estimation(waypoints, api_key):
     url = "https://api.mapbox.com/directions/v5/mapbox/driving-traffic/" + \
-    ';'.join([",".join(map(str, x)) for x in waypoints])
+    ';'.join([",".join(map(str, x[:2])) for x in waypoints])
+    url += "?alternatives=false" # Don't search for alternative routes
+    url += "&continue_straight=true" # Tend to continue in the same direction
+    url += "&steps=false" # Don't include turn-by-turn instrutions
     params = {'access_token': api_key,
               'geometries': 'geojson',
               'overview': 'full'
               }
     response = requests.get(url, params=params)
     return response.json()["routes"][0]["duration"]
-
-     
