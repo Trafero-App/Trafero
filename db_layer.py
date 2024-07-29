@@ -62,7 +62,7 @@ class db:
     @classmethod
     async def get_route_waypoints(cls, route_id):
         async with cls.db_pool.acquire() as con:
-            result = await con.fetch("""SELECT (longitude, latitude) FROM waypoint WHERE route_id = $1
+            result = await con.fetch("""SELECT (longitude, latitude, projection_index) FROM waypoint WHERE route_id = $1
                                      ORDER BY id""", route_id)
         result = [tuple(record[0]) for record in result]
         print(result)
