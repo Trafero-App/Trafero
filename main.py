@@ -61,27 +61,27 @@ async def get_vehicle_location(vehicle_id: int, response: Response):
     entry = await db.get_vehicle_location(vehicle_id)
     if entry is None:
         response.status_code = status.HTTP_404_NOT_FOUND
-        return {"Message" : "Error: Vehicle location is not available."}
+        return {"message" : "Error: Vehicle location is not available."}
     
     
-    return {"longitude": entry["longitude"], "latitude" : entry["latitude"], "Message": "All Good."}
+    return {"longitude": entry["longitude"], "latitude" : entry["latitude"], "message": "All Good."}
 
 @app.post("/vehicle_location", status_code=status.HTTP_200_OK)
 async def post_vehicle_location(vehicle_location_data: vehicle_location, response: Response):
     vehicle_id, latitude, longitude = vehicle_location_data.vehicle_id, vehicle_location_data.latitude, vehicle_location_data.longitude
     try:
         await db.add_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
-        return {"Message": "All Good."}
+        return {"message": "All Good."}
     except asyncpg.exceptions.UniqueViolationError:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {
-                "Message":
+                "message":
                 """Error: You have attempted to add the location of a vehicle who's location has
                 already been added. Maybe you meant to send a PUT request?"""
                 }
     except asyncpg.exceptions.ForeignKeyViolationError:
         response.status_code = status.HTTP_400_BAD_REQUEST
-        return {"Message": "Error: You have attempted to add the location of a vehicle that doesn't exist."}
+        return {"message": "Error: You have attempted to add the location of a vehicle that doesn't exist."}
 
 
 @app.put("/vehicle_location", status_code=status.HTTP_200_OK)
@@ -91,19 +91,19 @@ async def put_vehicle_location(vehicle_location_data: vehicle_location, response
     # False signifies that you tried to update the location of a vehicle whose location isn't in the db yet
     if result == "UPDATE 0":
         response.status_code = status.HTTP_400_BAD_REQUEST
-        return {"Message" : """Error: You have attempted to update the location of a vehicle who's location hasn't been added.
+        return {"message" : """Error: You have attempted to update the location of a vehicle who's location hasn't been added.
                             Maybe you mean to send a POST request?"""}
     else:
-        return {"Message": "All Good."}
+        return {"message": "All Good."}
 
 @app.get("/route/{requested_route_id}", status_code=status.HTTP_200_OK)
 async def route(requested_route_id: int, response: Response):
     route_geojson = app.state.routes.get(requested_route_id)
     if route_geojson is None:
         response.status_code = status.HTTP_404_NOT_FOUND
-        return {"Message": "Error: Route not found."}
+        return {"message": "Error: Route not found."}
     
-    return {"Message" : "All Good.", "route_data": route_geojson}
+    return {"message" : "All Good.", "route_data": route_geojson}
 
 
 @app.get("/available_vehicles/{route_id}", status_code=status.HTTP_200_OK)
@@ -112,14 +112,14 @@ async def available_vehicles(route_id:int, response: Response,
     # Load route
     if route_id not in app.state.routes:
         response.status_code = status.HTTP_404_NOT_FOUND
-        return {"Message": "Route not found."}
+        return {"message": "Route not found."}
     route_geojson = app.state.routes[route_id]
     
     # Get route vehicles
     vehicles = await db.get_route_vehicles(route_id)
     if vehicles is None:
         response.status_code = status.HTTP_404_NOT_FOUND
-        return {"Message": "No vehicles available on the route with id '" + route_id  + "'.", 
+        return {"message": "No vehicles available on the route with id '" + route_id  + "'.", 
                 "available_vehicle" : {}}
 
     if pick_up_long is not None and pick_up_lat is not None:
@@ -132,19 +132,24 @@ async def available_vehicles(route_id:int, response: Response,
             vehicles[i]["passed"] = True
 
     helper.geojsonify_vehicle_list(vehicles)
-    return {"Message" : "All Good.", "available_vehicles" : {"type": "FeatureCollection", "features": vehicles}}
+    return {"message" : "All Good.", "available_vehicles" : {"type": "FeatureCollection", "features": vehicles}}
 
 
-@app.get("/vehicle_time", status_code=status.HTTP_200_OK)
+@app.get("/time/driving", status_code=status.HTTP_200_OK)
 async def vehicle_time(route_id:int, long1:float, lat1:float, long2:float, lat2:float, response: Response):
     # Load route
     if route_id not in app.state.routes:
         response.status_code = status.HTTP_404_NOT_FOUND
-        return {"Message": "Route not found."}
+        return {"message": "Route not found."}
     route = app.state.routes[route_id]["geometry"]["coordinates"]
     waypoints = await db.get_route_waypoints(route_id)
     waypoints = helper.trim_waypoints_list(waypoints, (long1, lat1), (long2, lat2), route)
-    return {"Message": "All Good.", "time_estimation" : helper.get_time_estimation(waypoints, os.getenv("mapbox_token"))}
+    return {"message": "All Good.", "time_estimation" : helper.get_time_estimation(waypoints, os.getenv("mapbox_token"), "driving")}
+
+
+@app.get("/time/walking", status_code=status.HTTP_200_OK)
+async def vehicle_time(long1:float, lat1:float, long2:float, lat2:float, response: Response):
+    return {"message": "All Good.", "time_estimation" : helper.get_time_estimation([(long1, lat1), (long2, lat2)], os.getenv("mapbox_token"), "walking")}
 
 
 @app.get("/nearby_routes", status_code=status.HTTP_200_OK)
@@ -157,4 +162,4 @@ async def nearby_routes(long:float, lat:float, radius:float):
         if min_distance <= radius:
             routes_geojson.append(route)
             
-    return {"Message": "All Good.", "routes": {"type": "FeatureCollection", "features": routes_geojson}}
+    return {"message": "All Good.", "routes": {"type": "FeatureCollection", "features": routes_geojson}}

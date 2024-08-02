@@ -91,8 +91,10 @@ def geojsonify_vehicle_list(vehicle_list):
         if "passed" in vehicle:
             vehicle_list[i]["properties"]["passed"] = vehicle["passed"]
          
-def get_time_estimation(waypoints, token):
-    url = "https://api.mapbox.com/directions/v5/mapbox/driving-traffic/" + \
+def get_time_estimation(waypoints, token, mode):
+    if mode == "driving": mapbox_mode = "driving-traffic"
+    elif mode == "walking": mapbox_mode = "walking"
+    url = f"https://api.mapbox.com/directions/v5/mapbox/{mapbox_mode}/" + \
     ';'.join([",".join(map(str, x[:2])) for x in waypoints])
     url += "?alternatives=false" # Don't search for alternative routes
     url += "&continue_straight=true" # Tend to continue in the same direction
