@@ -134,6 +134,19 @@ async def available_vehicles(route_id:int, response: Response,
     helper.geojsonify_vehicle_list(vehicles)
     return {"Message" : "All Good.", "available_vehicles" : {"type": "FeatureCollection", "features": vehicles}}
 
+
+@app.get("/vehicle_time", status_code=status.HTTP_200_OK)
+async def vehicle_time(route_id:int, long1:float, lat1:float, long2:float, lat2:float, response: Response):
+    # Load route
+    if route_id not in app.state.routes:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"Message": "Route not found."}
+    route = app.state.routes[route_id]["geometry"]["coordinates"]
+    waypoints = await db.get_route_waypoints(route_id)
+    waypoints = helper.trim_waypoints_list(waypoints, (long1, lat1), (long2, lat2), route)
+    return {"Message": "All Good.", "time_estimation" : helper.get_time_estimation(waypoints, os.getenv("mapbox_token"))}
+
+
 @app.get("/nearby_routes", status_code=status.HTTP_200_OK)
 async def nearby_routes(long:float, lat:float, radius:float):
     routes_geojson = []
