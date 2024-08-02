@@ -1,5 +1,11 @@
 import math
 import requests
+from db_layer import db
+from dotenv import load_dotenv, find_dotenv
+import os
+from copy import deepcopy
+
+load_dotenv(find_dotenv())
 
 def haversine(pointA, pointB):
     lon1 = pointA[0]
@@ -80,15 +86,54 @@ def geojsonify_vehicle_list(vehicle_list):
                                  ] 
                             } }
          
-def get_time_estimation(waypoints, api_key):
+def get_time_estimation(waypoints, token):
     url = "https://api.mapbox.com/directions/v5/mapbox/driving-traffic/" + \
     ';'.join([",".join(map(str, x[:2])) for x in waypoints])
     url += "?alternatives=false" # Don't search for alternative routes
     url += "&continue_straight=true" # Tend to continue in the same direction
     url += "&steps=false" # Don't include turn-by-turn instrutions
-    params = {'access_token': api_key,
+    params = {'access_token': token,
               'geometries': 'geojson',
               'overview': 'full'
               }
     response = requests.get(url, params=params)
     return response.json()["routes"][0]["duration"]
+
+def filter_vehicles__pick_up(pick_up, vehicles, route):
+    print("EDFI")
+    vehicles = deepcopy(vehicles)
+    long, lat = pick_up
+
+    # Project all vehicles on the route
+    for vehicle in vehicles:
+        projection_index = project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route)[0]
+        vehicle["projection_index"] = projection_index
+    print(vehicles)
+    projected_pick_up_point_index = project_point_on_route((long, lat), route)[0]
+
+    # available_vehicles = sorted(vehicles, key=lambda x: x["projection_index"], reverse = True)
+    for i, vehicle in enumerate(vehicles):
+        if vehicle["projection_index"] <= projected_pick_up_point_index:
+            break
+    return vehicles, i
+
+async def filter_vehicles__time(cur_location, pick_up, vehicles, route_geojson):
+    # print("\n\n\n")
+    # print(route_geojson, end="\n\n\n")
+    # Assumes vehicles sorted from closest to furthest to pickup point
+    route_id = route_geojson["properties"]["route_id"]
+    route = route_geojson["geometry"]["coordinates"]
+    token = os.getenv("mapbox_token")
+    cur_to_pickup_time = get_time_estimation([cur_location, pick_up], token)
+    route_waypoints = await db.get_route_waypoints(route_id)
+
+    for i, vehicle in enumerate(vehicles):
+        vehicle_to_pickup_waypoints = trim_waypoints_list(route_waypoints, 
+                                                          (vehicle["longitude"], vehicle["latitude"]), 
+                                                          pick_up, route
+                                                          )
+        vehicle_to_pickup_time = get_time_estimation(vehicle_to_pickup_waypoints, token)
+        print(vehicle_to_pickup_time, vehicle["vehicle_id"], cur_to_pickup_time)
+        if vehicle_to_pickup_time > cur_to_pickup_time:
+            return vehicles[i:]
+    return []
