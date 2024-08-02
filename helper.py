@@ -73,10 +73,11 @@ def trim_waypoints_list(waypoints, start, end, route=None, start_projection_inde
 
 def geojsonify_vehicle_list(vehicle_list):
     for i, vehicle in enumerate(vehicle_list):
-         vehicle_list[i] = {
+        vehicle_list[i] = {
                             "type": "Feature", 
                             "properties": {
-                                 "vehicle_id": vehicle["vehicle_id"]
+                                 "vehicle_id": vehicle["vehicle_id"],
+                                 "status": vehicle["status"],
                                 },
                             "geometry": {
                                  "type": "Point",
@@ -85,6 +86,10 @@ def geojsonify_vehicle_list(vehicle_list):
                                       vehicle["latitude"]
                                  ] 
                             } }
+        if "projection_index" in vehicle:
+            vehicle_list[i]["properties"]["TEST"] = vehicle["projection_index"]
+        if "passed" in vehicle:
+            vehicle_list[i]["properties"]["passed"] = vehicle["passed"]
          
 def get_time_estimation(waypoints, token):
     url = "https://api.mapbox.com/directions/v5/mapbox/driving-traffic/" + \
@@ -111,11 +116,12 @@ def filter_vehicles__pick_up(pick_up, vehicles, route):
     print(vehicles)
     projected_pick_up_point_index = project_point_on_route((long, lat), route)[0]
 
-    # available_vehicles = sorted(vehicles, key=lambda x: x["projection_index"], reverse = True)
+    vehicles.sort(key=lambda x: x["projection_index"], reverse = True)
     for i, vehicle in enumerate(vehicles):
         if vehicle["projection_index"] <= projected_pick_up_point_index:
             break
-    return vehicles, i
+    vehicles.reverse()
+    return vehicles, len(vehicles) - i
 
 async def filter_vehicles__time(cur_location, pick_up, vehicles, route_geojson):
     # print("\n\n\n")

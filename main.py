@@ -107,40 +107,32 @@ async def route(requested_route_id: int, response: Response):
 
 
 @app.get("/available_vehicles/{route_id}", status_code=status.HTTP_200_OK)
-async def available_vehicles(route_id:int, response: Response, long:float|None=None, lat:float|None = None): 
+async def available_vehicles(route_id:int, response: Response,
+                             pick_up_long:float|None=None, pick_up_lat:float|None = None): 
+    # Load route
     if route_id not in app.state.routes:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"Message": "Route not found."}
     route_geojson = app.state.routes[route_id]
-
+    
+    # Get route vehicles
     vehicles = await db.get_route_vehicles(route_id)
     if vehicles is None:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"Message": "No vehicles available on the route with id '" + route_id  + "'.", 
-                "available_vehicle" : []}
-    print(vehicles)
+                "available_vehicle" : {}}
 
-    route = route_geojson["geometry"]["coordinates"]
+    if pick_up_long is not None and pick_up_lat is not None:
+        route = route_geojson["geometry"]["coordinates"]
+        vehicles, av_vehicles_last_i = helper.filter_vehicles__pick_up((pick_up_long, pick_up_lat), vehicles, route)
+        for i in range(av_vehicles_last_i):
+            vehicles[i]["passed"] = False
 
-    for vehicle in vehicles:
-        projection_index, _ = helper.project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route)
-        vehicle["projection_index"] = projection_index
+        for i in range(av_vehicles_last_i, len(vehicles)):
+            vehicles[i]["passed"] = True
 
-    if long is not None and lat is not None:
-        projected_pick_up_point_index, _ = helper.project_point_on_route((long, lat), route)
-
-        # Note that this doesn't take the time to reach the pickup location into consideration
-        available_vehicles = sorted(vehicles, key=lambda x: x["projection_index"], reverse = True)
-        for i, vehicle in enumerate(available_vehicles):
-            if vehicle["projection_index"] <= projected_pick_up_point_index:
-                available_vehicles = available_vehicles[i:]
-                for vehicle2 in available_vehicles:
-                    del vehicle2["projection_index"]
-                break
-    else:
-        return {"Message" : "TO DO"}
-    helper.geojsonify_vehicle_list(available_vehicles)
-    return {"Message" : "All Good.", "available_vehicles" : {"type": "FeatureCollection", "features": available_vehicles}}
+    helper.geojsonify_vehicle_list(vehicles)
+    return {"Message" : "All Good.", "available_vehicles" : {"type": "FeatureCollection", "features": vehicles}}
 
 @app.get("/nearby_routes", status_code=status.HTTP_200_OK)
 async def nearby_routes(long:float, lat:float, radius:float):
