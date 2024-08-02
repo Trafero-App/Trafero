@@ -64,7 +64,7 @@ async def get_vehicle_location(vehicle_id: int, response: Response):
         return {"message" : "Error: Vehicle location is not available."}
     
     
-    return {"longitude": entry["longitude"], "latitude" : entry["latitude"], "message": "All Good."}
+    return {"message": "All Good.", "longitude": entry["longitude"], "latitude" : entry["latitude"]}
 
 @app.post("/vehicle_location", status_code=status.HTTP_200_OK)
 async def post_vehicle_location(vehicle_location_data: vehicle_location, response: Response):
@@ -120,6 +120,7 @@ async def available_vehicles(route_id:int, response: Response,
     if vehicles is None:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "No vehicles available on the route with id '" + route_id  + "'.", 
+
                 "available_vehicle" : {}}
 
     if pick_up_long is not None and pick_up_lat is not None:
@@ -152,14 +153,21 @@ async def vehicle_time(long1:float, lat1:float, long2:float, lat2:float, respons
     return {"message": "All Good.", "time_estimation" : helper.get_time_estimation([(long1, lat1), (long2, lat2)], os.getenv("mapbox_token"), "walking")}
 
 
+
 @app.get("/nearby_routes", status_code=status.HTTP_200_OK)
-async def nearby_routes(long:float, lat:float, radius:float):
+async def nearby_routes(long:float, lat:float, radius:float,
+                        long2:float | None = None, lat2: float | None = None, radius2: float | None = None):
     routes_geojson = []
-    # Maybe load them once on startup???
     for _, route in app.state.routes.items():
         route_coords = route["geometry"]["coordinates"]
-        _, min_distance = helper.project_point_on_route((long, lat), route_coords)
-        if min_distance <= radius:
-            routes_geojson.append(route)
+        proj1_i, min_distance1 = helper.project_point_on_route((long, lat), route_coords)
+        if long2 is not None and lat2 is not None and radius2 is not None:
+            proj2_i, min_distance2 = helper.project_point_on_route((long2, lat2), route_coords)
+            if min_distance1 <= radius and min_distance2 <= radius2 and proj1_i < proj2_i:
+                routes_geojson.append(route)
+        else:
+            if min_distance1 <= radius:
+                routes_geojson.append(route)
+
             
     return {"message": "All Good.", "routes": {"type": "FeatureCollection", "features": routes_geojson}}
