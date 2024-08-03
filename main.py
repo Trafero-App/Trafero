@@ -12,6 +12,7 @@ import geojson
 
 import helper
 from db_layer import db
+from copy import deepcopy
 # For data validation
 
 
@@ -31,9 +32,9 @@ async def lifespan(app: FastAPI):
     routes_data = await db.get_all_routes_data()
     for route_data in routes_data:
         route_geojson = await db.get_route_geojson(route_data["file_name"])
+        del route_data["file_name"]
         route_data["line"] = route_geojson
         app.state.routes[route_data["route_id"]] = route_data
-    print(routes_data[1])
 
     yield
     
@@ -97,15 +98,6 @@ async def put_vehicle_location(vehicle_location_data: vehicle_location, response
     else:
         return {"message": "All Good."}
 
-@app.get("/route/{requested_route_id}", status_code=status.HTTP_200_OK)
-async def route(requested_route_id: int, response: Response):
-    route_geojson = app.state.routes.get(requested_route_id)["line"]
-    if route_geojson is None:
-        response.status_code = status.HTTP_404_NOT_FOUND
-        return {"message": "Error: Route not found."}
-    
-    return {"message" : "All Good.", "route_data": route_geojson}
-
 
 @app.get("/available_vehicles/{route_id}", status_code=status.HTTP_200_OK)
 async def available_vehicles(route_id:int, response: Response,
@@ -153,14 +145,30 @@ async def vehicle_time(long1:float, lat1:float, long2:float, lat2:float, respons
     return {"message": "All Good.", "time_estimation" : helper.get_time_estimation([(long1, lat1), (long2, lat2)], os.getenv("mapbox_token"), "walking")}
 
 
+@app.get("/route/{requested_route_id}", status_code=status.HTTP_200_OK)
+async def route(requested_route_id: int, response: Response):
+    if requested_route_id not in app.state.routes:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"message": "Error: Route not found."}
+    
+    route_info = app.state.routes[requested_route_id]
+    route_vehicles = await db.get_route_vehicles(requested_route_id)
+    route_info["vehicles"] = route_vehicles
+    return {"message" : "All Good.", "route_info": app.state.routes[requested_route_id]}
+
+
 @app.get("/nearby_routes", status_code=status.HTTP_200_OK)
 async def nearby_routes(long:float, lat:float, radius:float):
-    routes_geojson = []
-    # Maybe load them once on startup???
-    for _, route in app.state.routes.items():
-        route_coords = route["line"]["geometry"]["coordinates"]
-        _, min_distance = helper.project_point_on_route((long, lat), route_coords)
+    close_routes = []
+    routes_distances = {}
+    for route_id, route_data in app.state.routes.items():
+        route_coords = route_data["line"]["geometry"]["coordinates"]
+        min_distance = helper.project_point_on_route((long, lat), route_coords)[1]
         if min_distance <= radius:
-            routes_geojson.append(route)
+            routes_distances[route_data["route_id"]] = min_distance
+            route_vehicles = await db.get_route_vehicles(route_id)
+            route_data["vehicles"] = route_vehicles
+            close_routes.append(route_data)
+    close_routes.sort(key=lambda x: routes_distances[x["route_id"]])
             
-    return {"message": "All Good.", "routes": {"type": "FeatureCollection", "features": routes_geojson}}
+    return {"message": "All Good.", "routes": close_routes}
