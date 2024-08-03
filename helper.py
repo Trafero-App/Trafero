@@ -70,6 +70,14 @@ def trim_waypoints_list(waypoints, start, end, route=None, start_projection_inde
             + waypoints[start_way_point_index:end_way_point_index] + \
             [tuple(route[end_projection_index]) + (end_projection_index,)]
 
+#For later use
+def trim_route_geojson(route, start, end=None):
+    start_proj_i = project_point_on_route(start, route)[0]
+    if end is not None:
+        end_proj_i = project_point_on_route(end, route)[0]
+    else:
+        end = len(route) - 1
+    return route[start_proj_i:end_proj_i + 1]
 
 def geojsonify_vehicle_list(vehicle_list):
     for i, vehicle in enumerate(vehicle_list):
@@ -77,7 +85,8 @@ def geojsonify_vehicle_list(vehicle_list):
                             "type": "Feature", 
                             "properties": {
                                  "vehicle_id": vehicle["vehicle_id"],
-                                 "status": vehicle["status"],
+                                 "status": "TEST STATUS",
+                                 "license_plate" : "TEST LICENSE PLATE"
                                 },
                             "geometry": {
                                  "type": "Point",
