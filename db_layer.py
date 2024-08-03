@@ -51,13 +51,12 @@ class db:
     async def get_route_vehicles(cls, route_id):
         
         async with cls.db_pool.acquire() as con: 
-            res = await con.fetch(""" SELECT (vehicle_id, longitude, latitude) FROM vehicle_location WHERE 
-                                            vehicle_id IN (
-                                                    SELECT id FROM vehicle WHERE route_id = $1
-                                            )""", route_id)
+            res = await con.fetch("""SELECT (vehicle.id, vehicle_location.longitude, vehicle_location.latitude, vehicle.status)
+                                     FROM vehicle JOIN vehicle_location ON vehicle.id = vehicle_location.vehicle_id
+                                     WHERE vehicle.id=$1""", route_id)
         if res is None: return None
         return [{"vehicle_id": vehicle_info[0][0], "longitude": vehicle_info[0][1], 
-                 "latitude": vehicle_info[0][2]} for vehicle_info in res]
+                 "latitude": vehicle_info[0][2], "status": vehicle_info[0][1]} for vehicle_info in res]
         
     @classmethod
     async def get_route_waypoints(cls, route_id):

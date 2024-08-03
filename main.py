@@ -98,12 +98,11 @@ async def put_vehicle_location(vehicle_location_data: vehicle_location, response
 
 @app.get("/route/{requested_route_id}", status_code=status.HTTP_200_OK)
 async def route(requested_route_id: int, response: Response):
-    route_geojson = app.state.routes.get(requested_route_id)
-    if route_geojson is None:
+    if requested_route_id not in app.state.routes:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "Error: Route not found."}
     
-    return {"message" : "All Good.", "route_data": route_geojson}
+    return {"Message" : "All Good.", "route_data": app.state.routes.get(requested_route_id)}
 
 
 @app.get("/available_vehicles/{route_id}", status_code=status.HTTP_200_OK)
@@ -151,8 +150,7 @@ async def vehicle_time(route_id:int, long1:float, lat1:float, long2:float, lat2:
 @app.get("/time/walking", status_code=status.HTTP_200_OK)
 async def vehicle_time(long1:float, lat1:float, long2:float, lat2:float, response: Response):
     return {"message": "All Good.", "time_estimation" : helper.get_time_estimation([(long1, lat1), (long2, lat2)], os.getenv("mapbox_token"), "walking")}
-
-
+  
 
 @app.get("/nearby_routes", status_code=status.HTTP_200_OK)
 async def nearby_routes(long:float, lat:float, radius:float,
