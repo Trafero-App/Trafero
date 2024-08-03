@@ -19,7 +19,7 @@ from copy import deepcopy
 # Get access credentials to database
 load_dotenv(find_dotenv())
 DB_URL = os.getenv("db_url")
-
+MAPBOX_TOKEN = os.getenv("mapbox_token")
 # Open connection to database when app starts up
 # and close the connection when the app shuts down
 # Also load routes
@@ -118,14 +118,20 @@ async def available_vehicles(route_id:int, response: Response,
     if pick_up_long is not None and pick_up_lat is not None:
         route = route_geojson["geometry"]["coordinates"]
         vehicles, av_vehicles_last_i = helper.filter_vehicles__pick_up((pick_up_long, pick_up_lat), vehicles, route)
+        waypoints = await db.get_route_waypoints(route_id)
         for i in range(av_vehicles_last_i):
+            vehicle_waypoints = helper.trim_waypoints_list(waypoints, 
+                                                           (vehicles[i]["longitude"], vehicles[i]["latitude"]), 
+                                                           (pick_up_long, pick_up_lat), route)
+            vehicles[i]["time"] =  helper.get_time_estimation(vehicle_waypoints, MAPBOX_TOKEN , "driving")
             vehicles[i]["passed"] = False
 
         for i in range(av_vehicles_last_i, len(vehicles)):
             vehicles[i]["passed"] = True
-
-    helper.geojsonify_vehicle_list(vehicles)
-    return {"message" : "All Good.", "available_vehicles" : {"type": "FeatureCollection", "features": vehicles}}
+        return {"message" : "All Good.", "vehicles" : vehicles}
+    else:
+        helper.geojsonify_vehicle_list(vehicles)
+        return {"message" : "All Good.", "vehicles" : {"type": "FeatureCollection", "features": vehicles}}
 
 
 @app.get("/time/driving", status_code=status.HTTP_200_OK)
@@ -137,12 +143,12 @@ async def vehicle_time(route_id:int, long1:float, lat1:float, long2:float, lat2:
     route = app.state.routes[route_id]["line"]["geometry"]["coordinates"]
     waypoints = await db.get_route_waypoints(route_id)
     waypoints = helper.trim_waypoints_list(waypoints, (long1, lat1), (long2, lat2), route)
-    return {"message": "All Good.", "time_estimation" : helper.get_time_estimation(waypoints, os.getenv("mapbox_token"), "driving")}
+    return {"message": "All Good.", "time_estimation" : helper.get_time_estimation(waypoints, MAPBOX_TOKEN, "driving")}
 
 
 @app.get("/time/walking", status_code=status.HTTP_200_OK)
 async def vehicle_time(long1:float, lat1:float, long2:float, lat2:float, response: Response):
-    return {"message": "All Good.", "time_estimation" : helper.get_time_estimation([(long1, lat1), (long2, lat2)], os.getenv("mapbox_token"), "walking")}
+    return {"message": "All Good.", "time_estimation" : helper.get_time_estimation([(long1, lat1), (long2, lat2)], MAPBOX_TOKEN, "walking")}
 
 
 @app.get("/route/{requested_route_id}", status_code=status.HTTP_200_OK)
