@@ -37,7 +37,10 @@ class db:
     @classmethod
     async def get_all_routes_data(cls):
         async with cls.db_pool.acquire() as con:
-            routes_data = [(record[0], record[1]) for record in (await con.fetch("SELECT id, file_name FROM route"))]
+            routes_data = [
+                            {"route_id": record[0], "file_name": record[1], "route_name": record[2], "description": record[3]}
+                            for record in await con.fetch("SELECT id, file_name, name, description FROM route")
+                          ]
             return routes_data
 
     @classmethod

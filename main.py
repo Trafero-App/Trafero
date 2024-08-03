@@ -29,10 +29,11 @@ async def lifespan(app: FastAPI):
     app.state.routes = {}
     
     routes_data = await db.get_all_routes_data()
-    for route_id, file_name in routes_data:
-        route_geojson = await db.get_route_geojson(file_name)
-        route_geojson["properties"]["route_id"] = route_id
-        app.state.routes[route_id] = route_geojson
+    for route_data in routes_data:
+        route_geojson = await db.get_route_geojson(route_data["file_name"])
+        route_data["line"] = route_geojson
+        app.state.routes[route_data["route_id"]] = route_data
+    print(routes_data[1])
 
     yield
     
@@ -98,7 +99,7 @@ async def put_vehicle_location(vehicle_location_data: vehicle_location, response
 
 @app.get("/route/{requested_route_id}", status_code=status.HTTP_200_OK)
 async def route(requested_route_id: int, response: Response):
-    route_geojson = app.state.routes.get(requested_route_id)
+    route_geojson = app.state.routes.get(requested_route_id)["line"]
     if route_geojson is None:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "Error: Route not found."}
@@ -113,7 +114,7 @@ async def available_vehicles(route_id:int, response: Response,
     if route_id not in app.state.routes:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "Route not found."}
-    route_geojson = app.state.routes[route_id]
+    route_geojson = app.state.routes[route_id]["line"]
     
     # Get route vehicles
     vehicles = await db.get_route_vehicles(route_id)
@@ -141,7 +142,7 @@ async def vehicle_time(route_id:int, long1:float, lat1:float, long2:float, lat2:
     if route_id not in app.state.routes:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "Route not found."}
-    route = app.state.routes[route_id]["geometry"]["coordinates"]
+    route = app.state.routes[route_id]["line"]["geometry"]["coordinates"]
     waypoints = await db.get_route_waypoints(route_id)
     waypoints = helper.trim_waypoints_list(waypoints, (long1, lat1), (long2, lat2), route)
     return {"message": "All Good.", "time_estimation" : helper.get_time_estimation(waypoints, os.getenv("mapbox_token"), "driving")}
@@ -157,7 +158,7 @@ async def nearby_routes(long:float, lat:float, radius:float):
     routes_geojson = []
     # Maybe load them once on startup???
     for _, route in app.state.routes.items():
-        route_coords = route["geometry"]["coordinates"]
+        route_coords = route["line"]["geometry"]["coordinates"]
         _, min_distance = helper.project_point_on_route((long, lat), route_coords)
         if min_distance <= radius:
             routes_geojson.append(route)
