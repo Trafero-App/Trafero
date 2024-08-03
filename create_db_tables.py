@@ -29,7 +29,9 @@ def recreate_tables():
                                             );
                 
                     CREATE TABLE route (id SERIAL PRIMARY KEY,
-                                        file_name VARCHAR(30) NOT NULL
+                                        file_name VARCHAR(30) NOT NULL,
+                                        name VARCHAR(50) NOT NULL,
+                                        description TEXT NOT NULL
                                         );
                 
                     CREATE TABLE vehicle   (id SERIAL PRIMARY KEY,

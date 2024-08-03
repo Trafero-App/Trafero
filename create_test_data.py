@@ -77,8 +77,9 @@ async def main():
 
                      DELETE FROM passenger WHERE id=3;
 
-                    INSERT INTO route (file_name) VALUES 
-                     ('bus_15_1.geojson'), ('bus_15_2.geojson'), ('van_sea_road.geojson');
+                    INSERT INTO route (file_name, name, description) VALUES 
+                     ('bus_15_1.geojson', 'Bus 15 1', 'bus 15 1 desc'), ('bus_15_2.geojson', 'bus 15 2', 'bus 15 2 desc'),
+                     ('van_sea_road.geojson', 'van sea road', 'van sea road desc');
 
                     INSERT INTO vehicle (route_id, phone_number) VALUES 
                      (2, '11111112'), (2, '11111113'), (2, '11111114'), (1, '11111115'), (1, '11111116');
