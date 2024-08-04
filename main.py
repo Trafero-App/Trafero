@@ -108,6 +108,34 @@ async def route(requested_route_id: int, response: Response):
     return {"message" : "All Good.", "route_data": route_geojson}
 
 
+@app.get("/available_vehicles", status_code=status.HTTP_200_OK)
+async def all_available_vehicles():
+    vehicle_info = await db.get_all_vehicles_info()
+
+    return {"message": "All good.",
+            "vehicles_info": {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {
+                            "status": vehicle["status"],
+                            "vehicle_id": vehicle["vehicle_id"]
+                        },
+                        "geometry": {
+                            "coordinates": [
+                                vehicle["longitude"],
+                                vehicle["latitude"]
+                            ],
+                            "type": "Point"
+                        
+                        }
+                        }
+
+                for vehicle in vehicle_info]
+            }
+        }
+
 @app.get("/available_vehicles/{route_id}", status_code=status.HTTP_200_OK)
 async def available_vehicles(route_id:int, response: Response,
                              pick_up_long:float|None=None, pick_up_lat:float|None = None): 
