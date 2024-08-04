@@ -98,49 +98,59 @@ async def put_vehicle_location(vehicle_location_data: vehicle_location, response
 
 @app.get("/route/{requested_route_id}", status_code=status.HTTP_200_OK)
 async def route(requested_route_id: int, response: Response):
-    route_geojson = app.state.routes.get(requested_route_id)
-    if route_geojson is None:
+    if requested_route_id not in app.state.routes:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "Error: Route not found."}
     
-    return {"message" : "All Good.", "route_data": route_geojson}
+    return {"Message" : "All Good.", "route_data": app.state.routes.get(requested_route_id)}
 
 
 @app.get("/available_vehicles/{route_id}", status_code=status.HTTP_200_OK)
-async def available_vehicles(route_id:int, response: Response, long:float|None=None, lat:float|None = None): 
+async def available_vehicles(route_id:int, response: Response,
+                             pick_up_long:float|None=None, pick_up_lat:float|None = None): 
+    # Load route
     if route_id not in app.state.routes:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "Route not found."}
     route_geojson = app.state.routes[route_id]
-
+    
+    # Get route vehicles
     vehicles = await db.get_route_vehicles(route_id)
     if vehicles is None:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "No vehicles available on the route with id '" + route_id  + "'.", 
-                "available_vehicle" : []}
-    print(vehicles)
 
-    route = route_geojson["geometry"]["coordinates"]
+                "available_vehicle" : {}}
 
-    for vehicle in vehicles:
-        projection_index, _ = helper.project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route)
-        vehicle["projection_index"] = projection_index
+    if pick_up_long is not None and pick_up_lat is not None:
+        route = route_geojson["geometry"]["coordinates"]
+        vehicles, av_vehicles_last_i = helper.filter_vehicles__pick_up((pick_up_long, pick_up_lat), vehicles, route)
+        for i in range(av_vehicles_last_i):
+            vehicles[i]["passed"] = False
 
-    if long is not None and lat is not None:
-        projected_pick_up_point_index, _ = helper.project_point_on_route((long, lat), route)
+        for i in range(av_vehicles_last_i, len(vehicles)):
+            vehicles[i]["passed"] = True
 
-        # Note that this doesn't take the time to reach the pickup location into consideration
-        available_vehicles = sorted(vehicles, key=lambda x: x["projection_index"], reverse = True)
-        for i, vehicle in enumerate(available_vehicles):
-            if vehicle["projection_index"] <= projected_pick_up_point_index:
-                available_vehicles = available_vehicles[i:]
-                for vehicle2 in available_vehicles:
-                    del vehicle2["projection_index"]
-                break
-    else:
-        return {"message" : "TO DO"}
-    helper.geojsonify_vehicle_list(available_vehicles)
-    return {"message" : "All Good.", "available_vehicles" : {"type": "FeatureCollection", "features": available_vehicles}}
+    helper.geojsonify_vehicle_list(vehicles)
+    return {"message" : "All Good.", "available_vehicles" : {"type": "FeatureCollection", "features": vehicles}}
+
+
+@app.get("/time/driving", status_code=status.HTTP_200_OK)
+async def vehicle_time(route_id:int, long1:float, lat1:float, long2:float, lat2:float, response: Response):
+    # Load route
+    if route_id not in app.state.routes:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"message": "Route not found."}
+    route = app.state.routes[route_id]["geometry"]["coordinates"]
+    waypoints = await db.get_route_waypoints(route_id)
+    waypoints = helper.trim_waypoints_list(waypoints, (long1, lat1), (long2, lat2), route)
+    return {"message": "All Good.", "time_estimation" : helper.get_time_estimation(waypoints, os.getenv("mapbox_token"), "driving")}
+
+
+@app.get("/time/walking", status_code=status.HTTP_200_OK)
+async def vehicle_time(long1:float, lat1:float, long2:float, lat2:float, response: Response):
+    return {"message": "All Good.", "time_estimation" : helper.get_time_estimation([(long1, lat1), (long2, lat2)], os.getenv("mapbox_token"), "walking")}
+  
 
 @app.get("/nearby_routes", status_code=status.HTTP_200_OK)
 async def nearby_routes(long:float, lat:float, radius:float,

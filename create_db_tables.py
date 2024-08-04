@@ -35,6 +35,7 @@ def recreate_tables():
                     CREATE TABLE vehicle   (id SERIAL PRIMARY KEY,
                                             route_id INT NOT NULL,
                                             phone_number VARCHAR(20) NOT NULL,
+                                            status BOOLEAN,
                                             CONSTRAINT fk_route
                                                 FOREIGN KEY(route_id) REFERENCES route(id)
                                             );
@@ -52,6 +53,7 @@ def recreate_tables():
                                            longitude DECIMAL NOT NULL,
                                            latitude DECIMAL NOT NULL,
                                            route_id INT NOT NULL,
+                                           projection_index INT NOT NULL DEFAULT 0,
                                            CONSTRAINT fk_route
                                                 FOREIGN KEY(route_id)
                                                     REFERENCES route(id)
