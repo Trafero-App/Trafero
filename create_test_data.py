@@ -77,11 +77,21 @@ async def main():
 
                      DELETE FROM passenger WHERE id=3;
 
-                    INSERT INTO route (file_name) VALUES 
-                     ('bus_15_1.geojson'), ('bus_15_2.geojson'), ('beirut_saida_1.geojson'), ('beirut_saida_2.geojson'),
-                     ('van_4_1.geojson'), ('van_4_2.geojson'), ('van_sea_road_1.geojson'), ('van_sea_road_2.geojson'),
-                     ('bus_2_1.geojson'), ('bus_2_2.geojson'), ('bus_10_1.geojson'), ('bus_10_2.geojson'),
-                     ('bus_24_1.geojson'), ('bus_24_2.geojson');
+                    INSERT INTO route (file_name, name, description) VALUES 
+                    ('bus_15_1.geojson', 'Bus 15', 'Bus 15 1 desc'),
+                    ('bus_15_2.geojson', 'Bus 15', 'Bus 15 2 desc'),
+                    ('beirut_saida_1.geojson', 'Beirut Saida', 'Beirut Saida 1 desc'),
+                    ('beirut_saida_2.geojson', 'Beirut Saida', 'Beirut Saida 2 desc'),
+                    ('van_4_1.geojson', 'Van 4', 'Van 4 1 desc'),
+                    ('van_4_2.geojson', 'Van 4', 'Van 4 2 desc'),
+                    ('van_sea_road_1.geojson', 'Van sea road', 'Van sea road 1 desc'),
+                    ('van_sea_road_2.geojson', 'Van sea road', 'Van sea road 2 desc'),
+                    ('bus_2_1.geojson', 'Bus 2', 'Bus 2 1 desc'),
+                    ('bus_2_2.geojson', 'Bus 2', 'Bus 2 2 desc'),
+                    ('bus_10_1.geojson', 'Bus 10', 'Bus 10 1 desc'),
+                    ('bus_10_2.geojson', 'Bus 10', 'Bus 10 2 desc'),
+                    ('bus_24_1.geojson', 'Bus 24', 'Bus 24 1 desc'),
+                    ('bus_24_2.geojson', 'Bus 24', 'Bus 24 2 desc');
 
                     INSERT INTO vehicle (route_id, phone_number, status) VALUES 
                      (2, '11111112', TRUE), (2, '11111113', TRUE),
