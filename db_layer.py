@@ -80,9 +80,39 @@ class db:
     async def update_feedback(cls, passenger_id, vehicle_id, reaction, complaint):
         async with cls.db_pool.acquire() as con:
             return await con.execute("""UPDATE feedback SET reaction=$3, complaint=$4 
-                                                WHERE passenger_id=$1, vehicle_id=$2""", passenger_id, vehicle_id, reaction, complaint)
+                                        WHERE passenger_id=$1 AND vehicle_id=$2""", passenger_id, vehicle_id, reaction, complaint)
         
     @classmethod
     async def remove_feedback(cls, passenger_id, vehicle_id):
         async with cls.db_pool.acquire() as con:
-            return await con.execute("""DELETE from feedback WHERE passenger_id=$1, vehicle_id=$2""", passenger_id, vehicle_id)
+            return await con.execute("""DELETE FROM feedback WHERE passenger_id=$1 AND vehicle_id=$2""", passenger_id, vehicle_id)
+        
+    @classmethod
+    async def remove_passenger_feedbacks(cls, passenger_id):
+        async with cls.db_pool.acquire() as con:
+            return await con.execute("""DELETE FROM feedback WHERE passenger_id=$1""", passenger_id)
+        
+    @classmethod
+    async def remove_vehicle_feedbacks(cls,vehicle_id):
+        async with cls.db_pool.acquire() as con:
+            return await con.execute("""DELETE FROM feedback WHEREvehicle_id=$1""",vehicle_id)    
+        
+    @classmethod
+    async def give_all_feedbacks(cls):
+        async with cls.db_pool.acquire() as con:
+            return await con.fetch("SELECT * FROM feedback")
+        
+    @classmethod
+    async def give_vehicle_feedbacks(cls, vehicle_id):
+        async with cls.db_pool.acquire() as con:
+            return await con.fetch("SELECT * FROM feedback WHERE vehicle_id=$1", vehicle_id)
+        
+    @classmethod
+    async def give_passenger_feedbacks(cls, passenger_id):
+        async with cls.db_pool.acquire() as con:
+            return await con.fetch("SELECT * FROM feedback WHERE passenger_id=$1", passenger_id)
+        
+    @classmethod
+    async def give_feedback(cls, passenger_id, vehicle_id):
+        async with cls.db_pool.acquire() as con:
+            return await con.fetch("SELECT * FROM feedback WHERE passenger_id=$1 AND vehicle_id=$2", passenger_id, vehicle_id)

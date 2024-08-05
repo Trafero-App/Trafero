@@ -189,7 +189,7 @@ async def nearby_routes(long:float, lat:float, radius:float):
 
 ########################################################################
 #FEEDBACK THIS IS DRAFT
-@app.post("/feedback", status_code=status.HTTP_200_OK)
+@app.post("/feedback/post", status_code=status.HTTP_200_OK)
 async def post_feedback(passenger_id: int, vehicle_id: int, reaction: bool, complaint: str, response: Response):
     try:
         await db.add_feedback(passenger_id, vehicle_id, reaction, complaint)
@@ -213,10 +213,10 @@ async def post_feedback(passenger_id: int, vehicle_id: int, reaction: bool, comp
         return {"message": "Error: Both 'reaction' and 'complaint' cannot be NULL. Please provide at least one of them."}
     
 ############################################################################
-@app.put("/feedback", status_code=status.HTTP_200_OK)
+@app.put("/feedback/put/{passenger_id}/{vehicle_id}", status_code=status.HTTP_200_OK)
 async def put_feedback(passenger_id: int, vehicle_id: int, reaction: bool, complaint: str, response: Response):
     try:
-        result = db.update_feedback(passenger_id, vehicle_id, reaction, complaint)
+        result = await db.update_feedback(passenger_id, vehicle_id, reaction, complaint)
         if result == "UPDATE 0":
             response.status_code = status.HTTP_400_BAD_REQUEST
             return {"message" : """Error: You have attempted to update the feedback of a passenger who's feedback hasn't been added to the vehicle yet.
@@ -228,12 +228,50 @@ async def put_feedback(passenger_id: int, vehicle_id: int, reaction: bool, compl
         return {"message": "Error: Both 'reaction' and 'complaint' cannot be NULL. Maybe you meant a DELETE request?."}
     
 #############################################################################
-@app.delete("/feedback", status_code=status.HTTP_200_OK)
+@app.delete("/feedback/delete/{passenger_id}/{vehicle_id}", status_code=status.HTTP_200_OK)
 async def delete_feedback(passenger_id: int, vehicle_id: int, response: Response):
-    result = db.remove_feedback(passenger_id, vehicle_id)
+    result = await db.remove_feedback(passenger_id, vehicle_id)
     if result == "DELETE 0":
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {"message" : """Error: You have attempted to delete a feedback that doesn't exist."""}
     else:
         return {"message": "All Good."}
 
+@app.delete("/feedback/delete/{passenger_id}", status_code=status.HTTP_200_OK)
+async def delete_passenger_feedbacks(passenger_id: int, response: Response):
+    result = await db.remove_passenger_feedbacks(passenger_id)
+    if result == "DELETE 0":
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message" : """Error: You have attempted to delete a feedback that doesn't exist."""}
+    else:
+        return {"message": "All Good."}
+    
+@app.delete("/feedback/delete/{vehicle_id}", status_code=status.HTTP_200_OK)
+async def delete_vehicle_feedbacks( vehicle_id: int, response: Response):
+    result = await db.remove_vehicle_feedbacks(vehicle_id)
+    if result == "DELETE 0":
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message" : """Error: You have attempted to delete a feedback that doesn't exist."""}
+    else:
+        return {"message": "All Good."}
+
+#############################################################################
+@app.get("/feedback/get/{passenger_id}/{vehicle_id}", status_code=status.HTTP_200_OK)
+async def get_feedback(passenger_id: int, vehicle_id: int, response: Response):
+    result = await helper.feedback(passenger_id, vehicle_id, response)
+    return result
+
+@app.get("/feedback/get/{vehicle_id}", status_code=status.HTTP_200_OK)
+async def get_vehicle_feedbacks(vehicle_id: int, response: Response):
+    result = await helper.vehicle_feedbacks(vehicle_id, response)
+    return result
+
+@app.get("/feedback/get/{passenger_id}", status_code=status.HTTP_200_OK)
+async def get_passenger_feedbacks(passenger_id: int, response: Response):
+    result = await helper.passenger_feedbacks(passenger_id, response)
+    return result
+
+@app.get("/feedback/get", status_code=status.HTTP_200_OK)
+async def get_feedback(response: Response):
+    result = await helper.all_feedbacks(response)
+    return result
