@@ -171,6 +171,22 @@ async def available_vehicles(route_id:int, response: Response,
         helper.geojsonify_vehicle_list(vehicles)
         return {"message" : "All Good.", "vehicles" : {"type": "FeatureCollection", "features": vehicles}}
 
+@app.get("/vehicle/{vehicle_id}", status_code=status.HTTP_200_OK)
+async def vehicle(vehicle_id: int):
+    x = await db.get_vehicle_details(vehicle_id)
+    vehicle_route = app.state.routes[x["route_id"]]
+    x["route_name"] = vehicle_route["route_name"]
+    print()
+    x["remaining_route"] = {
+        "type": "Feature",
+        "properties": {},
+        "geometry": {
+            "type": "LineString",
+            "coordinates": helper.get_remaining_route(vehicle_route["line"]["geometry"]["coordinates"], x["coordinates"])
+        }
+    }
+    return {"x": x}
+
 
 @app.get("/time/driving", status_code=status.HTTP_200_OK)
 async def vehicle_time(route_id:int, long1:float, lat1:float, long2:float, lat2:float, response: Response):
