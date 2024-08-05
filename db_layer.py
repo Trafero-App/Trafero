@@ -70,6 +70,7 @@ class db:
         print(result)
         return result
 
+
     @classmethod
     async def add_feedback(cls, passenger_id, vehicle_id, reaction, complaint):
         async with cls.db_pool.acquire() as con:

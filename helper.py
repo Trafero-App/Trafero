@@ -157,8 +157,10 @@ async def filter_vehicles__time(cur_location, pick_up, vehicles, route_geojson):
             return vehicles[i:]
     return []
 
+
+
 async def feedback(passenger_id: int, vehicle_id: int, response: Response):
-    result = await db.get_feedback(passenger_id,vehicle_id)
+    result = await db.give_feedback(passenger_id,vehicle_id)
     if (result is None) or not result:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "feedback not found."}
@@ -166,7 +168,7 @@ async def feedback(passenger_id: int, vehicle_id: int, response: Response):
         return {"message": "All Good", "feedback":result}
 
 async def passenger_feedbacks(passenger_id: int, response: Response):
-    result = await db.get_passenger_feedbacks(passenger_id)
+    result = await db.give_passenger_feedbacks(passenger_id)
     if (result is None) or not result:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "passenger never submitted feedbacks."}
@@ -174,7 +176,7 @@ async def passenger_feedbacks(passenger_id: int, response: Response):
         return {"message": "All Good", "feedbacks":result}
     
 async def vehicle_feedbacks(vehicle_id: int, response: Response):
-    result = await db.get_vehicle_feedbacks(vehicle_id)
+    result = await db.give_vehicle_feedbacks(vehicle_id)
     if (result is None) or not result:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "no feedbacks on given vehicle."}
@@ -182,7 +184,7 @@ async def vehicle_feedbacks(vehicle_id: int, response: Response):
         return {"message": "All Good", "feedbacks":result}
 
 async def all_feedbacks(response: Response):
-    result = await db.get_all_feedbacks()
+    result = await db.give_all_feedbacks()
     if (result is None) or not result:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "no feedbacks."}

@@ -178,17 +178,6 @@ async def nearby_routes(long:float, lat:float, radius:float):
     return {"message": "All Good.", "routes": close_routes}
 
 
-
-
-
-
-
-
-
-
-
-########################################################################
-#FEEDBACK THIS IS DRAFT
 @app.post("/feedback/post", status_code=status.HTTP_200_OK)
 async def post_feedback(passenger_id: int, vehicle_id: int, reaction: bool, complaint: str, response: Response):
     try:
@@ -212,7 +201,6 @@ async def post_feedback(passenger_id: int, vehicle_id: int, reaction: bool, comp
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {"message": "Error: Both 'reaction' and 'complaint' cannot be NULL. Please provide at least one of them."}
     
-############################################################################
 @app.put("/feedback/put/{passenger_id}/{vehicle_id}", status_code=status.HTTP_200_OK)
 async def put_feedback(passenger_id: int, vehicle_id: int, reaction: bool, complaint: str, response: Response):
     try:
@@ -227,7 +215,6 @@ async def put_feedback(passenger_id: int, vehicle_id: int, reaction: bool, compl
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {"message": "Error: Both 'reaction' and 'complaint' cannot be NULL. Maybe you meant a DELETE request?."}
     
-#############################################################################
 @app.delete("/feedback/delete/{passenger_id}/{vehicle_id}", status_code=status.HTTP_200_OK)
 async def delete_feedback(passenger_id: int, vehicle_id: int, response: Response):
     result = await db.remove_feedback(passenger_id, vehicle_id)
@@ -255,7 +242,6 @@ async def delete_vehicle_feedbacks( vehicle_id: int, response: Response):
     else:
         return {"message": "All Good."}
 
-#############################################################################
 @app.get("/feedback/get/{passenger_id}/{vehicle_id}", status_code=status.HTTP_200_OK)
 async def get_feedback(passenger_id: int, vehicle_id: int, response: Response):
     result = await helper.feedback(passenger_id, vehicle_id, response)
