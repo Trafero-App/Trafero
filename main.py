@@ -211,3 +211,18 @@ async def post_feedback(passenger_id: int, vehicle_id: int, reaction: bool, comp
     except asyncpg.exceptions.CheckViolationError:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {"message": "Error: Both 'reaction' and 'complaint' cannot be NULL. Please provide at least one of them."}
+    
+############################################################################
+@app.put("/feedback", status_code=status.HTTP_200_OK)
+async def put_feedback(passenger_id: int, vehicle_id: int, reaction: bool, complaint: str, response: Response):
+    try:
+        result = db.update_feedback(passenger_id, vehicle_id, reaction, complaint)
+        if result == "UPDATE 0":
+            return {"message" : """Error: You have attempted to update the feedback of a passenger who's feedback hasn't been added to the vehicle yet.
+                            Maybe you mean to send a POST request?"""}
+        else:
+            return {"message": "All Good."}
+    except asyncpg.exceptions.CheckViolationError:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "Error: Both 'reaction' and 'complaint' cannot be NULL. Maybe you meant a DELETE request?."}
+
