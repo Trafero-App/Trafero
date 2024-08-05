@@ -70,7 +70,7 @@ class db:
         print(result)
         return result
 
-
-
-
-    
+    @classmethod
+    async def add_feedback(cls, passenger_id, vehicle_id, reaction, complaint):
+        async with cls.db_pool.acquire() as con:
+            return await con.execute("""INSERT INTO feedback (passenger_id, vehicle_id, reaction, complaint) VALUES ($1, $2, $3, $4)""", passenger_id, vehicle_id, reaction, complaint)

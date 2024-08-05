@@ -176,3 +176,38 @@ async def nearby_routes(long:float, lat:float, radius:float):
     close_routes.sort(key=lambda x: routes_distances[x["route_id"]])
             
     return {"message": "All Good.", "routes": close_routes}
+
+
+
+
+
+
+
+
+
+
+
+########################################################################
+#FEEDBACK THIS IS DRAFT
+@app.post("/feedback", status_code=status.HTTP_200_OK)
+async def post_feedback(passenger_id: int, vehicle_id: int, reaction: bool, complaint: str, response: Response):
+    try:
+        await db.add_feedback(passenger_id, vehicle_id, reaction, complaint)
+        return {"message": "All Good."}
+    except asyncpg.exceptions.UniqueViolationError:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+                "message":
+                """Error: You have attempted to add the feedback of a passenger who's feedback has
+                already been added to this vehicle. Maybe you meant to send a PUT request?"""        
+                }
+    except asyncpg.exceptions.ForeignKeyViolationError as e:
+        if "fk_vehicle" in str(e):
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return {"message": "Error: You have attempted to add the feedback of a vehicle that doesn't exist."}
+        elif "fk_passenger" in str(e):
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return {"message": "Error: You have attempted to add the feedback of a passenger that doesn't exist."}
+    except asyncpg.exceptions.CheckViolationError:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "Error: Both 'reaction' and 'complaint' cannot be NULL. Please provide at least one of them."}
