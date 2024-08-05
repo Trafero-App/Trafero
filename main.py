@@ -218,6 +218,7 @@ async def put_feedback(passenger_id: int, vehicle_id: int, reaction: bool, compl
     try:
         result = db.update_feedback(passenger_id, vehicle_id, reaction, complaint)
         if result == "UPDATE 0":
+            response.status_code = status.HTTP_400_BAD_REQUEST
             return {"message" : """Error: You have attempted to update the feedback of a passenger who's feedback hasn't been added to the vehicle yet.
                             Maybe you mean to send a POST request?"""}
         else:
@@ -225,4 +226,14 @@ async def put_feedback(passenger_id: int, vehicle_id: int, reaction: bool, compl
     except asyncpg.exceptions.CheckViolationError:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {"message": "Error: Both 'reaction' and 'complaint' cannot be NULL. Maybe you meant a DELETE request?."}
+    
+#############################################################################
+@app.delete("/feedback", status_code=status.HTTP_200_OK)
+async def delete_feedback(passenger_id: int, vehicle_id: int, response: Response):
+    result = db.remove_feedback(passenger_id, vehicle_id)
+    if result == "DELETE 0":
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message" : """Error: You have attempted to delete a feedback that doesn't exist."""}
+    else:
+        return {"message": "All Good."}
 

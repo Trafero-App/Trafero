@@ -81,3 +81,8 @@ class db:
         async with cls.db_pool.acquire() as con:
             return await con.execute("""UPDATE feedback SET reaction=$3, complaint=$4 
                                                 WHERE passenger_id=$1, vehicle_id=$2""", passenger_id, vehicle_id, reaction, complaint)
+        
+    @classmethod
+    async def remove_feedback(cls, passenger_id, vehicle_id):
+        async with cls.db_pool.acquire() as con:
+            return await con.execute("""DELETE from feedback WHERE passenger_id=$1, vehicle_id=$2""", passenger_id, vehicle_id)
