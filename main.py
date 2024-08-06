@@ -107,8 +107,13 @@ async def route(requested_route_id: int, response: Response):
     route_data = app.state.routes[requested_route_id]
     
     route_vehicles = await db.get_route_vehicles(requested_route_id)
+    for vehicle in route_vehicles:
+        del vehicle["latitude"]
+        del vehicle["longitude"]
     route_data["vehicles"] = route_vehicles
+
     return {"message" : "All Good.", "route_data": route_data}
+
 
 
 @app.get("/all_vehicles_location", status_code=status.HTTP_200_OK)
@@ -140,8 +145,8 @@ async def all_vehicles_location():
         }
 
 
-@app.get("/route_vehicle_eta/{route_id}", status_code=status.HTTP_200_OK)
-async def route_vehicle_eta(route_id:int, response: Response,
+@app.get("/route_vehicles_eta/{route_id}", status_code=status.HTTP_200_OK)
+async def route_vehicles_eta(route_id:int, response: Response,
                              pick_up_long:float, pick_up_lat:float): 
     # Load route
     if route_id not in app.state.routes:
@@ -157,26 +162,36 @@ async def route_vehicle_eta(route_id:int, response: Response,
 
                 "available_vehicle" : {}}
 
-    if pick_up_long is not None and pick_up_lat is not None:
-        route = route_geojson["geometry"]["coordinates"]
-        vehicles, av_vehicles_last_i = helper.filter_vehicles__pick_up((pick_up_long, pick_up_lat), vehicles, route)
-        waypoints = await db.get_route_waypoints(route_id)
-        for i in range(av_vehicles_last_i):
-            vehicle_waypoints = helper.trim_waypoints_list(waypoints, 
-                                                           (vehicles[i]["longitude"], vehicles[i]["latitude"]), 
-                                                           (pick_up_long, pick_up_lat), route)
-            vehicles[i]["time"] =  helper.get_time_estimation(vehicle_waypoints, MAPBOX_TOKEN , "driving")
-            vehicles[i]["passed"] = False
+    route = route_geojson["geometry"]["coordinates"]
+    vehicles, av_vehicles_last_i = helper.filter_vehicles__pick_up((pick_up_long, pick_up_lat), vehicles, route)
+    waypoints = await db.get_route_waypoints(route_id)
+    print(vehicles)
+    for i in range(av_vehicles_last_i):
+        vehicle = vehicles[i]
 
-        for i in range(av_vehicles_last_i, len(vehicles)):
-            vehicles[i]["passed"] = True
-        return {"message" : "All Good.", "vehicles" : vehicles}
-    else:
-        helper.geojsonify_vehicle_list(vehicles)
-        return {"message" : "All Good.", "vehicles" : {"type": "FeatureCollection", "features": vehicles}}
+        vehicle_waypoints = helper.trim_waypoints_list(waypoints, 
+                                                        (vehicle["longitude"], vehicle["latitude"]), 
+                                                        (pick_up_long, pick_up_lat), route)
+        vehicle["expected_time"] =  helper.get_time_estimation(vehicle_waypoints, MAPBOX_TOKEN , "driving")
+        vehicle["passed"] = False
+
+        del vehicle["longitude"]
+        del vehicle["latitude"]
+        del vehicle["projection_index"]
+
+    for i in range(av_vehicles_last_i, len(vehicles)):
+        vehicle = vehicles[i]
+        vehicle["passed"] = True
+
+        del vehicle["longitude"]
+        del vehicle["latitude"]
+        del vehicle["projection_index"]
+    vehicles = vehicles[:av_vehicles_last_i][::-1] + vehicles[av_vehicles_last_i:]
+    return {"message" : "All Good.", "vehicles" : vehicles}
+    
 
 @app.get("/vehicle/{vehicle_id}", status_code=status.HTTP_200_OK)
-async def vehicle(vehicle_id: int):
+async def get_vehicle(vehicle_id: int):
     vehicle_details = await db.get_vehicle_details(vehicle_id)
     vehicle_route = app.state.routes[vehicle_details["route_id"]]
     vehicle_details["route_name"] = vehicle_route["route_name"]
@@ -233,18 +248,11 @@ async def bus_eta(vehicle_id: int, pick_up_long:float, pick_up_lat:float):
 
 
 @app.get("/nearby_routes", status_code=status.HTTP_200_OK)
-async def nearby_routes(long:float, lat:float, radius:float):
-    close_routes = []
-    routes_distances = {}
-    for route_id, route_data in app.state.routes.items():
-        route_coords = route_data["line"]["geometry"]["coordinates"]
-        min_distance = helper.project_point_on_route((long, lat), route_coords)[1]
-        print("checking " + route_data["route_name"] + "...")
-        if min_distance <= radius:
-            routes_distances[route_data["route_id"]] = min_distance
-            route_vehicles = await db.get_route_vehicles(route_id)
-            route_data["vehicles"] = route_vehicles
-            close_routes.append(route_data)
-    close_routes.sort(key=lambda x: routes_distances[x["route_id"]])
-            
+async def nearby_routes(long:float, lat:float, radius:float, 
+                        long2: float | None=None, lat2: float|None = None, radius2: float|None=None):
+    if long2 is not None and lat2 is not None and radius2 is not None:
+        close_routes = await helper.get_nearby_routes_to_2_point(long, lat, radius, long2, lat2, radius2, app.state.routes.items())
+    else:
+        close_routes = await helper.get_nearby_routes_to_1_point(long, lat, radius, app.state.routes.items())
     return {"message": "All Good.", "routes": close_routes}
+
