@@ -71,22 +71,18 @@ def trim_waypoints_list(waypoints, start, end, route=None, start_projection_inde
             [tuple(route[end_projection_index]) + (end_projection_index,)]
 
 #For later use
-def trim_route_geojson(route, start, end=None):
+def get_remaining_route(route, start):
     start_proj_i = project_point_on_route(start, route)[0]
-    if end is not None:
-        end_proj_i = project_point_on_route(end, route)[0]
-    else:
-        end = len(route) - 1
-    return route[start_proj_i:end_proj_i + 1]
+    return route[start_proj_i:]
 
 def geojsonify_vehicle_list(vehicle_list):
     for i, vehicle in enumerate(vehicle_list):
         vehicle_list[i] = {
                             "type": "Feature", 
                             "properties": {
-                                 "vehicle_id": vehicle["vehicle_id"],
-                                 "status": "TEST STATUS",
-                                 "license_plate" : "TEST LICENSE PLATE"
+                                 "id": vehicle["id"],
+                                 "status": vehicle["status"],
+                                 "license_plate" : vehicle["license_plate"]
                                 },
                             "geometry": {
                                  "type": "Point",
@@ -115,8 +111,10 @@ def get_time_estimation(waypoints, token, mode):
     response = requests.get(url, params=params)
     return response.json()["routes"][0]["duration"]
 
+def before_on_route(point_a, point_b, route):
+    return project_point_on_route(point_a, route)[0] < project_point_on_route(point_b, route)[0]
+
 def filter_vehicles__pick_up(pick_up, vehicles, route):
-    print("EDFI")
     vehicles = deepcopy(vehicles)
     long, lat = pick_up
 

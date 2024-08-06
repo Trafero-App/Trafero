@@ -100,27 +100,30 @@ async def put_vehicle_location(vehicle_location_data: vehicle_location, response
 
 @app.get("/route/{requested_route_id}", status_code=status.HTTP_200_OK)
 async def route(requested_route_id: int, response: Response):
-    route_geojson = app.state.routes.get(requested_route_id)
-    if route_geojson is None:
+    if requested_route_id not in app.state.routes:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "Error: Route not found."}
     
-    return {"message" : "All Good.", "route_data": route_geojson}
+    route_data = app.state.routes[requested_route_id]
+    
+    route_vehicles = await db.get_route_vehicles(requested_route_id)
+    route_data["vehicles"] = route_vehicles
+    return {"message" : "All Good.", "route_data": route_data}
 
 
-@app.get("/available_vehicles", status_code=status.HTTP_200_OK)
-async def all_available_vehicles():
+@app.get("/all_vehicles_location", status_code=status.HTTP_200_OK)
+async def all_vehicles_location():
     vehicle_info = await db.get_all_vehicles_info()
 
     return {"message": "All good.",
-            "vehicles_info": {
+            "content": {
                 "type": "FeatureCollection",
                 "features": [
                     {
                         "type": "Feature",
                         "properties": {
                             "status": vehicle["status"],
-                            "vehicle_id": vehicle["vehicle_id"]
+                            "id": vehicle["id"]
                         },
                         "geometry": {
                             "coordinates": [
@@ -136,9 +139,10 @@ async def all_available_vehicles():
             }
         }
 
-@app.get("/available_vehicles/{route_id}", status_code=status.HTTP_200_OK)
-async def available_vehicles(route_id:int, response: Response,
-                             pick_up_long:float|None=None, pick_up_lat:float|None = None): 
+
+@app.get("/route_vehicle_eta/{route_id}", status_code=status.HTTP_200_OK)
+async def route_vehicle_eta(route_id:int, response: Response,
+                             pick_up_long:float, pick_up_lat:float): 
     # Load route
     if route_id not in app.state.routes:
         response.status_code = status.HTTP_404_NOT_FOUND
@@ -173,19 +177,18 @@ async def available_vehicles(route_id:int, response: Response,
 
 @app.get("/vehicle/{vehicle_id}", status_code=status.HTTP_200_OK)
 async def vehicle(vehicle_id: int):
-    x = await db.get_vehicle_details(vehicle_id)
-    vehicle_route = app.state.routes[x["route_id"]]
-    x["route_name"] = vehicle_route["route_name"]
-    print()
-    x["remaining_route"] = {
+    vehicle_details = await db.get_vehicle_details(vehicle_id)
+    vehicle_route = app.state.routes[vehicle_details["route_id"]]
+    vehicle_details["route_name"] = vehicle_route["route_name"]
+    vehicle_details["remaining_route"] = {
         "type": "Feature",
         "properties": {},
         "geometry": {
             "type": "LineString",
-            "coordinates": helper.get_remaining_route(vehicle_route["line"]["geometry"]["coordinates"], x["coordinates"])
+            "coordinates": helper.get_remaining_route(vehicle_route["line"]["geometry"]["coordinates"], vehicle_details["coordinates"])
         }
     }
-    return {"x": x}
+    return {"message": "All Good", "content": vehicle_details}
 
 
 @app.get("/time/driving", status_code=status.HTTP_200_OK)
@@ -203,7 +206,31 @@ async def vehicle_time(route_id:int, long1:float, lat1:float, long2:float, lat2:
 @app.get("/time/walking", status_code=status.HTTP_200_OK)
 async def vehicle_time(long1:float, lat1:float, long2:float, lat2:float, response: Response):
     return {"message": "All Good.", "time_estimation" : helper.get_time_estimation([(long1, lat1), (long2, lat2)], os.getenv("mapbox_token"), "walking")}
-  
+
+@app.get("/vehicle_eta/{vehicle_id}")
+async def bus_eta(vehicle_id: int, pick_up_long:float, pick_up_lat:float):
+    location = await db.get_vehicle_location(vehicle_id)
+    v_long, v_lat = location["longitude"], location["latitude"]
+    route_id = await db.get_vehicle_route_id(vehicle_id)
+    route = app.state.routes[route_id]["line"]["geometry"]["coordinates"]
+    route_waypoints = await db.get_route_waypoints(route_id)
+    rem_waypoints = helper.trim_waypoints_list(route_waypoints, (v_long, v_lat), route_waypoints[-1][:2], route)
+    passed = helper.before_on_route((pick_up_long, pick_up_lat), (v_long, v_lat), route)
+    if passed:
+        return {
+            "message": "All good.",
+            "content": {"passed": True}
+        }
+    else:
+        return {
+            "message": "All good.",
+            "content":{
+                "passed": False,
+                "eta": helper.get_time_estimation(rem_waypoints, MAPBOX_TOKEN, "driving")
+                }
+        }
+
+
 
 @app.get("/nearby_routes", status_code=status.HTTP_200_OK)
 async def nearby_routes(long:float, lat:float, radius:float):
@@ -212,6 +239,7 @@ async def nearby_routes(long:float, lat:float, radius:float):
     for route_id, route_data in app.state.routes.items():
         route_coords = route_data["line"]["geometry"]["coordinates"]
         min_distance = helper.project_point_on_route((long, lat), route_coords)[1]
+        print("checking " + route_data["route_name"] + "...")
         if min_distance <= radius:
             routes_distances[route_data["route_id"]] = min_distance
             route_vehicles = await db.get_route_vehicles(route_id)
