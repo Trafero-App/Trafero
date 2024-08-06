@@ -72,16 +72,16 @@ class db:
 
 
     @classmethod
-    async def add_feedback(cls, passenger_id, vehicle_id, reaction, complaint):
+    async def add_feedback(cls, passenger_id, vehicle_id, review):
         async with cls.db_pool.acquire() as con:
             return await con.execute("""INSERT INTO feedback (passenger_id, vehicle_id, reaction, complaint)
-                                         VALUES ($1, $2, $3, $4)""", passenger_id, vehicle_id, reaction, complaint)
+                                         VALUES ($1, $2, $3, $4)""", passenger_id, vehicle_id, review.reaction, review.complaint)
 
     @classmethod
-    async def update_feedback(cls, passenger_id, vehicle_id, reaction, complaint):
+    async def update_feedback(cls, passenger_id, vehicle_id, review):
         async with cls.db_pool.acquire() as con:
             return await con.execute("""UPDATE feedback SET reaction=$3, complaint=$4 
-                                        WHERE passenger_id=$1 AND vehicle_id=$2""", passenger_id, vehicle_id, reaction, complaint)
+                                        WHERE passenger_id=$1 AND vehicle_id=$2""", passenger_id, vehicle_id, review.reaction, review.complaint)
         
     @classmethod
     async def remove_feedback(cls, passenger_id, vehicle_id):
@@ -96,24 +96,37 @@ class db:
     @classmethod
     async def remove_vehicle_feedbacks(cls,vehicle_id):
         async with cls.db_pool.acquire() as con:
-            return await con.execute("""DELETE FROM feedback WHEREvehicle_id=$1""",vehicle_id)    
+            return await con.execute("""DELETE FROM feedback WHERE vehicle_id=$1""",vehicle_id)    
         
     @classmethod
-    async def give_all_feedbacks(cls):
+    async def get_all_feedbacks(cls):
         async with cls.db_pool.acquire() as con:
-            return await con.fetch("SELECT * FROM feedback")
+            res = await con.fetch("SELECT (passenger_id, vehicle_id, reaction, complaint) FROM feedback")
+            if res is None: return None
+            return [{"passenger_id": feedback_info[0][0], "vehicle_id": feedback_info[0][1],
+                     "reaction": feedback_info[0][2], "complaint": feedback_info[0][3]} for feedback_info in res]
+            
         
     @classmethod
-    async def give_vehicle_feedbacks(cls, vehicle_id):
+    async def get_vehicle_feedbacks(cls, vehicle_id):
         async with cls.db_pool.acquire() as con:
-            return await con.fetch("SELECT * FROM feedback WHERE vehicle_id=$1", vehicle_id)
+            res = await con.fetch("SELECT (passenger_id, reaction, complaint) FROM feedback WHERE vehicle_id=$1", vehicle_id)
+            if res is None: return None
+            return [{"passenger_id": feedback_info[0][0],
+                     "reaction": feedback_info[0][1], "complaint": feedback_info[0][2]} for feedback_info in res]
         
     @classmethod
-    async def give_passenger_feedbacks(cls, passenger_id):
+    async def get_passenger_feedbacks(cls, passenger_id):
         async with cls.db_pool.acquire() as con:
-            return await con.fetch("SELECT * FROM feedback WHERE passenger_id=$1", passenger_id)
+            res = await con.fetch("SELECT (vehicle_id, reaction, complaint) FROM feedback WHERE passenger_id=$1", passenger_id)
+            if res is None: return None
+            return [{"vehicle_id": feedback_info[0][0],
+                     "reaction": feedback_info[0][1], "complaint": feedback_info[0][2]} for feedback_info in res]
         
     @classmethod
-    async def give_feedback(cls, passenger_id, vehicle_id):
+    async def get_feedback(cls, passenger_id, vehicle_id):
         async with cls.db_pool.acquire() as con:
-            return await con.fetch("SELECT * FROM feedback WHERE passenger_id=$1 AND vehicle_id=$2", passenger_id, vehicle_id)
+            res = await con.fetch("SELECT (reaction, complaint) FROM feedback WHERE passenger_id=$1 AND vehicle_id=$2", passenger_id, vehicle_id)
+            if res is None: return None
+            return [{"reaction": feedback_info[0][0], "complaint": feedback_info[0][1]} for feedback_info in res]
+        

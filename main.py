@@ -6,7 +6,7 @@ import asyncpg
 import os
 from dotenv import load_dotenv, find_dotenv
 
-from validation_classes import Point, vehicle_location
+from validation_classes import Point, vehicle_location, Review
 
 import geojson
 
@@ -179,15 +179,15 @@ async def nearby_routes(long:float, lat:float, radius:float):
 
 
 @app.post("/feedback/post", status_code=status.HTTP_200_OK)
-async def post_feedback(passenger_id: int, vehicle_id: int, reaction: bool, complaint: str, response: Response):
+async def post_feedback(passenger_id: int, vehicle_id: int, review: Review, response: Response):
     try:
-        await db.add_feedback(passenger_id, vehicle_id, reaction, complaint)
+        await db.add_feedback(passenger_id, vehicle_id, review)
         return {"message": "All Good."}
     except asyncpg.exceptions.UniqueViolationError:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {
                 "message":
-                """Error: You have attempted to add the feedback of a passenger who's feedback has
+                """Error: You have attempted to add the feedback of a passenger whose feedback has
                 already been added to this vehicle. Maybe you meant to send a PUT request?"""        
                 }
     except asyncpg.exceptions.ForeignKeyViolationError as e:
@@ -199,21 +199,21 @@ async def post_feedback(passenger_id: int, vehicle_id: int, reaction: bool, comp
             return {"message": "Error: You have attempted to add the feedback of a passenger that doesn't exist."}
     except asyncpg.exceptions.CheckViolationError:
         response.status_code = status.HTTP_400_BAD_REQUEST
-        return {"message": "Error: Both 'reaction' and 'complaint' cannot be NULL. Please provide at least one of them."}
+        return {"message": "Error: 'review' cannot be NULL. Please provide at least one of them."}
     
 @app.put("/feedback/put/{passenger_id}/{vehicle_id}", status_code=status.HTTP_200_OK)
-async def put_feedback(passenger_id: int, vehicle_id: int, reaction: bool, complaint: str, response: Response):
+async def put_feedback(passenger_id: int, vehicle_id: int, review: Review, response: Response):
     try:
-        result = await db.update_feedback(passenger_id, vehicle_id, reaction, complaint)
+        result = await db.update_feedback(passenger_id, vehicle_id, review)
         if result == "UPDATE 0":
             response.status_code = status.HTTP_400_BAD_REQUEST
-            return {"message" : """Error: You have attempted to update the feedback of a passenger who's feedback hasn't been added to the vehicle yet.
+            return {"message" : """Error: You have attempted to update the feedback of a passenger whose feedback hasn't been added to the vehicle yet.
                             Maybe you mean to send a POST request?"""}
         else:
             return {"message": "All Good."}
     except asyncpg.exceptions.CheckViolationError:
         response.status_code = status.HTTP_400_BAD_REQUEST
-        return {"message": "Error: Both 'reaction' and 'complaint' cannot be NULL. Maybe you meant a DELETE request?."}
+        return {"message": "Error: 'review' cannot be NULL. Maybe you meant a DELETE request?."}
     
 @app.delete("/feedback/delete/{passenger_id}/{vehicle_id}", status_code=status.HTTP_200_OK)
 async def delete_feedback(passenger_id: int, vehicle_id: int, response: Response):
@@ -224,7 +224,7 @@ async def delete_feedback(passenger_id: int, vehicle_id: int, response: Response
     else:
         return {"message": "All Good."}
 
-@app.delete("/feedback/delete/{passenger_id}", status_code=status.HTTP_200_OK)
+@app.delete("/feedback/delete/passenger/{passenger_id}", status_code=status.HTTP_200_OK)
 async def delete_passenger_feedbacks(passenger_id: int, response: Response):
     result = await db.remove_passenger_feedbacks(passenger_id)
     if result == "DELETE 0":
@@ -233,7 +233,7 @@ async def delete_passenger_feedbacks(passenger_id: int, response: Response):
     else:
         return {"message": "All Good."}
     
-@app.delete("/feedback/delete/{vehicle_id}", status_code=status.HTTP_200_OK)
+@app.delete("/feedback/delete/vehicle/{vehicle_id}", status_code=status.HTTP_200_OK)
 async def delete_vehicle_feedbacks( vehicle_id: int, response: Response):
     result = await db.remove_vehicle_feedbacks(vehicle_id)
     if result == "DELETE 0":
@@ -247,17 +247,17 @@ async def get_feedback(passenger_id: int, vehicle_id: int, response: Response):
     result = await helper.feedback(passenger_id, vehicle_id, response)
     return result
 
-@app.get("/feedback/get/{vehicle_id}", status_code=status.HTTP_200_OK)
+@app.get("/feedback/get/vehicle/{vehicle_id}", status_code=status.HTTP_200_OK)
 async def get_vehicle_feedbacks(vehicle_id: int, response: Response):
     result = await helper.vehicle_feedbacks(vehicle_id, response)
     return result
 
-@app.get("/feedback/get/{passenger_id}", status_code=status.HTTP_200_OK)
+@app.get("/feedback/get/passenger/{passenger_id}", status_code=status.HTTP_200_OK)
 async def get_passenger_feedbacks(passenger_id: int, response: Response):
     result = await helper.passenger_feedbacks(passenger_id, response)
     return result
 
 @app.get("/feedback/get", status_code=status.HTTP_200_OK)
-async def get_feedback(response: Response):
+async def get_all_feedbacks(response: Response):
     result = await helper.all_feedbacks(response)
     return result
