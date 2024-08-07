@@ -67,7 +67,14 @@ class db:
         print(result)
         return result
 
-
-
-
+    @classmethod
+    async def get_routes_info_search(cls):
+        return
     
+    @classmethod
+    async def get_busses_info_search(cls):
+        return
+    
+    @classmethod
+    async def get_busses_info_search(cls):
+        return   

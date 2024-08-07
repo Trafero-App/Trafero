@@ -13,7 +13,8 @@ import geojson
 import helper
 from db_layer import db
 # For data validation
-
+import json
+from fuzzywuzzy import fuzz, process
 
 # Get access credentials to database
 load_dotenv(find_dotenv())
@@ -169,3 +170,11 @@ async def nearby_routes(long:float, lat:float, radius:float,
 
             
     return {"message": "All Good.", "routes": {"type": "FeatureCollection", "features": routes_geojson}}
+
+
+@app.get("/search/{word}", status_code=status.HTTP_200_OK)
+async def search(word: str):
+    routes_info = await db.get_routes_info_search()
+    sliced_info = await db.get_sliced_info_search()
+    busses_info = await db.get_busses_info_search()
+    return helper.search(word, routes_info, sliced_info, busses_info)

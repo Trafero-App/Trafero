@@ -77,7 +77,7 @@ async def main():
 
                      DELETE FROM passenger WHERE id=3;
 
-                    INSERT INTO route (file_name, route_name, description, working_hours, active_days, capacity, company_name, expected_price, intersections) VALUES 
+                    INSERT INTO route (file_name, route_name, description, working_hours, active_days, capacity, company_name, expected_price) VALUES 
                      ('bus_15_1.geojson', 'Bus 15 (Dawra - Nahr al Mot)', 'Dawra - Port - Biel - Ain el Mrayse - Raouche - Unesco - Cola - Corniche el Mazraa - Barbir - Mathaf - Adliye - Souk el Ahad - Nahr el Mot', '6:00 AM - 8:00 PM', 'Monday -> Sunday', '24 seats', 'Rabah Transport','80.000 LL'), 
                      ('bus_15_2.geojson', 'Bus 15 (Nahr al Mot - Dawra)', 'Nahr al Mot - Souk el Ahad - Adliye - Mathaf - Barbir - Corniche el Mazraa - Cola - Unesco - Raouche - Ain el Mrayse - Biel - Port - Dawra', '6:00 AM - 8:00 PM', 'Monday -> Sunday', '24 seats', 'Rabah Transport','80.000 LL'), 
                      ('beirut_saida_1.geojson', 'Van Saida (Beirut - Saida)', 'Cola - Madine al Riyadiye - Airport Highway - Khalde - Doha - Nahmeh - Damour - Jiye - Jadra - Saida (sehit nejme)', '5:00 AM - 9:00 PM', 'Monday -> Sunday', '10 seats', 'individual operators', '130.000 LL'), 
