@@ -182,3 +182,10 @@ class db:
             if res is None: return None
             return [{"reaction": feedback_info[0][0], "complaint": feedback_info[0][1]} for feedback_info in res]
         
+    @classmethod
+    async def get_stations(cls):
+        async with cls.db_pool.acquire() as con:
+            res = await con.fetch("SELECT (route_id, station_name, longitude, latitude) FROM station")
+            return [{"route_id": station_info[0][0], "station_name": station_info[0][1], 
+                     "longitude": station_info[0][2], "latitude": station_info[0][3]} for station_info in res]
+

@@ -380,3 +380,12 @@ async def get_feedback(passenger_id: int, vehicle_id: int, response: Response):
 async def get_all_feedbacks(response: Response):
     result = await helper.all_feedbacks(response)
     return result
+
+@app.get("/station", status_code=status.HTTP_200_OK)
+async def get_stations(response: Response):
+    result = await db.get_stations()
+    if (result is None) or not result:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"message": "no stations."}
+    else:
+        return {"message": "All Good", "stations":result}
