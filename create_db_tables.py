@@ -48,7 +48,7 @@ def recreate_tables():
                                             type VARCHAR(30),
                                             brand VARCHAR(30),
                                             model VARCHAR(30),
-                                            license_plate VARCHAR(30),
+                                            license_plate VARCHAR(30) NOT NULL,
                                             color VARCHAR(20),
                                             CONSTRAINT fk_route
                                                 FOREIGN KEY(route_id) REFERENCES route(id)

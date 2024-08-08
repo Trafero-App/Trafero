@@ -29,14 +29,16 @@ async def lifespan(app: FastAPI):
     await db.connect(DB_URL)
 
     app.state.routes = {}
-    
+    app.state.routes_search_data = []
     routes_data = await db.get_all_routes_data()
-    for route_data in routes_data:
+    for route_data in routes_data:        
         route_data = {"details": route_data}
         route_geojson = await db.get_route_geojson(route_data["details"]["file_name"])
         del route_data["details"]["file_name"]
         route_data["line"] = route_geojson
         app.state.routes[route_data["details"]["route_id"]] = route_data
+
+        app.state.routes_search_data.append(((route_data["details"]["route_id"],) + tuple(route_data["details"]["description"].split(' - '))))
 
     yield
     
@@ -266,14 +268,32 @@ async def nearby_routes(long:float, lat:float, radius:float,
         close_routes = await helper.get_nearby_routes_to_1_point(long, lat, radius, app.state.routes.items())
     return {"message": "All Good.", "routes": close_routes}
 
-@app.get("/search/{word}", status_code=status.HTTP_200_OK)
-async def search(word: str):
-    routes_info = await db.get_routes_info_search()
-    sliced_info = await db.get_sliced_info_search()
-    busses_info = await db.get_busses_info_search()
-    return helper.search(word, routes_info, sliced_info, busses_info)
-  
-  
+@app.get("/search_routes/{query}", status_code=status.HTTP_200_OK)
+async def search_routes(query: str):
+    print(app.state.routes_search_data[0])
+    print(app.state.routes_search_data[1])
+    route_ids = helper.search_routes(query, app.state.routes_search_data)
+    res = []
+    for route_id in route_ids:
+        res.append({
+            "route_id": route_id,
+            "route_name": app.state.routes[route_id]["details"]["route_name"],
+            "description": app.state.routes[route_id]["details"]["description"]
+        })
+    return {"message": "All good.", "routes": res}
+
+
+@app.get("/search_vehicles/{query}", status_code=status.HTTP_200_OK)
+async def search_vehicles(query: str):
+    vehicles_search_info = await db.get_vehicles_search_info()
+    
+    vehicles_indices = helper.search_vehicles(query, vehicles_search_info)
+    res = [vehicles_search_info[i] for i in vehicles_indices]
+
+    return {"message": "All good.", "vehicles": res}
+
+
+
 # feedback path operations
 @app.post("/feedback/post", status_code=status.HTTP_200_OK)
 async def post_feedback(passenger_id: int, vehicle_id: int, review: Review, response: Response):
