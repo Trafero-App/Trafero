@@ -83,7 +83,7 @@ class db:
             vehicle_info = vehicle_info[0]
 
             coords = await cls.get_vehicle_location(vehicle_id)
-            feedback = "WHATEVER FEEDBACK THERE IS"
+            feedback = await cls.get_vehicle_feedbacks(vehicle_id)
 
             details["status"] = vehicle_info[0]
             details["coordinates"] = [coords["longitude"], coords["latitude"]]
