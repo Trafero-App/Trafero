@@ -14,30 +14,45 @@ def recreate_tables():
 
     cur = conn.cursor()
 
-    cur.execute(""" DROP TABLE IF EXISTS passenger;
+    cur.execute("""
+                    DROP TABLE IF EXISTS feedback;
                     DROP TABLE IF EXISTS vehicle_location;
                     DROP TABLE IF EXISTS vehicle;
+                    DROP TABLE IF EXISTS passenger;
                     DROP TABLE IF EXISTS waypoint;
                     DROP TABLE IF EXISTS route;
+                    DROP TABLE IF EXISTS account;
                 
-                    CREATE TABLE passenger (id SERIAL PRIMARY KEY,
-                                            user_name VARCHAR(255) NOT NULL UNIQUE,
-                                            password TEXT NOT NULL,
+                    CREATE TABLE account    (id SERIAL PRIMARY KEY,
+                                            account_type VARCHAR(15) NOT NULL, 
+                                            username VARCHAR(255) NOT NULL UNIQUE,
+                                            password_hash TEXT NOT NULL,
                                             first_name VARCHAR(255) NOT NULL,
                                             last_name VARCHAR(255) NOT NULL,
-                                            phone_number VARCHAR(20) NOT NULL UNIQUE
+                                            phone_number VARCHAR(20) NOT NULL UNIQUE,
+                                            CONSTRAINT unique_account UNIQUE(id, account_type),
+                                            CONSTRAINT valid_types CHECK (account_type IN ('driver', 'passenger'))
+                                            );
+                    CREATE TABLE passenger  (id INT NOT NULL UNIQUE PRIMARY KEY,  
+                                            account_type VARCHAR(15) NOT NULL DEFAULT 'passenger',
+                                            CONSTRAINT fk_account
+                                                FOREIGN KEY (id, account_type) REFERENCES account(id, account_type),
+                                            CONSTRAINT account_is_passenger CHECK (account_type = 'passenger')
                                             );
                 
                     CREATE TABLE route (id SERIAL PRIMARY KEY,
                                         file_name VARCHAR(30) NOT NULL
                                         );
                 
-                    CREATE TABLE vehicle   (id SERIAL PRIMARY KEY,
+                    CREATE TABLE vehicle   (id INT NOT NULL UNIQUE PRIMARY KEY,
+                                            account_type VARCHAR(15) NOT NULL DEFAULT 'driver',
                                             route_id INT NOT NULL,
-                                            phone_number VARCHAR(20) NOT NULL,
                                             status BOOLEAN,
                                             CONSTRAINT fk_route
-                                                FOREIGN KEY(route_id) REFERENCES route(id)
+                                                FOREIGN KEY(route_id) REFERENCES route(id),
+                                            CONSTRAINT fk_account
+                                                FOREIGN KEY(id, account_type) REFERENCES account(id, account_type),
+                                            CONSTRAINT account_is_driver CHECK (account_type = 'driver')
                                             );
                 
                     CREATE TABLE vehicle_location (id SERIAL PRIMARY KEY,

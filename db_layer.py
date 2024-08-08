@@ -1,5 +1,6 @@
 import asyncpg
 import geojson
+from validation_classes import Account_DB_Entry
 # load_dotenv(find_dotenv())
 # DB_URL = os.getenv("db_url")
 
@@ -66,8 +67,54 @@ class db:
         result = [tuple(record[0]) for record in result]
         print(result)
         return result
-
-
-
-
     
+    @classmethod
+    async def get_account_info(cls, username):
+        async with cls.db_pool.acquire() as con:
+            res = await con.fetchrow("SELECT * FROM account WHERE username=$1", username)
+        if res is None: return None
+        return {"username": res["username"], "password_hash": res["password_hash"], "first_name": res["first_name"],
+                "last_name": res["last_name"], "phone_number": res["phone_number"]}
+            
+
+    @classmethod
+    async def get_account_password_hash(cls, username, account_type):
+        async with cls.db_pool.acquire() as con:
+            res = await con.fetchrow("SELECT password_hash FROM account WHERE username=$1 AND account_type=$2", username, account_type)
+        if res is None: return None
+        return {"password_hash": res[0]}
+    
+    @classmethod 
+    async def check_phone_number_available(cls, phone_number):
+        async with cls.db_pool.acquire() as con:
+            res = await con.fetchrow("SELECT * FROM account WHERE phone_number=$1", phone_number)
+        if res is None: return True
+        else: return False
+    
+    @classmethod 
+    async def check_username_available(cls, username):
+        print()
+        print()
+        print()
+        print()
+        print("KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK")
+        async with cls.db_pool.acquire() as con:
+            res = await con.fetchrow("SELECT * FROM account WHERE username=$1", username)
+        print(res)
+        print()
+        print()
+        print()
+        if res is None: return True
+        else: return False
+    
+    @classmethod
+    async def add_account(cls, account_info: Account_DB_Entry):
+        async with cls.db_pool.acquire() as con:
+            account_id = await con.fetch("""INSERT INTO account (account_type, username, password_hash, first_name,
+                          last_name, phone_number)
+                          VALUES ($1, $2, $3, $4, $5, $6) RETURNING id""", account_info.account_type, account_info.username,
+                          account_info.password_hash, account_info.first_name, account_info.last_name, account_info.phone_number)
+            if type == "passenger":
+                await con.execute("""INSERT INTO passenger (id) VALUES ($1)""", account_id)
+            
+        

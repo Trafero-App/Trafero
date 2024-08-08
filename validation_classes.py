@@ -5,6 +5,18 @@ class vehicle_location(BaseModel):
     longitude: float
     latitude: float
 
-class Point(BaseModel):
-    longitude: float
-    latitude: float
+class Account_Info(BaseModel):
+    account_type: str
+    username: str
+    password: str
+    first_name: str
+    last_name: str
+    phone_number: str
+
+class Account_DB_Entry(BaseModel):
+    account_type: str
+    username: str
+    password_hash: str
+    first_name: str
+    last_name: str
+    phone_number: str

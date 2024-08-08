@@ -1,4 +1,7 @@
-from fastapi import FastAPI, Response, status
+from datetime import timedelta, datetime, timezone
+from typing import Annotated
+from fastapi import FastAPI, Response, status, Depends
+from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 
 from contextlib import asynccontextmanager
@@ -6,11 +9,11 @@ import asyncpg
 import os
 from dotenv import load_dotenv, find_dotenv
 
-from validation_classes import Point, vehicle_location
+from validation_classes import vehicle_location, Account_Info, Account_DB_Entry
 
-import geojson
 
 import helper
+import authentication
 from db_layer import db
 # For data validation
 
@@ -18,7 +21,9 @@ from db_layer import db
 # Get access credentials to database
 load_dotenv(find_dotenv())
 DB_URL = os.getenv("db_url")
-
+JWT_ALGORITHM = os.getenv("jwt_algorithm")
+AUTHENTICATION_SECRET_KEY = os.getenv("auth_secret_key")
+ACCESS_TOKEN_VALIDITY_TIME_IN_MINUTES = int(os.getenv("access_token_validity_time_in_minutes"))
 # Open connection to database when app starts up
 # and close the connection when the app shuts down
 # Also load routes
@@ -38,7 +43,6 @@ async def lifespan(app: FastAPI):
     
     await db.disconnect()
 
-
 app = FastAPI(lifespan=lifespan)
 
 # Allow only specific origins to make requests
@@ -54,6 +58,45 @@ app.add_middleware(
     allow_headers=["*"]
 
 )
+
+@app.post("/signup", status_code=status.HTTP_200_OK)
+async def signup(account_data: Account_Info, response: Response):
+    phone_num_av = await db.check_phone_number_available(account_data.phone_number)
+    username_av = await db.check_username_available(account_data.username)
+    if not phone_num_av:
+        response.status_code = status.HTTP_409_CONFLICT
+        return {"message": "Sign-up failed. Phone number already in use."}
+    
+    if not username_av:
+        response.status_code = status.HTTP_409_CONFLICT
+        return {"message": "Sign-up failed. Username already in use."}
+    
+    password_hash = authentication.hash_password(account_data.password)
+    
+    await db.add_account(Account_DB_Entry(
+        account_type=account_data.account_type,
+        username=account_data.username,
+        password_hash=password_hash,
+        first_name=account_data.first_name,
+        last_name=account_data.last_name,
+        phone_number=account_data.phone_number
+                     ))
+    
+
+@app.post("/login", status_code=status.HTTP_200_OK)
+async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], response: Response):
+    user = await authentication.get_user(form_data.username, form_data.password)
+    if user is None:
+        response.status_code = status.HTTP_401_UNAUTHORIZED
+        return {"message": "Invalid credentials."}
+    token_validity_time =  datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_VALIDITY_TIME_IN_MINUTES)
+    token_data = {"sub": user["username"], "exp": token_validity_time}
+    access_token = authentication.create_access_token(
+        token_data=token_data, secret_key=AUTHENTICATION_SECRET_KEY,
+        encoding_algorithm=JWT_ALGORITHM
+    )
+    return {"message": "All good.", "token": {"access_token": access_token, "token_type": "bearer"}}
+
 
 
 @app.get("/vehicle_location/{vehicle_id}", status_code=status.HTTP_200_OK)
