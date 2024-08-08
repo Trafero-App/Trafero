@@ -45,14 +45,16 @@ def recreate_tables():
                     CREATE TABLE vehicle   (id SERIAL PRIMARY KEY,
                                             route_id INT NOT NULL,
                                             phone_number VARCHAR(20) NOT NULL,
-                                            status BOOLEAN,
+                                            status VARCHAR(20) NOT NULL,
                                             type VARCHAR(30),
                                             brand VARCHAR(30),
                                             model VARCHAR(30),
                                             license_plate VARCHAR(30) NOT NULL,
                                             color VARCHAR(20),
                                             CONSTRAINT fk_route
-                                                FOREIGN KEY(route_id) REFERENCES route(id)
+                                                FOREIGN KEY(route_id) REFERENCES route(id),
+                                            CONSTRAINT legal_statuses
+                                            CHECK (status IN ('active', 'waiting', 'unavailable', 'inactive', 'unknown'))
                                             );
                 
                     CREATE TABLE vehicle_location (id SERIAL PRIMARY KEY,
