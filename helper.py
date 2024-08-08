@@ -4,6 +4,8 @@ from db_layer import db
 from dotenv import load_dotenv, find_dotenv
 import os
 from copy import deepcopy
+from fastapi import Response, status
+import asyncpg
 
 load_dotenv(find_dotenv())
 
@@ -152,6 +154,38 @@ async def filter_vehicles__time(cur_location, pick_up, vehicles, route_geojson):
         if vehicle_to_pickup_time > cur_to_pickup_time:
             return vehicles[i:]
     return []
+
+async def feedback(passenger_id: int, vehicle_id: int, response: Response):
+    result = await db.get_feedback(passenger_id,vehicle_id)
+    if (result is None) or not result:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"message": "feedback not found."}
+    else:
+        return {"message": "All Good", "feedback":result}
+
+async def passenger_feedbacks(passenger_id: int, response: Response):
+    result = await db.get_passenger_feedbacks(passenger_id)
+    if (result is None) or not result:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"message": "passenger never submitted feedbacks."}
+    else:
+        return {"message": "All Good", "feedbacks":result}
+    
+async def vehicle_feedbacks(vehicle_id: int, response: Response):
+    result = await db.get_vehicle_feedbacks(vehicle_id)
+    if (result is None) or not result:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"message": "no feedbacks on given vehicle."}
+    else:
+        return {"message": "All Good", "feedbacks":result}
+
+async def all_feedbacks(response: Response):
+    result = await db.get_all_feedbacks()
+    if (result is None) or not result:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"message": "no feedbacks."}
+    else:
+        return {"message": "All Good", "feedbacks":result}
 
 async def get_nearby_routes_to_1_point(long, lat, radius, routes):
     close_routes = []

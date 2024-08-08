@@ -8,3 +8,7 @@ class vehicle_location(BaseModel):
 class Point(BaseModel):
     longitude: float
     latitude: float
+
+class Review(BaseModel):
+    reaction: bool
+    complaint: str | None = None

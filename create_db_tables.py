@@ -70,8 +70,8 @@ def recreate_tables():
                     CREATE TABLE feedback  (id SERIAL PRIMARY KEY,
                                             passenger_id INT NOT NULL,
                                             vehicle_id INT NOT NULL,
-                                            true_false_example BOOLEAN,
-                                            text_example VARCHAR(255),
+                                            reaction BOOLEAN,
+                                            complaint VARCHAR(255),
                                             CONSTRAINT fk_passenger
                                                 FOREIGN KEY(passenger_id)
                                                     REFERENCES passenger(id),
@@ -79,8 +79,8 @@ def recreate_tables():
                                                 FOREIGN KEY(vehicle_id)
                                                     REFERENCES vehicle(id),
                                             CONSTRAINT not_empty
-                                                CHECK  ((true_false_example IS NOT NULL) OR
-                                                        (text_example IS NOT NULL)),
+                                                CHECK  ((reaction IS NOT NULL) OR
+                                                        (complaint IS NOT NULL)),
                                             CONSTRAINT unique_feedback
                                                 UNIQUE(passenger_id, vehicle_id)
                                                 );
