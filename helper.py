@@ -155,6 +155,9 @@ async def filter_vehicles__time(cur_location, pick_up, vehicles, route_geojson):
             return vehicles[i:]
     return []
 
+
+
+
 async def feedback(passenger_id: int, vehicle_id: int, response: Response):
     result = await db.get_feedback(passenger_id,vehicle_id)
     if (result is None) or not result:
@@ -187,22 +190,24 @@ async def all_feedbacks(response: Response):
     else:
         return {"message": "All Good", "feedbacks":result}
 
+
+
 async def get_nearby_routes_to_1_point(long, lat, radius, routes):
     close_routes = []
     routes_distances = {}
     for route_id, route_data in routes:
         route_coords = route_data["line"]["geometry"]["coordinates"]
         min_distance = project_point_on_route((long, lat), route_coords)[1]
-        print("checking " + route_data["route_name"] + "...")
+        print("checking " + route_data["details"]["route_name"] + "...")
         if min_distance <= radius:
-            routes_distances[route_data["route_id"]] = min_distance
+            routes_distances[route_id] = min_distance
             route_vehicles = await db.get_route_vehicles(route_id)
             for vehicle in route_vehicles:
                 del vehicle["longitude"]
                 del vehicle["latitude"]
             route_data["vehicles"] = route_vehicles
             close_routes.append(route_data)
-    close_routes.sort(key=lambda x: routes_distances[x["route_id"]])
+    close_routes.sort(key=lambda route: routes_distances[route["details"]["route_id"]])
     return close_routes
 
 
@@ -213,15 +218,15 @@ async def get_nearby_routes_to_2_point(long, lat, radius, long2, lat2, radius2, 
         route_coords = route_data["line"]["geometry"]["coordinates"]
         min_distance = project_point_on_route((long, lat), route_coords)[1]
         min_distance2 = project_point_on_route((long2, lat2), route_coords)[1]
-        print("checking " + route_data["route_name"] + "...")
+        print("checking " + route_data["details"]["route_name"] + "...")
         if min_distance <= radius and min_distance2 <=radius2:
-            routes_distances[route_data["route_id"]] = min_distance
+            routes_distances[route_id] = min_distance
             route_vehicles = await db.get_route_vehicles(route_id)
             for vehicle in route_vehicles:
                 del vehicle["longitude"]
                 del vehicle["latitude"]
             route_data["vehicles"] = route_vehicles
             close_routes.append(route_data)
-    close_routes.sort(key=lambda x: routes_distances[x["route_id"]])
+    close_routes.sort(key=lambda route: routes_distances[route["details"]["route_id"]])
     return close_routes
             
