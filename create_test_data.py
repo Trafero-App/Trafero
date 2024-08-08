@@ -202,10 +202,10 @@ async def main():
                      (4, 4, False, 'bad condition');
 
                     INSERT INTO station (route_id, station_name, longitude, latitude) VALUES
-                     (1, 'Dawra 15', 35.5498, 33.8936), (2, 'Naher el Mot15', 35.5402, 33.8798),
+                     (1, 'Dawra 15', 35.5498, 33.8936), (2, 'Naher el Mot 15', 35.5402, 33.8798),
                      (3, 'Cola-Saida', 35.4948, 33.8756), (4, 'Saida-Beirut', 35.3748, 33.5651),
                      (5, 'Hamra 4', 35.4855, 33.8969), (6, 'Hay el Selom 4', 35.5156, 33.8292),
-                     (7, 'Sea road 1', 35.4917, 33.9023), (8, 'Sea road 2', 35.5025, 33.8591),
+                     (7, 'Sea road', 35.4917, 33.9023), (8, 'Sea road', 35.5025, 33.8591),
                      (9, 'Hamra 2', 35.4836, 33.8939), (10, 'Antelias 2', 35.5896, 33.9165),
                      (11, 'Dawra 10', 35.5501, 33.8941), (12, 'Airport 10', 35.4929, 33.8261),
                      (13, 'Hamra 24', 35.4877, 33.8938), (14, 'Badaro 24', 35.5189, 33.8769);
