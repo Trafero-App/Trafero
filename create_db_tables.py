@@ -14,8 +14,10 @@ def recreate_tables():
 
     cur = conn.cursor()
 
-    cur.execute("""
+    cur.execute(""" 
+                    DROP TABLE IF EXISTS station;
                     DROP TABLE IF EXISTS feedback;
+                    DROP TABLE IF EXISTS passenger;
                     DROP TABLE IF EXISTS vehicle_location;
                     DROP TABLE IF EXISTS vehicle;
                     DROP TABLE IF EXISTS passenger;
@@ -34,7 +36,14 @@ def recreate_tables():
                                             );
                 
                     CREATE TABLE route (id SERIAL PRIMARY KEY,
-                                        file_name VARCHAR(30) NOT NULL
+                                        file_name VARCHAR(30) NOT NULL,
+                                        route_name VARCHAR(50),
+                                        description VARCHAR(255),
+                                        working_hours VARCHAR(50),
+                                        active_days VARCHAR(50),
+                                        capacity VARCHAR(50),
+                                        company_name VARCHAR(50),
+                                        expected_price VARCHAR(50)
                                         );
                 
                     CREATE TABLE vehicle   (id SERIAL PRIMARY KEY,
@@ -46,6 +55,11 @@ def recreate_tables():
                                             email VARCHAR(50) UNIQUE,
                                             route_id INT NOT NULL,
                                             status BOOLEAN,
+                                            type VARCHAR(30),
+                                            brand VARCHAR(30),
+                                            model VARCHAR(30),
+                                            license_plate VARCHAR(30) NOT NULL,
+                                            color VARCHAR(20),
                                             CONSTRAINT phone_or_email
                                             CHECK ((phone_number IS NOT NULL) OR (email IS NOT NULL)),
                                             CONSTRAINT fk_route
@@ -69,6 +83,34 @@ def recreate_tables():
                                            CONSTRAINT fk_route
                                                 FOREIGN KEY(route_id)
                                                     REFERENCES route(id)
+                                                );
+                
+                    CREATE TABLE feedback  (id SERIAL PRIMARY KEY,
+                                            passenger_id INT NOT NULL,
+                                            vehicle_id INT NOT NULL,
+                                            reaction BOOLEAN,
+                                            complaint VARCHAR(255),
+                                            CONSTRAINT fk_passenger
+                                                FOREIGN KEY(passenger_id)
+                                                    REFERENCES passenger(id),
+                                            CONSTRAINT fk_vehicle
+                                                FOREIGN KEY(vehicle_id)
+                                                    REFERENCES vehicle(id),
+                                            CONSTRAINT not_empty
+                                                CHECK  ((reaction IS NOT NULL) OR
+                                                        (complaint IS NOT NULL)),
+                                            CONSTRAINT unique_feedback
+                                                UNIQUE(passenger_id, vehicle_id)
+                                                );
+                
+                    CREATE TABLE station   (id SERIAL PRIMARY KEY,
+                                            route_id INT NOT NULL,
+                                            station_name VARCHAR(50),
+                                            longitude DECIMAL NOT NULL,
+                                            latitude DECIMAL NOT NULL,
+                                                CONSTRAINT fk_route
+                                                    FOREIGN KEY(route_id)
+                                                        REFERENCES route(id)
                                                 );
                 """)
 

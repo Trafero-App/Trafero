@@ -33,3 +33,10 @@ class Account_DB_Entry(Account_Info):
     password_hash: str
     password: None = None
     
+class Point(BaseModel):
+    longitude: float
+    latitude: float
+
+class Review(BaseModel):
+    reaction: bool
+    complaint: str | None = None

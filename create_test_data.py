@@ -77,15 +77,26 @@ async def main():
 
                      DELETE FROM passenger WHERE id=3;
 
-                    INSERT INTO route (file_name) VALUES 
-                     ('bus_15_1.geojson'), ('bus_15_2.geojson'), ('beirut_saida_1.geojson'), ('beirut_saida_2.geojson'),
-                     ('van_4_1.geojson'), ('van_4_2.geojson'), ('van_sea_road_1.geojson'), ('van_sea_road_2.geojson'),
-                     ('bus_2_1.geojson'), ('bus_2_2.geojson'), ('bus_10_1.geojson'), ('bus_10_2.geojson'),
-                     ('bus_24_1.geojson'), ('bus_24_2.geojson');
+                    INSERT INTO route (file_name, route_name, description, working_hours, active_days, capacity, company_name, expected_price) VALUES 
+                     ('bus_15_1.geojson', 'Bus 15 (Dawra - Nahr al Mot)', 'Dawra - Port - Biel - Ain el Mrayse - Raouche - Unesco - Cola - Corniche el Mazraa - Barbir - Mathaf - Adliye - Souk el Ahad - Nahr el Mot', '6:00 AM - 8:00 PM', 'Monday -> Sunday', '24 seats', 'Rabah Transport','80.000 LL'), 
+                     ('bus_15_2.geojson', 'Bus 15 (Nahr al Mot - Dawra)', 'Nahr al Mot - Souk el Ahad - Adliye - Mathaf - Barbir - Corniche el Mazraa - Cola - Unesco - Raouche - Ain el Mrayse - Biel - Port - Dawra', '6:00 AM - 8:00 PM', 'Monday -> Sunday', '24 seats', 'Rabah Transport','80.000 LL'), 
+                     ('beirut_saida_1.geojson', 'Van Saida (Beirut - Saida)', 'Cola - Madine al Riyadiye - Airport Highway - Khalde - Doha - Nahmeh - Damour - Jiye - Jadra - Saida (sehit nejme)', '5:00 AM - 9:00 PM', 'Monday -> Sunday', '10 seats', 'individual operators', '130.000 LL'), 
+                     ('beirut_saida_2.geojson', 'Van Saida (Saida - Beirut)', 'Saida (Sehit Nejme) - Jadra - Jiye - Damour - Nahmeh - Doha - Khalde - Airport Highway - Madine al Riyadiye - Cola', '5:00 AM - 9:00 PM', 'Monday -> Sunday', '10 seats', 'individual operators', '130.000 LL'),
+                     ('van_4_1.geojson', 'Van 4 (Hamra - Hay el Selom)', 'Hamra - Spears - Bechara el Khoury - Horsh Beirut - Old Saida Road - Haret Hreik - Hadath - Lailake - Hay el Selom', '5:00 AM - 11:00 PM', 'Monday -> Sunday', '10 seats', 'individual operators', '100.000 LL'), 
+                     ('van_4_2.geojson', 'Van 4 (Hay el Selom - Hamra)', 'Hay el Selom - Lailake - Hadath - Haret Hreik - Old Saida Road - Horsh Beirut - Bechara el Khoury - Spears - Hamra', '5:00 AM - 11:00 PM', 'Monday -> Sunday', '10 seats', 'individual operators', '100.000 LL'), 
+                     ('van_sea_road_1.geojson', 'Van (Ain el Mrayse - Jesr al Matar)', 'Ain el Mrayse - Manara - Raouche - Unesco - Jnah - Bir Hassan - Rihab - Jesr al Matar', '6:00 AM - 8:00 PM', 'Monday -> Sunday', '10 seats', 'individual operators', '100.000 LL'), 
+                     ('van_sea_road_2.geojson', 'Van (Jesr al Matar - Ain el Mrayse)', 'Jesr al Matar - Rihab - Bir Hassan - Jnah - Unesco - Raouche - Manara - Ain el Mrayse', '6:00 AM - 8:00 PM', 'Monday -> Sunday', '10 seats', 'individual operators', '100.000 LL'),
+                     ('bus_2_1.geojson', 'Bus 2 (Hamra - Antelias)', 'Hamra - Tallet al Drouz - Mar Elias - Basta al Tahta - Achrafiye - Karantina - Borj Hammoud - Baouchriyeh - Jdeideh - Zalqa - Jal el Dib - Antelias', '5:00 AM - 7:00 PM', 'Monday -> Sunday', '24 seats', 'Rabah Transport', '60.000 LL'), 
+                     ('bus_2_2.geojson', 'Bus 2 (Antelias - Hamra)', 'Antelias - Jal el Dib - Zalqa - Jdeideh - Baouchriyeh - Borj Hammoud - Karantina - Achrafiye - Basta al Tahta - Mar Elias - Tallet al Drouz - Hamra', '5:00 AM - 7:00 PM', 'Monday -> Sunday', '24 seats', 'Rabah Transport', '60.000 LL'), 
+                     ('van_10_1.geojson', 'Van 10 (Dawra - Matar)', 'Dawra - Port - Bechara el Khoury - Horsh beirut - Borj al Barajne - Tohwitet el Ghadir - Airport', '5:00 AM - 11:00 PM', 'Monday -> Sunday', '10 seats', 'Individual operators', '50.000 LL'), 
+                     ('van_10_2.geojson', 'Van 10 (Matar - Dawra)', 'Airport - Tohwitet el Ghadir - Borj al Barajne - Horsh Beirut - Bechara el Khoury - Port - Dawra', '5:00 AM - 11:00 PM', 'Monday -> Sunday', '10 seats', 'Individual operators', '50.000 LL'),
+                     ('bus_24_1.geojson', 'Bus (24) (Hamra - Badaro)', 'Hamra - Verdun - Corniche el Mazraa - Mathaf - Adliye - Badaro', '6:00 AM - 7:00 PM', 'Monday -> Sunday', '24 seats', 'Rabah Transport', '50.000 LL'), 
+                     ('bus_24_2.geojson', 'Bus 24 (Badaro - Hamra)', 'Badaro - Adliye - Mathaf - Corniche el Mazraa - Verdun - Hamra', '6:00 AM - 7:00 PM', 'Monday -> Sunday', '24 seats', 'Rabah Transport', '50.000 LL');
 
-                    INSERT INTO vehicle (route_id, phone_number, status) VALUES 
-                     (2, '11111112', TRUE), (2, '11111113', TRUE),
-                     (2, '11111114', TRUE), (1, '11111115', TRUE), (1, '11111116', TRUE);
+
+                    INSERT INTO vehicle (route_id, phone_number, status, license_plate) VALUES 
+                     (2, '11111112', TRUE, 'B 11113'), (2, '11111113', TRUE, 'A 12345'),
+                     (2, '11111114', TRUE, 'C 11113'), (1, '11111115', TRUE, 'B 12345'), (1, '11111116', TRUE, 'C 11113');
 
                      INSERT INTO vehicle_location (longitude, latitude, vehicle_id) VALUES
                     (35.5149, 33.8966, 1),
@@ -139,10 +150,10 @@ async def main():
                     (35.495225, 33.895679, 6, 1183), (35.490888, 33.895315, 6, 1229), (35.488928, 33.895307, 6, 1249),
                     (35.484921, 33.895319, 6, 1292), (35.485421, 33.896841, 6, 1310),
                      
-                    (35.491081, 33.901858, 7, 0), (35.483411, 33.902415, 7, 166), (35.471658, 33.900443, 7, 294), (35.477483, 33.884814, 7, 574),
-                    (35.485399, 33.881194, 7, 673), (35.486209, 33.877556, 7, 729), (35.486155, 33.876384, 7, 743), (35.486208, 33.873462, 7, 782),
-                    (35.485911, 33.863582, 7, 899), (35.486289, 33.860093, 7, 959), (35.493569, 33.859781, 7, 1034), (35.493712, 33.858154, 7, 1062),
-                    (35.499498, 33.859456, 7, 1146), (35.50302, 33.859115, 7, 1184),
+                    (35.491032, 33.901888, 7, 0), (35.483411, 33.902415, 7, 86), (35.471658, 33.900443, 7, 214), (35.477483, 33.884814, 7, 494),
+                    (35.485399, 33.881194, 7, 593), (35.486209, 33.877556, 7, 649), (35.486155, 33.876384, 7, 663), (35.486208, 33.873462, 7, 702),
+                    (35.485911, 33.863582, 7, 819), (35.486289, 33.860093, 7, 879), (35.493569, 33.859781, 7, 954), (35.493712, 33.858154, 7, 982),
+                    (35.499498, 33.859456, 7, 1066), (35.50302, 33.859115, 7, 1104),
                      
 
                     (35.502304, 33.859348, 8, 0), (35.49441, 33.859983, 8, 77), (35.486012, 33.860569, 8, 175),
@@ -185,6 +196,21 @@ async def main():
                     (35.486205, 33.881807, 14, 349), (35.485441, 33.883307, 14, 373), (35.486451, 33.885695, 14, 409),
                     (35.486998, 33.888785, 14, 448), (35.483837, 33.891497, 14, 524), (35.483317, 33.893952, 14, 559),
                     (35.487638, 33.893756, 14, 611);
+                     
+                     
+                    INSERT INTO feedback (passenger_id, vehicle_id, reaction, complaint) VALUES
+                     (1, 2, True, Null),
+                     (4, 4, False, 'bad condition');
+
+                    INSERT INTO station (route_id, station_name, longitude, latitude) VALUES
+                     (1, 'Dawra 15', 35.5498, 33.8936), (2, 'Naher el Mot 15', 35.5402, 33.8798),
+                     (3, 'Cola-Saida', 35.4948, 33.8756), (4, 'Saida-Beirut', 35.3748, 33.5651),
+                     (5, 'Hamra 4', 35.4855, 33.8969), (6, 'Hay el Selom 4', 35.5156, 33.8292),
+                     (7, 'Sea road', 35.4917, 33.9023), (8, 'Sea road', 35.5025, 33.8591),
+                     (9, 'Hamra 2', 35.4836, 33.8939), (10, 'Antelias 2', 35.5896, 33.9165),
+                     (11, 'Dawra 10', 35.5501, 33.8941), (12, 'Airport 10', 35.4929, 33.8261),
+                     (13, 'Hamra 24', 35.4877, 33.8938), (14, 'Badaro 24', 35.5189, 33.8769);
+
                      """)
     
     
