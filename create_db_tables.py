@@ -21,38 +21,35 @@ def recreate_tables():
                     DROP TABLE IF EXISTS passenger;
                     DROP TABLE IF EXISTS waypoint;
                     DROP TABLE IF EXISTS route;
-                    DROP TABLE IF EXISTS account;
                 
-                    CREATE TABLE account    (id SERIAL PRIMARY KEY,
-                                            account_type VARCHAR(15) NOT NULL, 
+                    CREATE TABLE passenger  (id SERIAL PRIMARY KEY,  
                                             username VARCHAR(255) NOT NULL UNIQUE,
                                             password_hash TEXT NOT NULL,
                                             first_name VARCHAR(255) NOT NULL,
                                             last_name VARCHAR(255) NOT NULL,
-                                            phone_number VARCHAR(20) NOT NULL UNIQUE,
-                                            CONSTRAINT unique_account UNIQUE(id, account_type),
-                                            CONSTRAINT valid_types CHECK (account_type IN ('driver', 'passenger'))
-                                            );
-                    CREATE TABLE passenger  (id INT NOT NULL UNIQUE PRIMARY KEY,  
-                                            account_type VARCHAR(15) NOT NULL DEFAULT 'passenger',
-                                            CONSTRAINT fk_account
-                                                FOREIGN KEY (id, account_type) REFERENCES account(id, account_type),
-                                            CONSTRAINT account_is_passenger CHECK (account_type = 'passenger')
+                                            phone_number VARCHAR(20) UNIQUE,
+                                            email VARCHAR(50) UNIQUE,
+                                            CONSTRAINT phone_or_email
+                                            CHECK ((phone_number IS NOT NULL) OR (email IS NOT NULL))
                                             );
                 
                     CREATE TABLE route (id SERIAL PRIMARY KEY,
                                         file_name VARCHAR(30) NOT NULL
                                         );
                 
-                    CREATE TABLE vehicle   (id INT NOT NULL UNIQUE PRIMARY KEY,
-                                            account_type VARCHAR(15) NOT NULL DEFAULT 'driver',
+                    CREATE TABLE vehicle   (id SERIAL PRIMARY KEY,
+                                            username VARCHAR(255) NOT NULL UNIQUE,
+                                            password_hash TEXT NOT NULL,
+                                            first_name VARCHAR(255) NOT NULL,
+                                            last_name VARCHAR(255) NOT NULL,
+                                            phone_number VARCHAR(20) UNIQUE,
+                                            email VARCHAR(50) UNIQUE,
                                             route_id INT NOT NULL,
                                             status BOOLEAN,
+                                            CONSTRAINT phone_or_email
+                                            CHECK ((phone_number IS NOT NULL) OR (email IS NOT NULL)),
                                             CONSTRAINT fk_route
-                                                FOREIGN KEY(route_id) REFERENCES route(id),
-                                            CONSTRAINT fk_account
-                                                FOREIGN KEY(id, account_type) REFERENCES account(id, account_type),
-                                            CONSTRAINT account_is_driver CHECK (account_type = 'driver')
+                                                FOREIGN KEY(route_id) REFERENCES route(id)
                                             );
                 
                     CREATE TABLE vehicle_location (id SERIAL PRIMARY KEY,

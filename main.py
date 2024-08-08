@@ -1,4 +1,3 @@
-from datetime import timedelta, datetime, timezone
 from typing import Annotated
 from fastapi import FastAPI, Response, status, Depends
 from fastapi.security import OAuth2PasswordRequestForm
@@ -21,9 +20,6 @@ from db_layer import db
 # Get access credentials to database
 load_dotenv(find_dotenv())
 DB_URL = os.getenv("db_url")
-JWT_ALGORITHM = os.getenv("jwt_algorithm")
-AUTHENTICATION_SECRET_KEY = os.getenv("auth_secret_key")
-ACCESS_TOKEN_VALIDITY_TIME_IN_MINUTES = int(os.getenv("access_token_validity_time_in_minutes"))
 # Open connection to database when app starts up
 # and close the connection when the app shuts down
 # Also load routes
@@ -61,8 +57,10 @@ app.add_middleware(
 
 @app.post("/signup", status_code=status.HTTP_200_OK)
 async def signup(account_data: Account_Info, response: Response):
-    phone_num_av = await db.check_phone_number_available(account_data.phone_number)
-    username_av = await db.check_username_available(account_data.username)
+    account_type = account_data.account_type
+    phone_num_av = await db.check_phone_number_available(account_data.phone_number, account_type)
+    username_av = await db.check_username_available(account_data.username, account_type)
+    email_av = await db.check_email_available(account_data.email, account_data.account_type)
     if not phone_num_av:
         response.status_code = status.HTTP_409_CONFLICT
         return {"message": "Sign-up failed. Phone number already in use."}
@@ -71,36 +69,41 @@ async def signup(account_data: Account_Info, response: Response):
         response.status_code = status.HTTP_409_CONFLICT
         return {"message": "Sign-up failed. Username already in use."}
     
+    if not email_av:
+        response.status_code = status.HTTP_409_CONFLICT
+        return {"message": "Sign-up failed. Email already in use."}
+
     password_hash = authentication.hash_password(account_data.password)
-    
+    print(account_data.password)
     await db.add_account(Account_DB_Entry(
         account_type=account_data.account_type,
         username=account_data.username,
         password_hash=password_hash,
         first_name=account_data.first_name,
         last_name=account_data.last_name,
-        phone_number=account_data.phone_number
+        phone_number=account_data.phone_number,
+        email=account_data.email,
+        status=account_data.status,
+        route_id=account_data.route_id
                      ))
     
 
-@app.post("/login", status_code=status.HTTP_200_OK)
-async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], response: Response):
-    user = await authentication.get_user(form_data.username, form_data.password)
+@app.post("/login/{account_type}", status_code=status.HTTP_200_OK)
+async def login(account_type: str, form_data: Annotated[OAuth2PasswordRequestForm, Depends()], response: Response):
+    user = await authentication.get_user(form_data.username, form_data.password, account_type)
     if user is None:
         response.status_code = status.HTTP_401_UNAUTHORIZED
         return {"message": "Invalid credentials."}
-    token_validity_time =  datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_VALIDITY_TIME_IN_MINUTES)
-    token_data = {"sub": user["username"], "exp": token_validity_time}
+    token_data = {"sub": user["username"], "type": account_type}
     access_token = authentication.create_access_token(
-        token_data=token_data, secret_key=AUTHENTICATION_SECRET_KEY,
-        encoding_algorithm=JWT_ALGORITHM
+        token_data=token_data
     )
     return {"message": "All good.", "token": {"access_token": access_token, "token_type": "bearer"}}
 
 
 
 @app.get("/vehicle_location/{vehicle_id}", status_code=status.HTTP_200_OK)
-async def get_vehicle_location(vehicle_id: int, response: Response):
+async def get_vehicle_location(vehicle_id: int, response: Response, user_info : authentication.authorize_passenger):
     entry = await db.get_vehicle_location(vehicle_id)
     if entry is None:
         response.status_code = status.HTTP_404_NOT_FOUND
@@ -110,7 +113,7 @@ async def get_vehicle_location(vehicle_id: int, response: Response):
     return {"message": "All Good.", "longitude": entry["longitude"], "latitude" : entry["latitude"]}
 
 @app.post("/vehicle_location", status_code=status.HTTP_200_OK)
-async def post_vehicle_location(vehicle_location_data: vehicle_location, response: Response):
+async def post_vehicle_location(vehicle_location_data: vehicle_location, response: Response, user_info : authentication.authorize_vehicle):
     vehicle_id, latitude, longitude = vehicle_location_data.vehicle_id, vehicle_location_data.latitude, vehicle_location_data.longitude
     try:
         await db.add_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
