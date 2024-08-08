@@ -6,6 +6,8 @@ import os
 from copy import deepcopy
 from fuzzywuzzy import fuzz, process
 import json
+from fastapi import Response, status
+import asyncpg
 
 load_dotenv(find_dotenv())
 
@@ -72,14 +74,19 @@ def trim_waypoints_list(waypoints, start, end, route=None, start_projection_inde
             + waypoints[start_way_point_index:end_way_point_index] + \
             [tuple(route[end_projection_index]) + (end_projection_index,)]
 
+#For later use
+def get_remaining_route(route, start):
+    start_proj_i = project_point_on_route(start, route)[0]
+    return route[start_proj_i:]
 
 def geojsonify_vehicle_list(vehicle_list):
     for i, vehicle in enumerate(vehicle_list):
         vehicle_list[i] = {
                             "type": "Feature", 
                             "properties": {
-                                 "vehicle_id": vehicle["vehicle_id"],
-                                 "status": vehicle["status"]
+                                 "id": vehicle["id"],
+                                 "status": vehicle["status"],
+                                 "license_plate" : vehicle["license_plate"]
                                 },
                             "geometry": {
                                  "type": "Point",
@@ -108,8 +115,10 @@ def get_time_estimation(waypoints, token, mode):
     response = requests.get(url, params=params)
     return response.json()["routes"][0]["duration"]
 
+def before_on_route(point_a, point_b, route):
+    return project_point_on_route(point_a, route)[0] < project_point_on_route(point_b, route)[0]
+
 def filter_vehicles__pick_up(pick_up, vehicles, route):
-    print("EDFI")
     vehicles = deepcopy(vehicles)
     long, lat = pick_up
 
@@ -247,3 +256,77 @@ def search(word: str, routes_info: list, sliced_info: list, busses_info: list):
 
     output_json = json.dumps(output, indent=2) #trun output into json format
     return (output_json)
+
+
+async def feedback(passenger_id: int, vehicle_id: int, response: Response):
+    result = await db.get_feedback(passenger_id,vehicle_id)
+    if (result is None) or not result:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"message": "feedback not found."}
+    else:
+        return {"message": "All Good", "feedback":result}
+
+async def passenger_feedbacks(passenger_id: int, response: Response):
+    result = await db.get_passenger_feedbacks(passenger_id)
+    if (result is None) or not result:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"message": "passenger never submitted feedbacks."}
+    else:
+        return {"message": "All Good", "feedbacks":result}
+    
+async def vehicle_feedbacks(vehicle_id: int, response: Response):
+    result = await db.get_vehicle_feedbacks(vehicle_id)
+    if (result is None) or not result:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"message": "no feedbacks on given vehicle."}
+    else:
+        return {"message": "All Good", "feedbacks":result}
+
+async def all_feedbacks(response: Response):
+    result = await db.get_all_feedbacks()
+    if (result is None) or not result:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"message": "no feedbacks."}
+    else:
+        return {"message": "All Good", "feedbacks":result}
+
+
+
+async def get_nearby_routes_to_1_point(long, lat, radius, routes):
+    close_routes = []
+    routes_distances = {}
+    for route_id, route_data in routes:
+        route_coords = route_data["line"]["geometry"]["coordinates"]
+        min_distance = project_point_on_route((long, lat), route_coords)[1]
+        print("checking " + route_data["details"]["route_name"] + "...")
+        if min_distance <= radius:
+            routes_distances[route_id] = min_distance
+            route_vehicles = await db.get_route_vehicles(route_id)
+            for vehicle in route_vehicles:
+                del vehicle["longitude"]
+                del vehicle["latitude"]
+            route_data["vehicles"] = route_vehicles
+            close_routes.append(route_data)
+    close_routes.sort(key=lambda route: routes_distances[route["details"]["route_id"]])
+    return close_routes
+
+
+async def get_nearby_routes_to_2_point(long, lat, radius, long2, lat2, radius2, routes):
+    close_routes = []
+    routes_distances = {}
+    for route_id, route_data in routes:
+        route_coords = route_data["line"]["geometry"]["coordinates"]
+        min_distance = project_point_on_route((long, lat), route_coords)[1]
+        min_distance2 = project_point_on_route((long2, lat2), route_coords)[1]
+        print("checking " + route_data["details"]["route_name"] + "...")
+        if min_distance <= radius and min_distance2 <=radius2:
+            routes_distances[route_id] = min_distance
+            route_vehicles = await db.get_route_vehicles(route_id)
+            for vehicle in route_vehicles:
+                del vehicle["longitude"]
+                del vehicle["latitude"]
+            route_data["vehicles"] = route_vehicles
+            close_routes.append(route_data)
+    close_routes.sort(key=lambda route: routes_distances[route["details"]["route_id"]])
+    return close_routes
+            

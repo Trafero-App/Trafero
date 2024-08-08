@@ -93,6 +93,7 @@ async def main():
                      ('bus_24_1.geojson', 'Bus (24) (Hamra - Badaro)', 'Hamra - Verdun - Corniche el Mazraa - Mathaf - Adliye - Badaro', '6:00 AM - 7:00 PM', 'Monday -> Sunday', '24 seats', 'Rabah Transport', '50.000 LL'), 
                      ('bus_24_2.geojson', 'Bus 24 (Badaro - Hamra)', 'Badaro - Adliye - Mathaf - Corniche el Mazraa - Verdun - Hamra', '6:00 AM - 7:00 PM', 'Monday -> Sunday', '24 seats', 'Rabah Transport', '50.000 LL');
 
+
                     INSERT INTO vehicle (route_id, phone_number, status) VALUES 
                      (2, '11111112', TRUE), (2, '11111113', TRUE),
                      (2, '11111114', TRUE), (1, '11111115', TRUE), (1, '11111116', TRUE);
@@ -195,6 +196,11 @@ async def main():
                     (35.486205, 33.881807, 14, 349), (35.485441, 33.883307, 14, 373), (35.486451, 33.885695, 14, 409),
                     (35.486998, 33.888785, 14, 448), (35.483837, 33.891497, 14, 524), (35.483317, 33.893952, 14, 559),
                     (35.487638, 33.893756, 14, 611);
+                     
+                     
+                    INSERT INTO feedback (passenger_id, vehicle_id, reaction, complaint) VALUES
+                     (1, 2, True, Null),
+                     (4, 4, False, 'bad condition');
                      """)
     
     

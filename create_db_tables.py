@@ -14,7 +14,9 @@ def recreate_tables():
 
     cur = conn.cursor()
 
-    cur.execute(""" DROP TABLE IF EXISTS passenger;
+    cur.execute(""" 
+                    DROP TABLE IF EXISTS feedback;
+                    DROP TABLE IF EXISTS passenger;
                     DROP TABLE IF EXISTS vehicle_location;
                     DROP TABLE IF EXISTS vehicle;
                     DROP TABLE IF EXISTS waypoint;
@@ -43,6 +45,11 @@ def recreate_tables():
                                             route_id INT NOT NULL,
                                             phone_number VARCHAR(20) NOT NULL,
                                             status BOOLEAN,
+                                            type VARCHAR(30),
+                                            brand VARCHAR(30),
+                                            model VARCHAR(30),
+                                            license_plate VARCHAR(30),
+                                            color VARCHAR(20),
                                             CONSTRAINT fk_route
                                                 FOREIGN KEY(route_id) REFERENCES route(id)
                                             );
@@ -64,6 +71,23 @@ def recreate_tables():
                                            CONSTRAINT fk_route
                                                 FOREIGN KEY(route_id)
                                                     REFERENCES route(id)
+                                                );
+                    CREATE TABLE feedback  (id SERIAL PRIMARY KEY,
+                                            passenger_id INT NOT NULL,
+                                            vehicle_id INT NOT NULL,
+                                            reaction BOOLEAN,
+                                            complaint VARCHAR(255),
+                                            CONSTRAINT fk_passenger
+                                                FOREIGN KEY(passenger_id)
+                                                    REFERENCES passenger(id),
+                                            CONSTRAINT fk_vehicle
+                                                FOREIGN KEY(vehicle_id)
+                                                    REFERENCES vehicle(id),
+                                            CONSTRAINT not_empty
+                                                CHECK  ((reaction IS NOT NULL) OR
+                                                        (complaint IS NOT NULL)),
+                                            CONSTRAINT unique_feedback
+                                                UNIQUE(passenger_id, vehicle_id)
                                                 );
                 """)
 
