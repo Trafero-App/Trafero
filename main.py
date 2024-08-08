@@ -14,7 +14,8 @@ import helper
 from db_layer import db
 from copy import deepcopy
 # For data validation
-
+import json
+from fuzzywuzzy import fuzz, process
 
 # Get access credentials to database
 load_dotenv(find_dotenv())
@@ -28,13 +29,16 @@ async def lifespan(app: FastAPI):
     await db.connect(DB_URL)
 
     app.state.routes = {}
-    
+    app.state.routes_search_data = []
     routes_data = await db.get_all_routes_data()
-    for route_data in routes_data:
-        route_geojson = await db.get_route_geojson(route_data["file_name"])
-        del route_data["file_name"]
+    for route_data in routes_data:        
+        route_data = {"details": route_data}
+        route_geojson = await db.get_route_geojson(route_data["details"]["file_name"])
+        del route_data["details"]["file_name"]
         route_data["line"] = route_geojson
-        app.state.routes[route_data["route_id"]] = route_data
+        app.state.routes[route_data["details"]["route_id"]] = route_data
+
+        app.state.routes_search_data.append(((route_data["details"]["route_id"],) + tuple(route_data["details"]["description"].split(' - '))))
 
     yield
     
@@ -64,7 +68,6 @@ async def get_vehicle_location(vehicle_id: int, response: Response):
     if entry is None:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message" : "Error: Vehicle location is not available."}
-    
     
     return {"message": "All Good.", "longitude": entry["longitude"], "latitude" : entry["latitude"]}
 
@@ -97,6 +100,15 @@ async def put_vehicle_location(vehicle_location_data: vehicle_location, response
                             Maybe you mean to send a POST request?"""}
     else:
         return {"message": "All Good."}
+    
+
+@app.get("/route_details/{route_id}", status_code=status.HTTP_200_OK)
+async def route_details(route_id: int, response:Response):
+    if route_id not in app.state.routes:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"message": "Route not found"}
+    return app.state.routes[route_id]["details"]
+
 
 @app.get("/route/{requested_route_id}", status_code=status.HTTP_200_OK)
 async def route(requested_route_id: int, response: Response):
@@ -194,7 +206,7 @@ async def route_vehicles_eta(route_id:int, response: Response,
 async def get_vehicle(vehicle_id: int):
     vehicle_details = await db.get_vehicle_details(vehicle_id)
     vehicle_route = app.state.routes[vehicle_details["route_id"]]
-    vehicle_details["route_name"] = vehicle_route["route_name"]
+    vehicle_details["route_name"] = vehicle_route["details"]["route_name"]
     vehicle_details["remaining_route"] = {
         "type": "Feature",
         "properties": {},
@@ -256,6 +268,33 @@ async def nearby_routes(long:float, lat:float, radius:float,
         close_routes = await helper.get_nearby_routes_to_1_point(long, lat, radius, app.state.routes.items())
     return {"message": "All Good.", "routes": close_routes}
 
+@app.get("/search_routes/{query}", status_code=status.HTTP_200_OK)
+async def search_routes(query: str):
+    print(app.state.routes_search_data[0])
+    print(app.state.routes_search_data[1])
+    route_ids = helper.search_routes(query, app.state.routes_search_data)
+    res = []
+    for route_id in route_ids:
+        res.append({
+            "route_id": route_id,
+            "route_name": app.state.routes[route_id]["details"]["route_name"],
+            "description": app.state.routes[route_id]["details"]["description"]
+        })
+    return {"message": "All good.", "routes": res}
+
+
+@app.get("/search_vehicles/{query}", status_code=status.HTTP_200_OK)
+async def search_vehicles(query: str):
+    vehicles_search_info = await db.get_vehicles_search_info()
+    
+    vehicles_indices = helper.search_vehicles(query, vehicles_search_info)
+    res = [vehicles_search_info[i] for i in vehicles_indices]
+
+    return {"message": "All good.", "vehicles": res}
+
+
+
+# feedback path operations
 @app.post("/feedback/post", status_code=status.HTTP_200_OK)
 async def post_feedback(passenger_id: int, vehicle_id: int, review: Review, response: Response):
     try:
@@ -293,17 +332,9 @@ async def put_feedback(passenger_id: int, vehicle_id: int, review: Review, respo
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {"message": "Error: 'review' cannot be NULL. Maybe you meant a DELETE request?."}
     
-@app.delete("/feedback/delete/{passenger_id}/{vehicle_id}", status_code=status.HTTP_200_OK)
-async def delete_feedback(passenger_id: int, vehicle_id: int, response: Response):
-    result = await db.remove_feedback(passenger_id, vehicle_id)
-    if result == "DELETE 0":
-        response.status_code = status.HTTP_400_BAD_REQUEST
-        return {"message" : """Error: You have attempted to delete a feedback that doesn't exist."""}
-    else:
-        return {"message": "All Good."}
-
-@app.delete("/feedback/delete/passenger/{passenger_id}", status_code=status.HTTP_200_OK)
+@app.delete("/feedback/delete/passenger/{passenger_id}")
 async def delete_passenger_feedbacks(passenger_id: int, response: Response):
+    print("L")
     result = await db.remove_passenger_feedbacks(passenger_id)
     if result == "DELETE 0":
         response.status_code = status.HTTP_400_BAD_REQUEST
@@ -319,10 +350,20 @@ async def delete_vehicle_feedbacks( vehicle_id: int, response: Response):
         return {"message" : """Error: You have attempted to delete a feedback that doesn't exist."""}
     else:
         return {"message": "All Good."}
+    
+@app.delete("/feedback/delete/{passenger_id}/{vehicle_id}", status_code=status.HTTP_200_OK)
+async def delete_feedback(passenger_id: int, vehicle_id: int, response: Response):
+    result = await db.remove_feedback(passenger_id, vehicle_id)
+    if result == "DELETE 0":
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message" : """Error: You have attempted to delete a feedback that doesn't exist."""}
+    else:
+        return {"message": "All Good."}
 
-@app.get("/feedback/get/{passenger_id}/{vehicle_id}", status_code=status.HTTP_200_OK)
-async def get_feedback(passenger_id: int, vehicle_id: int, response: Response):
-    result = await helper.feedback(passenger_id, vehicle_id, response)
+
+@app.get("/feedback/get/passenger/{passenger_id}", status_code=status.HTTP_200_OK)
+async def get_passenger_feedbacks(passenger_id: int, response: Response):
+    result = await helper.passenger_feedbacks(passenger_id, response)
     return result
 
 @app.get("/feedback/get/vehicle/{vehicle_id}", status_code=status.HTTP_200_OK)
@@ -330,9 +371,9 @@ async def get_vehicle_feedbacks(vehicle_id: int, response: Response):
     result = await helper.vehicle_feedbacks(vehicle_id, response)
     return result
 
-@app.get("/feedback/get/passenger/{passenger_id}", status_code=status.HTTP_200_OK)
-async def get_passenger_feedbacks(passenger_id: int, response: Response):
-    result = await helper.passenger_feedbacks(passenger_id, response)
+@app.get("/feedback/get/{passenger_id}/{vehicle_id}", status_code=status.HTTP_200_OK)
+async def get_feedback(passenger_id: int, vehicle_id: int, response: Response):
+    result = await helper.feedback(passenger_id, vehicle_id, response)
     return result
 
 @app.get("/feedback/get", status_code=status.HTTP_200_OK)

@@ -33,8 +33,13 @@ def recreate_tables():
                 
                     CREATE TABLE route (id SERIAL PRIMARY KEY,
                                         file_name VARCHAR(30) NOT NULL,
-                                        name VARCHAR(50) NOT NULL,
-                                        description TEXT NOT NULL
+                                        route_name VARCHAR(50),
+                                        description VARCHAR(255),
+                                        working_hours VARCHAR(50),
+                                        active_days VARCHAR(50),
+                                        capacity VARCHAR(50),
+                                        company_name VARCHAR(50),
+                                        expected_price VARCHAR(50)
                                         );
                 
                     CREATE TABLE vehicle   (id SERIAL PRIMARY KEY,
@@ -44,7 +49,7 @@ def recreate_tables():
                                             type VARCHAR(30),
                                             brand VARCHAR(30),
                                             model VARCHAR(30),
-                                            license_plate VARCHAR(30),
+                                            license_plate VARCHAR(30) NOT NULL,
                                             color VARCHAR(20),
                                             CONSTRAINT fk_route
                                                 FOREIGN KEY(route_id) REFERENCES route(id)
