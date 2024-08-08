@@ -67,6 +67,7 @@ def recreate_tables():
                                                 FOREIGN KEY(route_id)
                                                     REFERENCES route(id)
                                                 );
+                
                     CREATE TABLE feedback  (id SERIAL PRIMARY KEY,
                                             passenger_id INT NOT NULL,
                                             vehicle_id INT NOT NULL,
@@ -83,6 +84,16 @@ def recreate_tables():
                                                         (complaint IS NOT NULL)),
                                             CONSTRAINT unique_feedback
                                                 UNIQUE(passenger_id, vehicle_id)
+                                                );
+                
+                    CREATE TABLE station   (id SERIAL PRIMARY KEY,
+                                            route_id INT NOT NULL,
+                                            station_name VARCHAR(50),
+                                            longitude DECIMAL NOT NULL,
+                                            latitude DECIMAL NOT NULL,
+                                                CONSTRAINT fk_route
+                                                    FOREIGN KEY(route_id)
+                                                        REFERENCES route(id)
                                                 );
                 """)
 
