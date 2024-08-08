@@ -14,7 +14,8 @@ import helper
 from db_layer import db
 from copy import deepcopy
 # For data validation
-
+import json
+from fuzzywuzzy import fuzz, process
 
 # Get access credentials to database
 load_dotenv(find_dotenv())
@@ -265,6 +266,14 @@ async def nearby_routes(long:float, lat:float, radius:float,
         close_routes = await helper.get_nearby_routes_to_1_point(long, lat, radius, app.state.routes.items())
     return {"message": "All Good.", "routes": close_routes}
 
+@app.get("/search/{word}", status_code=status.HTTP_200_OK)
+async def search(word: str):
+    routes_info = await db.get_routes_info_search()
+    sliced_info = await db.get_sliced_info_search()
+    busses_info = await db.get_busses_info_search()
+    return helper.search(word, routes_info, sliced_info, busses_info)
+  
+  
 # feedback path operations
 @app.post("/feedback/post", status_code=status.HTTP_200_OK)
 async def post_feedback(passenger_id: int, vehicle_id: int, review: Review, response: Response):

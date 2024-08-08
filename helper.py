@@ -4,6 +4,8 @@ from db_layer import db
 from dotenv import load_dotenv, find_dotenv
 import os
 from copy import deepcopy
+from fuzzywuzzy import fuzz, process
+import json
 from fastapi import Response, status
 import asyncpg
 
@@ -156,6 +158,104 @@ async def filter_vehicles__time(cur_location, pick_up, vehicles, route_geojson):
     return []
 
 
+def search(word: str, routes_info: list, sliced_info: list, busses_info: list):
+    output = {} #output dictionary
+    routes_result = [] 
+    busses_result = []
+    filtered_routes_result = []
+
+    
+    #This list takes tuples of the form (id, route_name, description) from TABLE route
+    routes_info = [
+            (1,'Bus 15 (Dawra - Nahr al Mot)', 'Dawra - Port - Biel - Ain el Mrayse - Raouche - Unesco - Cola - Corniche el Mazraa - Barbir - Mathaf - Adliye - Souk el Ahad - Nahr el Mot'), 
+            (2,'Bus 15 (Nahr al Mot - Dawra)', 'Nahr al Mot - Souk el Ahad - Adliye - Mathaf - Barbir - Corniche el Mazraa - Cola - Unesco - Raouche - Ain el Mrayse - Biel - Port - Dawra'), 
+            (3,'Van Saida (Beirut - Saida)', 'Cola - Madine al Riyadiye - Airport Highway - Khalde - Doha - Nahmeh - Damour - Jiye - Jadra - Saida (sehit nejme)'), 
+            (4,'Van Saida (Saida - Beirut)', 'Saida (Sehit Nejme) - Jadra - Jiye - Damour - Nahmeh - Doha - Khalde - Airport Highway - Madine al Riyadiye - Cola'), 
+            (5,'Van 4 (Hamra - Hay el Selom)', 'Hamra - Spears - Bechara el Khoury - Horsh Beirut - Old Saida Road - Haret Hreik - Hadath - Lailake - Hay el Selom'), 
+            (6,'Van 4 (Hay el Selom - Hamra)', 'Hay el Selom - Lailake - Hadath - Haret Hreik - Old Saida Road - Horsh Beirut - Bechara el Khoury - Spears - Hamra'), 
+            (7,'Van (Ain el Mrayse - Jesr al Matar)', 'Ain el Mrayse - Manara - Raouche - Unesco - Jnah - Bir Hassan - Rihab - Jesr al Matar'), 
+            (8,'Van (Jesr al Matar - Ain el Mrayse)', 'Jesr al Matar - Rihab - Bir Hassan - Jnah - Unesco - Raouche - Manara - Ain el Mrayse'), 
+            (9,'Bus 2 (Hamra - Antelias)', 'Hamra - Tallet al Drouz - Mar Elias - Basta al Tahta - Achrafiye - Karantina - Borj Hammoud - Baouchriyeh - Jdeideh - Zalqa - Jal el Dib - Antelias'), 
+            (10,'Bus 2 (Antelias - Hamra)', 'Antelias - Jal el Dib - Zalqa - Jdeideh - Baouchriyeh - Borj Hammoud - Karantina - Achrafiye - Basta al Tahta - Mar Elias - Tallet al Drouz - Hamra'), 
+            (11,'Van 10 (Dawra - Matar)', 'Dawra - Port - Bechara el Khoury - Horsh beirut - Borj al Barajne - Tohwitet el Ghadir - Airport'), 
+            (12,'Van 10 (Matar - Dawra)', 'Airport - Tohwitet el Ghadir - Borj al Barajne - Horsh Beirut - Bechara el Khoury - Port - Dawra'), 
+            (13,'Bus 24 (Hamra - Badaro)', 'Hamra - Verdun - Corniche el Mazraa - Mathaf - Adliye - Badaro'), 
+            (14,'Bus 24 (Badaro - Hamra)', 'Badaro - Adliye - Mathaf - Corniche el Mazraa - Verdun - Hamra') 
+        ]
+    
+    #This list takes tuples containing sliced str from above list
+    sliced_info = [
+        (1, 'Bus 15', 'Dawra', 'Nahr al Mot', 'Dawra', 'Port', 'Biel', 'Ain el Mrayse', 'Raouche', 'Unesco', 'Cola', 'Corniche el Mazraa', 'Barbir', 'Mathaf', 'Adliye', 'Souk el Ahad', 'Nahr el Mot'),
+        (2, 'Bus 15', 'Nahr al Mot', 'Dawra', 'Nahr al Mot', 'Souk el Ahad', 'Adliye', 'Mathaf', 'Barbir', 'Corniche el Mazraa', 'Cola', 'Unesco', 'Raouche', 'Ain el Mrayse', 'Biel', 'Port', 'Dawra'),
+        (3, 'Van Saida', 'Beirut', 'Saida', 'Cola', 'Madine al Riyadiye', 'Airport Highway', 'Khalde', 'Doha', 'Nahmeh', 'Damour', 'Jiye', 'Jadra', 'Saida', 'sehit nejme'),
+        (4, 'Van Saida', 'Saida', 'Sehit', 'Nejme', 'Jadra', 'Jiye', 'Damour', 'Nahmeh', 'Doha', 'Khalde', 'Airport Highway', 'Madine al Riyadiye', 'Cola'),
+        (5, 'Van 4', 'Hamra', 'Hay el Selom', 'Hamra', 'Spears', 'Bechara el Khoury', 'Horsh Beirut', 'Old Saida Road', 'Haret Hreik', 'Hadath', 'Lailake', 'Hay el Selom'),
+        (6, 'Van 4', 'Hay el Selom', 'Hamra', 'Hay el Selom', 'Lailake', 'Hadath', 'Haret Hreik', 'Old Saida Road', 'Horsh Beirut', 'Bechara el Khoury', 'Spears', 'Hamra'),
+        (7, 'Van Bahre', 'Ain el Mrayse', 'Jesr al Matar', 'Ain el Mrayse', 'Manara', 'Raouche', 'Unesco', 'Jnah', 'Bir Hassan', 'Rihab', 'Jesr al Matar'),
+        (8, 'Van Bahre', 'Jesr al Matar', 'Ain el Mrayse', 'Jesr al Matar', 'Rihab', 'Bir Hassan', 'Jnah', 'Unesco', 'Raouche', 'Manara', 'Ain el Mrayse'),
+        (9, 'Bus 2', 'Hamra', 'Antelias', 'Hamra', 'Tallet al Drouz', 'Mar Elias', 'Basta al Tahta', 'Achrafiye', 'Karantina', 'Borj Hammoud', 'Baouchriyeh', 'Jdeideh', 'Zalqa', 'Jal el Dib', 'Antelias'),
+        (10, 'Bus 2', 'Antelias', 'Hamra', 'Antelias', 'Jal el Dib', 'Zalqa', 'Jdeideh', 'Baouchriyeh', 'Borj Hammoud', 'Karantina', 'Achrafiye', 'Basta al Tahta', 'Mar Elias', 'Tallet al Drouz', 'Hamra'),
+        (11, 'Van 10', 'Dawra', 'Matar', 'Dawra', 'Port', 'Bechara el Khoury', 'Horsh Beirut', 'Borj al Barajne', 'Tohwitet el Ghadir', 'Airport'),
+        (12, 'Van 10', 'Matar', 'Dawra', 'Airport', 'Tohwitet el Ghadir', 'Borj al Barajne', 'Horsh Beirut', 'Bechara el Khoury', 'Port', 'Dawra'),
+        (13, 'Bus 24', 'Hamra', 'Badaro', 'Hamra', 'Verdun', 'Corniche el Mazraa', 'Mathaf', 'Adliye', 'Badaro'),
+        (14, 'Bus 24', 'Badaro', 'Hamra', 'Badaro', 'Adliye', 'Mathaf', 'Corniche el Mazraa', 'Verdun', 'Hamra')
+    ]
+
+    #This list takes tuples of the form (id, license_plate, status) from TABLE vehicle
+    busses_info =  [ (2, 'A 111112', 'active'), (2, 'B 111113', 'active'), (2, 'N 11114', 'unavailable'), (1, 'T 11115', 'out of service zone'), (1, 'Z 111116', 'active') ]
+
+
+    for i, element in enumerate(sliced_info):
+        temp_result = ['score', {"route_id": 0, "route_name": "", "description": ""}]
+        temp_score = (process.extract(word, element[1:]))[0][-1]
+
+        if temp_score >=80:
+            temp_result[0] = temp_score
+            temp_result[1]["route_id"] = routes_info[i][0]
+            temp_result[1]["route_name"] = routes_info[i][1]
+            temp_result[1]["description"] = routes_info[i][2]
+            routes_result.append(temp_result)
+
+        else:
+            for j in range (1, len(element)):
+                temp_score = fuzz.partial_ratio(word, element[j])
+                if temp_score >=80:
+                        temp_result[0] = temp_score
+                        temp_result[1]["route_id"] = routes_info[i][0]
+                        temp_result[1]["route_name"] = routes_info[i][1]
+                        temp_result[1]["description"] = routes_info[i][2]
+                        routes_result.append(temp_result)
+                        break
+                
+    if routes_result != []:
+        max_score = max(res[0] for res in routes_result)
+        if max_score >=90:
+            for res in routes_result:
+                if res[0]>=90:      
+                    filtered_routes_result.append(res[1])
+            output["routes"] = filtered_routes_result
+            
+        else:
+            for res in routes_result:
+                 filtered_routes_result.append(res[1])
+            output["routes"] = filtered_routes_result
+
+
+    for element in busses_info:
+        tempo_result = {"id": 0, "license_plate": "", "status": ""}
+        x = fuzz.partial_ratio(word, element[1])
+        y = process.extract(word, (element[1],''))
+        if max(x,y[0][-1])>=90:
+                tempo_result["id"] = element[0]
+                tempo_result["license_plate"] = element[1]
+                tempo_result["status"] = element[2]
+                busses_result.append(tempo_result)
+
+    if busses_result != []:
+        output["busses"] = busses_result
+
+    output_json = json.dumps(output, indent=2) #trun output into json format
+    return (output_json)
 
 
 async def feedback(passenger_id: int, vehicle_id: int, response: Response):
