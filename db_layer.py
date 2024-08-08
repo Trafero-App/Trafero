@@ -40,8 +40,11 @@ class db:
     async def get_all_routes_data(cls):
         async with cls.db_pool.acquire() as con:
             routes_data = [
-                            {"route_id": record[0], "file_name": record[1], "route_name": record[2], "description": record[3]}
-                            for record in await con.fetch("SELECT id, file_name, name, description FROM route")
+                            {"route_id": record[0], "file_name": record[1], "route_name": record[2],
+                             "description": record[3], "working_hours": record[4], "active_days": record[5],
+                             "capacity": record[6], "company_name": record[7], "expected_price":record[8]}
+                            for record in await con.fetch("""SELECT id, file_name, route_name, description,
+                                                          working_hours, active_days, capacity, company_name, expected_price FROM route""")
                           ]
             return routes_data
 
@@ -98,6 +101,13 @@ class db:
             details["route_id"] = vehicle_info[6]
             
         return details
+    
+    @classmethod
+    async def get_vehicles_search_info(cls):
+        async with cls.db_pool.acquire() as con:
+            result = await con.fetch("""SELECT (id, license_plate, status) FROM vehicle""")
+        return [tuple(record[0]) for record in result]
+    
     @classmethod
     async def get_route_waypoints(cls, route_id):
         async with cls.db_pool.acquire() as con:
