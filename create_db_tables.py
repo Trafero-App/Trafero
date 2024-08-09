@@ -20,15 +20,19 @@ def recreate_tables():
                     DROP TABLE IF EXISTS passenger;
                     DROP TABLE IF EXISTS vehicle_location;
                     DROP TABLE IF EXISTS vehicle;
+                    DROP TABLE IF EXISTS passenger;
                     DROP TABLE IF EXISTS waypoint;
                     DROP TABLE IF EXISTS route;
                 
-                    CREATE TABLE passenger (id SERIAL PRIMARY KEY,
-                                            user_name VARCHAR(255) NOT NULL UNIQUE,
-                                            password TEXT NOT NULL,
+                    CREATE TABLE passenger  (id SERIAL PRIMARY KEY,  
+                                            username VARCHAR(255) NOT NULL UNIQUE,
+                                            password_hash TEXT NOT NULL,
                                             first_name VARCHAR(255) NOT NULL,
                                             last_name VARCHAR(255) NOT NULL,
-                                            phone_number VARCHAR(20) NOT NULL UNIQUE
+                                            phone_number VARCHAR(20) UNIQUE,
+                                            email VARCHAR(50) UNIQUE,
+                                            CONSTRAINT phone_or_email
+                                            CHECK ((phone_number IS NOT NULL) OR (email IS NOT NULL))
                                             );
                 
                     CREATE TABLE route (id SERIAL PRIMARY KEY,
@@ -43,14 +47,21 @@ def recreate_tables():
                                         );
                 
                     CREATE TABLE vehicle   (id SERIAL PRIMARY KEY,
+                                            username VARCHAR(255) NOT NULL UNIQUE,
+                                            password_hash TEXT NOT NULL,
+                                            first_name VARCHAR(255) NOT NULL,
+                                            last_name VARCHAR(255) NOT NULL,
+                                            phone_number VARCHAR(20) UNIQUE,
+                                            email VARCHAR(50) UNIQUE,
                                             route_id INT NOT NULL,
-                                            phone_number VARCHAR(20) NOT NULL,
                                             status VARCHAR(20) NOT NULL,
                                             type VARCHAR(30),
                                             brand VARCHAR(30),
                                             model VARCHAR(30),
                                             license_plate VARCHAR(30) NOT NULL,
                                             color VARCHAR(20),
+                                            CONSTRAINT phone_or_email
+                                            CHECK ((phone_number IS NOT NULL) OR (email IS NOT NULL)),
                                             CONSTRAINT fk_route
                                                 FOREIGN KEY(route_id) REFERENCES route(id),
                                             CONSTRAINT legal_statuses

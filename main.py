@@ -1,4 +1,6 @@
-from fastapi import FastAPI, Response, status
+from typing import Annotated
+from fastapi import FastAPI, Response, status, Depends
+from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 
 from contextlib import asynccontextmanager
@@ -6,11 +8,11 @@ import asyncpg
 import os
 from dotenv import load_dotenv, find_dotenv
 
-from validation_classes import Point, vehicle_location, Review
+from validation_classes import vehicle_location, Account_Info, Account_DB_Entry, Review
 
-import geojson
 
 import helper
+import authentication
 from db_layer import db
 from copy import deepcopy
 # For data validation
@@ -20,6 +22,7 @@ from fuzzywuzzy import fuzz, process
 # Get access credentials to database
 load_dotenv(find_dotenv())
 DB_URL = os.getenv("db_url")
+
 MAPBOX_TOKEN = os.getenv("mapbox_token")
 VEHICLE_TO_ROUTE_THRESHOLD = int(os.getenv("vehicle_to_route_threshold"))
 # Open connection to database when app starts up
@@ -45,7 +48,6 @@ async def lifespan(app: FastAPI):
     
     await db.disconnect()
 
-
 app = FastAPI(lifespan=lifespan)
 
 # Allow only specific origins to make requests
@@ -62,9 +64,54 @@ app.add_middleware(
 
 )
 
+@app.post("/signup", status_code=status.HTTP_200_OK)
+async def signup(account_data: Account_Info, response: Response):
+    account_type = account_data.account_type
+    phone_num_av = await db.check_phone_number_available(account_data.phone_number, account_type)
+    username_av = await db.check_username_available(account_data.username, account_type)
+    email_av = await db.check_email_available(account_data.email, account_data.account_type)
+    if not phone_num_av:
+        response.status_code = status.HTTP_409_CONFLICT
+        return {"message": "Sign-up failed. Phone number already in use."}
+    
+    if not username_av:
+        response.status_code = status.HTTP_409_CONFLICT
+        return {"message": "Sign-up failed. Username already in use."}
+    
+    if not email_av:
+        response.status_code = status.HTTP_409_CONFLICT
+        return {"message": "Sign-up failed. Email already in use."}
+
+    password_hash = authentication.hash_password(account_data.password)
+    await db.add_account(Account_DB_Entry(
+        account_type=account_data.account_type,
+        username=account_data.username,
+        password_hash=password_hash,
+        first_name=account_data.first_name,
+        last_name=account_data.last_name,
+        phone_number=account_data.phone_number,
+        email=account_data.email,
+        status=account_data.status,
+        route_id=account_data.route_id
+                     ))
+    
+
+@app.post("/login/{account_type}", status_code=status.HTTP_200_OK)
+async def login(account_type: str, form_data: Annotated[OAuth2PasswordRequestForm, Depends()], response: Response):
+    user = await authentication.get_user(form_data.username, form_data.password, account_type)
+    if user is None:
+        response.status_code = status.HTTP_401_UNAUTHORIZED
+        return {"message": "Invalid credentials."}
+    token_data = {"sub": user["username"], "type": account_type}
+    access_token = authentication.create_access_token(
+        token_data=token_data
+    )
+    return {"message": "All good.", "token": {"access_token": access_token, "token_type": "bearer"}}
+
+
 
 @app.get("/vehicle_location/{vehicle_id}", status_code=status.HTTP_200_OK)
-async def get_vehicle_location(vehicle_id: int, response: Response):
+async def get_vehicle_location(vehicle_id: int, response: Response, user_info: authentication.authorize_passenger):
     entry = await db.get_vehicle_location(vehicle_id)
     if entry is None:
         response.status_code = status.HTTP_404_NOT_FOUND
@@ -73,8 +120,9 @@ async def get_vehicle_location(vehicle_id: int, response: Response):
     return {"message": "All Good.", "longitude": entry["longitude"], "latitude" : entry["latitude"]}
 
 @app.post("/vehicle_location", status_code=status.HTTP_200_OK)
-async def post_vehicle_location(vehicle_location_data: vehicle_location, response: Response):
-    vehicle_id, latitude, longitude = vehicle_location_data.vehicle_id, vehicle_location_data.latitude, vehicle_location_data.longitude
+async def post_vehicle_location(vehicle_location_data: vehicle_location, response: Response, user_info : authentication.authorize_vehicle):
+    vehicle_id = user_info["id"]
+    latitude, longitude = vehicle_location_data.vehicle_id, vehicle_location_data.latitude, vehicle_location_data.longitude
     try:
         await db.add_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
     except asyncpg.exceptions.UniqueViolationError:
@@ -91,8 +139,9 @@ async def post_vehicle_location(vehicle_location_data: vehicle_location, respons
 
 
 @app.put("/vehicle_location", status_code=status.HTTP_200_OK)
-async def put_vehicle_location(vehicle_location_data: vehicle_location, response: Response):
-    vehicle_id, latitude, longitude = vehicle_location_data.vehicle_id, vehicle_location_data.latitude, vehicle_location_data.longitude
+async def put_vehicle_location(vehicle_location_data: vehicle_location, response: Response, user_info : authentication.authorize_vehicle):
+    vehicle_id = user_info["id"]
+    latitude, longitude = vehicle_location_data.latitude, vehicle_location_data.longitude
     result = await db.update_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
     # False signifies that you tried to update the location of a vehicle whose location isn't in the db yet
     if result == "UPDATE 0":
@@ -195,7 +244,6 @@ async def route_vehicles_eta(route_id:int, response: Response,
     route = route_geojson["geometry"]["coordinates"]
     vehicles, av_vehicles_last_i = helper.filter_vehicles__pick_up((pick_up_long, pick_up_lat), vehicles, route)
     waypoints = await db.get_route_waypoints(route_id)
-    print(vehicles)
     for i in range(av_vehicles_last_i):
         vehicle = vehicles[i]
 
@@ -291,8 +339,6 @@ async def nearby_routes(long:float, lat:float, radius:float,
 
 @app.get("/search_routes/{query}", status_code=status.HTTP_200_OK)
 async def search_routes(query: str):
-    print(app.state.routes_search_data[0])
-    print(app.state.routes_search_data[1])
     route_ids = helper.search_routes(query, app.state.routes_search_data)
     res = []
     for route_id in route_ids:
@@ -355,7 +401,6 @@ async def put_feedback(passenger_id: int, vehicle_id: int, review: Review, respo
     
 @app.delete("/feedback/delete/passenger/{passenger_id}")
 async def delete_passenger_feedbacks(passenger_id: int, response: Response):
-    print("L")
     result = await db.remove_passenger_feedbacks(passenger_id)
     if result == "DELETE 0":
         response.status_code = status.HTTP_400_BAD_REQUEST

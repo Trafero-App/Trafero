@@ -12,7 +12,7 @@ async def main():
     """
     passenger:
     =====================================================================
-    | id | user_name | password  | first_name | last_name | phone_number|
+    | id | username | password  | first_name | last_name | phone_number|
     =====================================================================
     | 1  | User1     | User1pass | User1first | User1last | 11111111    |
     ---------------------------------------------------------------------
@@ -67,7 +67,7 @@ async def main():
     ==========================================
     """
     await db.execute("""INSERT INTO passenger 
-                     (user_name, password, first_name, last_name, phone_number) VALUES
+                     (username, password, first_name, last_name, phone_number) VALUES
                      ('User1', 'User1pass', 'User1first', 'User1last', '11111111'),
                      ('User2', 'User2pass', 'User2first', 'User2last', '22222222'),
                      ('UserDUD', 'X', 'X', 'X', '90'),
