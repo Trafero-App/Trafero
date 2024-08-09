@@ -92,7 +92,8 @@ async def signup(account_data: Account_Info, response: Response):
         phone_number=account_data.phone_number,
         email=account_data.email,
         status=account_data.status,
-        route_id=account_data.route_id
+        cur_route_id=account_data.cur_route_id,
+        routes=account_data.routes
                      ))
     
 

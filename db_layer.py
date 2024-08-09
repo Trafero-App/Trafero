@@ -65,7 +65,7 @@ class db:
             res = await con.fetch("""SELECT
                                      (vehicle.id, vehicle_location.longitude, vehicle_location.latitude, vehicle.status, vehicle.license_plate)
                                      FROM vehicle JOIN vehicle_location ON vehicle.id = vehicle_location.vehicle_id
-                                     WHERE vehicle.route_id=$1""", route_id)
+                                     WHERE vehicle.cur_route_id=$1""", route_id)
         if res is None: return None
         return [{"id": vehicle_info[0][0], "longitude": vehicle_info[0][1], 
                  "latitude": vehicle_info[0][2], "status": vehicle_info[0][3], "license_plate": vehicle_info[0][4]} for vehicle_info in res]
@@ -83,7 +83,7 @@ class db:
         details = {"id": vehicle_id}
         async with cls.db_pool.acquire() as con:
             vehicle_info = await con.fetchrow("""SELECT
-                                        (status, type, brand, model, license_plate, color, route_id)
+                                        (status, type, brand, model, license_plate, color, cur_route_id)
                                         FROM vehicle WHERE id=$1""", vehicle_id)
             if vehicle_info is None: return None
             vehicle_info = vehicle_info[0]
@@ -133,7 +133,7 @@ class db:
     @classmethod
     async def get_vehicle_route_id(cls, vehicle_id):
         async with cls.db_pool.acquire() as con:
-            res = await con.fetch("SELECT route_id from vehicle WHERE id = $1", vehicle_id)
+            res = await con.fetch("SELECT cur_route_id from vehicle WHERE id = $1", vehicle_id)
         return res[0][0]
 
     @classmethod
@@ -190,10 +190,10 @@ class db:
                             account_info.first_name, account_info.last_name, account_info.phone_number, account_info.email)
             else:
                 account_id = await con.fetch("""INSERT INTO vehicle (username, password_hash, first_name,
-                            last_name, phone_number, email, route_id, status)
+                            last_name, phone_number, email, cur_route_id, status)
                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id""", account_info.username,
                             account_info.password_hash, account_info.first_name, account_info.last_name, account_info.phone_number,
-                            account_info.email, account_info.route_id, account_info.status)
+                            account_info.email, account_info.cur_route_id, account_info.status)
 
             if type == "passenger":
                 await con.execute("""INSERT INTO passenger (id) VALUES ($1)""", account_id)
