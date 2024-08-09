@@ -100,7 +100,14 @@ async def put_vehicle_location(vehicle_location_data: vehicle_location, response
                             Maybe you mean to send a POST request?"""}
     else:
         return {"message": "All Good."}
-    
+
+
+@app.put("/vehicle_status", status_code=status.HTTP_200_OK)
+async def put_vehicle_status(vehicle_id: int, new_status: str):
+    success = await db.update_status(vehicle_id, new_status)
+    if success: return {"message": "All good."}
+    else: return {"message": "No such vehicle"}
+
 
 @app.get("/route_details/{route_id}", status_code=status.HTTP_200_OK)
 async def route_details(route_id: int, response:Response):
