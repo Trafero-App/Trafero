@@ -54,7 +54,7 @@ def recreate_tables():
                                             phone_number VARCHAR(20) UNIQUE,
                                             email VARCHAR(50) UNIQUE,
                                             route_id INT NOT NULL,
-                                            status BOOLEAN,
+                                            status VARCHAR(20) NOT NULL,
                                             type VARCHAR(30),
                                             brand VARCHAR(30),
                                             model VARCHAR(30),
@@ -63,7 +63,9 @@ def recreate_tables():
                                             CONSTRAINT phone_or_email
                                             CHECK ((phone_number IS NOT NULL) OR (email IS NOT NULL)),
                                             CONSTRAINT fk_route
-                                                FOREIGN KEY(route_id) REFERENCES route(id)
+                                                FOREIGN KEY(route_id) REFERENCES route(id),
+                                            CONSTRAINT legal_statuses
+                                            CHECK (status IN ('active', 'waiting', 'unavailable', 'inactive', 'unknown'))
                                             );
                 
                     CREATE TABLE vehicle_location (id SERIAL PRIMARY KEY,

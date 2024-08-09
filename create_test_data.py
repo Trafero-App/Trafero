@@ -94,9 +94,10 @@ async def main():
                      ('bus_24_2.geojson', 'Bus 24 (Badaro - Hamra)', 'Badaro - Adliye - Mathaf - Corniche el Mazraa - Verdun - Hamra', '6:00 AM - 7:00 PM', 'Monday -> Sunday', '24 seats', 'Rabah Transport', '50.000 LL');
 
 
-                    INSERT INTO vehicle (route_id, phone_number, status, license_plate) VALUES 
-                     (2, '11111112', TRUE, 'B 11113'), (2, '11111113', TRUE, 'A 12345'),
-                     (2, '11111114', TRUE, 'C 11113'), (1, '11111115', TRUE, 'B 12345'), (1, '11111116', TRUE, 'C 11113');
+                    INSERT INTO vehicle (route_id, phone_number, license_plate, status) VALUES 
+                     (2, '11111112', 'B 11113', 'active'), (2, '11111113', 'A 12345', 'active'),
+                     (2, '11111114', 'C 11113', 'active'), (1, '11111115', 'B 12345', 'active'),
+                     (1, '11111116', 'C 11113', 'active');
 
                      INSERT INTO vehicle_location (longitude, latitude, vehicle_id) VALUES
                     (35.5149, 33.8966, 1),
