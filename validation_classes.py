@@ -1,5 +1,4 @@
-from time import sleep
-from pydantic import BaseModel, model_validator, ValidationError
+from pydantic import BaseModel, model_validator
 from typing import Literal
 class vehicle_location(BaseModel):
     longitude: float

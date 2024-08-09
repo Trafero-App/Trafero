@@ -1,4 +1,3 @@
-from typing import Annotated
 from fastapi import FastAPI, Response, status, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,29 +8,23 @@ import os
 from dotenv import load_dotenv, find_dotenv
 
 from validation_classes import vehicle_location, Account_Info, Account_DB_Entry, Review
-
+from typing import Annotated
 
 import helper
 import authentication
 from db_layer import db
-from copy import deepcopy
-# For data validation
-import json
-from fuzzywuzzy import fuzz, process
 
-# Get access credentials to database
 load_dotenv(find_dotenv())
 DB_URL = os.getenv("db_url")
-
 MAPBOX_TOKEN = os.getenv("mapbox_token")
 VEHICLE_TO_ROUTE_THRESHOLD = int(os.getenv("vehicle_to_route_threshold"))
-# Open connection to database when app starts up
-# and close the connection when the app shuts down
-# Also load routes
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Open connection to database when app starts up
     await db.connect(DB_URL)
 
+    # Load all routes for efficient access later on
     app.state.routes = {}
     app.state.routes_search_data = []
     routes_data = await db.get_all_routes_data()
@@ -46,6 +39,7 @@ async def lifespan(app: FastAPI):
 
     yield
     
+    # Close the connection to the db when the app shuts down
     await db.disconnect()
 
 app = FastAPI(lifespan=lifespan)
@@ -58,7 +52,7 @@ origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins, # allow requests from the specified origins
-    allow_credentials=True, # allow credentials to be sent (e.g cookies)
+    allow_credentials=True, # allow credentials to be sent
     allow_methods=["*"], # allow POST, GET, PUT ... `*` is "all"
     allow_headers=["*"]
 
@@ -100,7 +94,7 @@ async def signup(account_data: Account_Info, response: Response):
 
 @app.post("/login/{account_type}", status_code=status.HTTP_200_OK)
 async def login(account_type: str, form_data: Annotated[OAuth2PasswordRequestForm, Depends()], response: Response):
-    user = await authentication.get_user(form_data.username, form_data.password, account_type)
+    user = await authentication.check_user_credentials(form_data.username, form_data.password, account_type)
     if user is None:
         response.status_code = status.HTTP_401_UNAUTHORIZED
         return {"message": "Invalid credentials."}
@@ -144,9 +138,9 @@ async def post_vehicle_location(vehicle_location_data: vehicle_location, respons
 async def put_vehicle_location(vehicle_location_data: vehicle_location, response: Response, user_info : authentication.authorize_vehicle):
     vehicle_id = user_info["id"]
     latitude, longitude = vehicle_location_data.latitude, vehicle_location_data.longitude
-    result = await db.update_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
+    success = await db.update_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
     # False signifies that you tried to update the location of a vehicle whose location isn't in the db yet
-    if result == "UPDATE 0":
+    if not success:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {"message" : """Error: You have attempted to update the location of a vehicle who's location hasn't been added.
                             Maybe you mean to send a POST request?"""}

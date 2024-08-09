@@ -1,9 +1,7 @@
 import asyncpg
 import geojson
-from validation_classes import Account_Info, Account_DB_Entry
+from validation_classes import Account_DB_Entry
 from typing import Literal
-# load_dotenv(find_dotenv())
-# DB_URL = os.getenv("db_url")
 
 class db:
     @classmethod
@@ -31,8 +29,9 @@ class db:
     @classmethod
     async def update_vehicle_location(cls, vehicle_id, latitude, longitude):
         async with cls.db_pool.acquire() as con:
-            return await con.execute("""UPDATE vehicle_location SET longitude=$1, 
+            res =  await con.execute("""UPDATE vehicle_location SET longitude=$1, 
                                                 latitude=$2 WHERE vehicle_id=$3""", longitude, latitude, vehicle_id)
+            return res != "UPDATE 0"
 
     @classmethod
     async def get_route_file_name(cls, route_id):
