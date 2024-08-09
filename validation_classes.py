@@ -1,7 +1,6 @@
 from pydantic import BaseModel, model_validator, ValidationError
 from typing import Literal
 class vehicle_location(BaseModel):
-    vehicle_id: int
     longitude: float
     latitude: float
 
@@ -19,9 +18,7 @@ class Account_Info(BaseModel):
     @model_validator(mode="before")
     def phone_or_email(cls, values):
         if values.get("phone_number") is None and values.get("email") is None:
-            print("OK")
             raise ValueError("Please include either phone_number or email")
-        else: print("NO")
         if values.get("account_type") == "vehicle":
             if values.get("status") is None or values.get("route_id") is None:
                 raise ValueError("Please include both status and route_id for vehicle accounts")

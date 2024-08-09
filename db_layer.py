@@ -18,6 +18,7 @@ class db:
     async def get_vehicle_location(cls, vehicle_id):
         async with cls.db_pool.acquire() as con:
             res = await con.fetchrow("SELECT * FROM vehicle_location WHERE vehicle_id=$1", vehicle_id)
+        if res is None: return None
         return {"longitude": res["longitude"], "latitude": res["latitude"]}
     
     
@@ -125,7 +126,10 @@ class db:
                 res = await con.fetchrow("SELECT * FROM passenger WHERE username=$1", username)
             else:
                 res = await con.fetchrow("SELECT * FROM vehicle WHERE username=$1", username)
-
+        if res is None: return None
+        return {"username": res["username"], "password_hash": res["password_hash"], "first_name": res["first_name"],
+                "last_name": res["last_name"], "phone_number": res["phone_number"], "type": account_type}
+            
     @classmethod
     async def get_vehicle_route_id(cls, vehicle_id):
         async with cls.db_pool.acquire() as con:
@@ -138,11 +142,6 @@ class db:
             return await con.execute("""INSERT INTO feedback (passenger_id, vehicle_id, reaction, complaint)
                                          VALUES ($1, $2, $3, $4)""", passenger_id, vehicle_id, review.reaction, review.complaint)
 
-
-        if res is None: return None
-        return {"username": res["username"], "password_hash": res["password_hash"], "first_name": res["first_name"],
-                "last_name": res["last_name"], "phone_number": res["phone_number"], "type": account_type}
-            
 
     @classmethod
     async def get_account_password_hash(cls, username, account_type: Literal["passenger", "vehicle"]):

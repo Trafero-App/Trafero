@@ -18,6 +18,9 @@ JWT_ALGORITHM = os.getenv("jwt_algorithm")
 AUTHENTICATION_SECRET_KEY = os.getenv("auth_secret_key")
 ACCESS_TOKEN_VALIDITY_TIME_IN_MINUTES = int(os.getenv("access_token_validity_time_in_minutes"))
 
+expired_token_error = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="expired token")
+unauthorizzed_error = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Please provide a valid token")
+
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
@@ -31,19 +34,21 @@ def hash_password(plain_password):
 def verify_password(plain_password, password_hash):
     return pwd_context.verify(plain_password, password_hash)
 
-
-async def get_current_user(token):
+async def decode_token(token):
     try:
-        print(f"'{token}'")
         payload = jwt.decode(token, AUTHENTICATION_SECRET_KEY, algorithms=[JWT_ALGORITHM])
-        print("I")
+    except jwt.ExpiredSignatureError:
+        raise expired_token_error
     except InvalidTokenError:
-        return None
-    print("yes")
+        raise InvalidTokenError
+    return payload
+
+async def get_current_user(payload):
+    
     username: str | None = payload.get("sub")
     account_type: Literal["passenger", "vehicle"] | None = payload.get("type")
-    if username is None or account_type is None:
-        return None
+
+    if username is None or account_type is None: return None
     
     user = await db.get_account_info(username, account_type)
     if user is None:
@@ -52,8 +57,10 @@ async def get_current_user(token):
 
 
 async def check_authorization(token, allowed):
-    unauthorizzed_error = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
-    user = await get_current_user(token)
+    payload = await decode_token(token)
+    
+    user = await get_current_user(payload)
+
     if user is None: raise unauthorizzed_error
     if not (allowed == "*" or user["type"] == allowed):
         raise unauthorizzed_error
