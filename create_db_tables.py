@@ -16,15 +16,15 @@ def recreate_tables():
 
     cur.execute(""" 
                     DROP TABLE IF EXISTS station;
+                    DROP TABLE IF EXISTS vehicle_routes;
                     DROP TABLE IF EXISTS feedback;
                     DROP TABLE IF EXISTS passenger;
                     DROP TABLE IF EXISTS vehicle_location;
                     DROP TABLE IF EXISTS vehicle;
-                    DROP TABLE IF EXISTS passenger;
                     DROP TABLE IF EXISTS waypoint;
                     DROP TABLE IF EXISTS route;
                 
-                    CREATE TABLE passenger  (id SERIAL PRIMARY KEY,  
+                    CREATE TABLE passenger (id SERIAL PRIMARY KEY,
                                             username VARCHAR(255) NOT NULL UNIQUE,
                                             password_hash TEXT NOT NULL,
                                             first_name VARCHAR(255) NOT NULL,
@@ -53,21 +53,28 @@ def recreate_tables():
                                             last_name VARCHAR(255) NOT NULL,
                                             phone_number VARCHAR(20) UNIQUE,
                                             email VARCHAR(50) UNIQUE,
-                                            route_id INT NOT NULL,
+                                            cur_route_id INT NOT NULL,
                                             status VARCHAR(20) NOT NULL,
                                             type VARCHAR(30),
                                             brand VARCHAR(30),
                                             model VARCHAR(30),
                                             license_plate VARCHAR(30) NOT NULL,
                                             color VARCHAR(20),
-                                            CONSTRAINT phone_or_email
-                                            CHECK ((phone_number IS NOT NULL) OR (email IS NOT NULL)),
                                             CONSTRAINT fk_route
-                                                FOREIGN KEY(route_id) REFERENCES route(id),
+                                                FOREIGN KEY(cur_route_id) REFERENCES route(id),
                                             CONSTRAINT legal_statuses
-                                            CHECK (status IN ('active', 'waiting', 'unavailable', 'inactive', 'unknown'))
+                                            CHECK (status IN ('active', 'waiting', 'unavailable', 'inactive', 'unknown')),
+                                            CONSTRAINT phone_or_email
+                                            CHECK ((phone_number IS NOT NULL) OR (email IS NOT NULL))
                                             );
                 
+                    CREATE TABLE vehicle_routes (
+                                            vehicle_id INT NOT NULL,
+                                            route_id INT NOT NULL,
+                                            CONSTRAINT fk_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicle(id),
+                                            CONSTRAINT fk_route FOREIGN KEY (route_id) REFERENCES route(id),
+                                            CONSTRAINT pk PRIMARY KEY (vehicle_id, route_id)
+                                            );
                     CREATE TABLE vehicle_location (id SERIAL PRIMARY KEY,
                                                 longitude DECIMAL NOT NULL,
                                                 latitude DECIMAL NOT NULL,
