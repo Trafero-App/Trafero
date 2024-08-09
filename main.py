@@ -93,7 +93,8 @@ async def signup(account_data: Account_Info, response: Response):
         email=account_data.email,
         status=account_data.status,
         cur_route_id=account_data.cur_route_id,
-        routes=account_data.routes
+        routes=account_data.routes,
+        license_plate=account_data.license_plate
                      ))
     
 
@@ -123,7 +124,7 @@ async def get_vehicle_location(vehicle_id: int, response: Response, user_info: a
 @app.post("/vehicle_location", status_code=status.HTTP_200_OK)
 async def post_vehicle_location(vehicle_location_data: vehicle_location, response: Response, user_info : authentication.authorize_vehicle):
     vehicle_id = user_info["id"]
-    latitude, longitude = vehicle_location_data.vehicle_id, vehicle_location_data.latitude, vehicle_location_data.longitude
+    latitude, longitude = vehicle_location_data.latitude, vehicle_location_data.longitude
     try:
         await db.add_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
         return {"message": "All Good."}
@@ -152,6 +153,39 @@ async def put_vehicle_location(vehicle_location_data: vehicle_location, response
     else:
         return {"message": "All Good."}
     
+
+@app.put("/active_route", status_code=status.HTTP_200_OK)
+async def change_active_route (new_active_route: int, response: Response, user_info : authentication.authorize_vehicle):
+    vehicle_id = user_info["id"]
+    vehicle_routes = await db.get_vehicle_routes(vehicle_id)
+    if new_active_route not in vehicle_routes:
+        response.status = status.HTTP_406_NOT_ACCEPTABLE
+        return {"message": "Invalid route id"}
+    else:
+        await db.change_active_route(vehicle_id, new_active_route)
+        return {"message": "All good."}
+
+@app.post("/vehicle_routes/add", status_code=status.HTTP_200_OK)
+async def add_vehicle_route(new_route_id: int, response: Response, user_info: authentication.authorize_vehicle):
+    vehicle_id = user_info["id"]
+    try:
+        await db.add_route(vehicle_id, new_route_id)
+    except asyncpg.exceptions.ForeignKeyViolationError:
+        return {"message": "Route doesn't exist."}
+    except asyncpg.exceptions.UniqueViolationError:
+        return {"message": f"Route with id '{new_route_id}' is already added to the route list of vehicle with id'{vehicle_id}'"}
+    return {"message": "All good."}
+
+
+@app.delete("/vehicle_routes/delete", status_code=status.HTTP_200_OK)
+async def delete_vehicle_route(route_id: int, response: Response, user_info: authentication.authorize_vehicle):
+    deleted = await db.delete_vehicle_route(user_info["id"], route_id)
+    if not deleted:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"message": "Route isn't in the list"}
+    else:
+        return {"message": "All good."}
+
 
 @app.get("/route_details/{route_id}", status_code=status.HTTP_200_OK)
 async def route_details(route_id: int, response:Response):

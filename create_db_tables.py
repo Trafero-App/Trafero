@@ -25,11 +25,14 @@ def recreate_tables():
                     DROP TABLE IF EXISTS route;
                 
                     CREATE TABLE passenger (id SERIAL PRIMARY KEY,
-                                            user_name VARCHAR(255) NOT NULL UNIQUE,
-                                            password TEXT NOT NULL,
+                                            username VARCHAR(255) NOT NULL UNIQUE,
+                                            password_hash TEXT NOT NULL,
                                             first_name VARCHAR(255) NOT NULL,
                                             last_name VARCHAR(255) NOT NULL,
-                                            phone_number VARCHAR(20) NOT NULL UNIQUE
+                                            phone_number VARCHAR(20) UNIQUE,
+                                            email VARCHAR(50) UNIQUE,
+                                            CONSTRAINT phone_or_email
+                                            CHECK ((phone_number IS NOT NULL) OR (email IS NOT NULL))
                                             );
                 
                     CREATE TABLE route (id SERIAL PRIMARY KEY,
@@ -44,8 +47,13 @@ def recreate_tables():
                                         );
                 
                     CREATE TABLE vehicle   (id SERIAL PRIMARY KEY,
+                                            username VARCHAR(255) NOT NULL UNIQUE,
+                                            password_hash TEXT NOT NULL,
+                                            first_name VARCHAR(255) NOT NULL,
+                                            last_name VARCHAR(255) NOT NULL,
+                                            phone_number VARCHAR(20) UNIQUE,
+                                            email VARCHAR(50) UNIQUE,
                                             cur_route_id INT NOT NULL,
-                                            phone_number VARCHAR(20) NOT NULL,
                                             status VARCHAR(20) NOT NULL,
                                             type VARCHAR(30),
                                             brand VARCHAR(30),
@@ -55,7 +63,9 @@ def recreate_tables():
                                             CONSTRAINT fk_route
                                                 FOREIGN KEY(cur_route_id) REFERENCES route(id),
                                             CONSTRAINT legal_statuses
-                                            CHECK (status IN ('active', 'waiting', 'unavailable', 'inactive', 'unknown'))
+                                            CHECK (status IN ('active', 'waiting', 'unavailable', 'inactive', 'unknown')),
+                                            CONSTRAINT phone_or_email
+                                            CHECK ((phone_number IS NOT NULL) OR (email IS NOT NULL))
                                             );
                 
                     CREATE TABLE vehicle_routes (
