@@ -282,3 +282,10 @@ class db:
         
 
 
+    @classmethod
+    async def update_status(cls, vehicle_id, new_status):
+        async with cls.db_pool.acquire() as con:
+            res = await con.execute("UPDATE vehicle SET status=$1 WHERE id=$2", new_status, vehicle_id)
+        if res == "UPDATE 0": return False
+        else: return True
+
