@@ -239,6 +239,10 @@ async def all_feedbacks(response: Response):
     else:
         return {"message": "All Good", "feedbacks":result}
 
+def off_track(vehicle_id, route, threshold):
+    if project_point_on_route(vehicle_id, route)[1] >= threshold:
+        return True
+    return False
 
 
 async def get_nearby_routes_to_1_point(long, lat, radius, routes):

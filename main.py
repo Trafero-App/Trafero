@@ -21,6 +21,7 @@ from fuzzywuzzy import fuzz, process
 load_dotenv(find_dotenv())
 DB_URL = os.getenv("db_url")
 MAPBOX_TOKEN = os.getenv("mapbox_token")
+VEHICLE_TO_ROUTE_THRESHOLD = int(os.getenv("vehicle_to_route_threshold"))
 # Open connection to database when app starts up
 # and close the connection when the app shuts down
 # Also load routes
@@ -76,7 +77,6 @@ async def post_vehicle_location(vehicle_location_data: vehicle_location, respons
     vehicle_id, latitude, longitude = vehicle_location_data.vehicle_id, vehicle_location_data.latitude, vehicle_location_data.longitude
     try:
         await db.add_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
-        return {"message": "All Good."}
     except asyncpg.exceptions.UniqueViolationError:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {
@@ -87,6 +87,7 @@ async def post_vehicle_location(vehicle_location_data: vehicle_location, respons
     except asyncpg.exceptions.ForeignKeyViolationError:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {"message": "Error: You have attempted to add the location of a vehicle that doesn't exist."}
+    return {"message": "All Good."}
 
 
 @app.put("/vehicle_location", status_code=status.HTTP_200_OK)
@@ -99,14 +100,24 @@ async def put_vehicle_location(vehicle_location_data: vehicle_location, response
         return {"message" : """Error: You have attempted to update the location of a vehicle who's location hasn't been added.
                             Maybe you mean to send a POST request?"""}
     else:
-        return {"message": "All Good."}
+        
+        route_id = await db.get_vehicle_route_id(vehicle_id)
+        route = app.state.routes[route_id]["line"]["geometry"]["coordinates"]
+        if helper.off_track((longitude, latitude), route, VEHICLE_TO_ROUTE_THRESHOLD):
+            db.update_status(vehicle_id, "unknown")
+            return {"message": "status set to unavailable. You are too far from the route."}
+        else:
+            db.update_status(vehicle_id, "active")
+            return {"message": "All Good. Status set to active."}
 
 
 @app.put("/vehicle_status", status_code=status.HTTP_200_OK)
-async def put_vehicle_status(vehicle_id: int, new_status: str):
+async def put_vehicle_status(vehicle_id: int, new_status: str, response: Response):
     success = await db.update_status(vehicle_id, new_status)
     if success: return {"message": "All good."}
-    else: return {"message": "No such vehicle"}
+    else:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"message": "No such vehicle"}
 
 
 @app.get("/route_details/{route_id}", status_code=status.HTTP_200_OK)
@@ -210,8 +221,11 @@ async def route_vehicles_eta(route_id:int, response: Response,
     
 
 @app.get("/vehicle/{vehicle_id}", status_code=status.HTTP_200_OK)
-async def get_vehicle(vehicle_id: int):
+async def get_vehicle(vehicle_id: int, response: Response):
     vehicle_details = await db.get_vehicle_details(vehicle_id)
+    if vehicle_details is None:
+        response.status = status.HTTP_404_NOT_FOUND
+        return {"message": "vehicle not found"}
     vehicle_route = app.state.routes[vehicle_details["route_id"]]
     vehicle_details["route_name"] = vehicle_route["details"]["route_name"]
     vehicle_details["remaining_route"] = {
