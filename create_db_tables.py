@@ -15,6 +15,7 @@ def recreate_tables():
     cur = conn.cursor()
 
     cur.execute(""" 
+                    DROP TABLE IF EXISTS intersection;
                     DROP TABLE IF EXISTS station;
                     DROP TABLE IF EXISTS feedback;
                     DROP TABLE IF EXISTS passenger;
@@ -113,6 +114,16 @@ def recreate_tables():
                                                 CONSTRAINT fk_route
                                                     FOREIGN KEY(route_id)
                                                         REFERENCES route(id)
+                                                );
+                
+                    CREATE TABLE intersection (id SERIAL PRIMARY KEY,
+                                                route_id INT NOT NULL,
+                                                local_index DECIMAL NOT NULL,
+                                                auxiliary_route INT NOT NULL,
+                                                auxiliary_index DECIMAL NOT NULL,
+                                                    CONSTRAINT fk_route
+                                                        FOREIGN KEY(route_id)
+                                                            REFERENCES route(id)
                                                 );
                 """)
 
