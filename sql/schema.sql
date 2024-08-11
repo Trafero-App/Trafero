@@ -1,4 +1,5 @@
 DROP TABLE IF EXISTS station;
+DROP TABLE IF EXISTS intersection;
 DROP TABLE IF EXISTS vehicle_routes;
 DROP TABLE IF EXISTS feedback;
 DROP TABLE IF EXISTS passenger;

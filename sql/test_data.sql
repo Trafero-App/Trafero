@@ -17,7 +17,7 @@ INSERT INTO route (file_name, route_name, description, working_hours, active_day
     ('bus_2_2.geojson', 'Bus 2 (Antelias - Hamra)', 'Antelias - Jal el Dib - Zalqa - Jdeideh - Baouchriyeh - Borj Hammoud - Karantina - Achrafiye - Basta al Tahta - Mar Elias - Tallet al Drouz - Hamra', '5:00 AM - 7:00 PM', 'Monday -> Sunday', 'Rabah Transport', '60.000 LL'), 
     ('van_10_1.geojson', 'Van 10 (Dawra - Matar)', 'Dawra - Port - Bechara el Khoury - Horsh beirut - Borj al Barajne - Tohwitet el Ghadir - Airport', '5:00 AM - 11:00 PM', 'Monday -> Sunday', 'Individual operators', '50.000 LL'), 
     ('van_10_2.geojson', 'Van 10 (Matar - Dawra)', 'Airport - Tohwitet el Ghadir - Borj al Barajne - Horsh Beirut - Bechara el Khoury - Port - Dawra', '5:00 AM - 11:00 PM', 'Monday -> Sunday', 'Individual operators', '50.000 LL'),
-    ('bus_24_1.geojson', 'Bus (24) (Hamra - Badaro)', 'Hamra - Verdun - Corniche el Mazraa - Mathaf - Adliye - Badaro', '6:00 AM - 7:00 PM', 'Monday -> Sunday', 'Rabah Transport', '50.000 LL'), 
+    ('bus_24_1.geojson', 'Bus 24 (Hamra - Badaro)', 'Hamra - Verdun - Corniche el Mazraa - Mathaf - Adliye - Badaro', '6:00 AM - 7:00 PM', 'Monday -> Sunday', 'Rabah Transport', '50.000 LL'), 
     ('bus_24_2.geojson', 'Bus 24 (Badaro - Hamra)', 'Badaro - Adliye - Mathaf - Corniche el Mazraa - Verdun - Hamra', '6:00 AM - 7:00 PM', 'Monday -> Sunday',  'Rabah Transport', '50.000 LL');
 
 
@@ -147,10 +147,10 @@ INSERT INTO station (route_id, station_name, longitude, latitude) VALUES
 
     
 INSERT INTO intersection (route_id, local_index, auxiliary_route, auxiliary_index) VALUES
-(1, 14, 9, 981), (1, 14, 10, 804), (1, 264, 9, 738), (1, 264, 10, 1050), 
-(1, 429, 11, 420), (1, 429, 12, 1025), (1, 1306, 7, 581), (1, 1306, 8, 476), 
-(1, 1319, 13, 203), (1, 1319, 14, 351), (1, 1421, 3, 0), (1, 1421, 4, 4403), 
-(1, 1546, 5, 433), (1, 1546, 6, 787), (1, 1550, 11, 721), (1, 1550, 12, 709),
+    (1, 14, 9, 981), (1, 14, 10, 804), (1, 264, 9, 738), (1, 264, 10, 1050), 
+    (1, 429, 11, 420), (1, 429, 12, 1025), (1, 1306, 7, 581), (1, 1306, 8, 476), 
+    (1, 1319, 13, 203), (1, 1319, 14, 351), (1, 1421, 3, 0), (1, 1421, 4, 4403), 
+    (1, 1546, 5, 433), (1, 1546, 6, 787), (1, 1550, 11, 721), (1, 1550, 12, 709),
     
 
 (2, 436, 11, 721), (2, 436, 12, 709), (2, 440, 5, 433), (2, 440, 6, 787), 

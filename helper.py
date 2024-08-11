@@ -245,10 +245,21 @@ def off_track(vehicle_id, route, threshold):
     return False
 
 
+
+
+
+
+
+
+
+
+
+
+
 async def get_nearby_routes_to_1_point(long, lat, radius, routes):
     close_routes = []
     routes_distances = {}
-    for route_id, route_data in routes:
+    for route_id, route_data in routes.items():
         route_coords = route_data["line"]["geometry"]["coordinates"]
         min_distance = project_point_on_route((long, lat), route_coords)[1]
         print("checking " + route_data["details"]["route_name"] + "...")
@@ -267,7 +278,7 @@ async def get_nearby_routes_to_1_point(long, lat, radius, routes):
 async def get_nearby_routes_to_2_point(long, lat, radius, long2, lat2, radius2, routes):
     close_routes = []
     routes_distances = {}
-    for route_id, route_data in routes:
+    for route_id, route_data in routes.items():
         route_coords = route_data["line"]["geometry"]["coordinates"]
         min_distance = project_point_on_route((long, lat), route_coords)[1]
         min_distance2 = project_point_on_route((long2, lat2), route_coords)[1]
@@ -283,8 +294,110 @@ async def get_nearby_routes_to_2_point(long, lat, radius, long2, lat2, radius2, 
     close_routes.sort(key=lambda route: routes_distances[route["details"]["route_id"]])
     return close_routes
             
+
 def flatten_route_data(route):
     res: dict = route["details"].copy()
     res["line"] = route["line"]
     return res
     
+
+
+def cascader(all_info, routes_near_A, routes_near_B):
+    intersections = []
+    filtered = []
+    for x in routes_near_A:
+        for info in all_info:
+            if info[0] == x[0]:
+                for y in routes_near_B:
+                    if info[2] == y[0]:
+                        intersections.append(info+(x[1],)+(y[1],))
+    if intersections == []:
+        return "NO AVAILABLE ROUTES"
+    else:
+        for i in range (len(intersections)):
+            for route in routes_near_A:
+                if intersections[i][0] == route[0]:
+                    if intersections[i][1] > route[1]:
+                        intersections[i] = intersections[i] + (True,)
+                    else:
+                        intersections[i] = intersections[i] + (False,)
+        for i in range (len(intersections)):
+            for route in routes_near_B:
+                if intersections[i][2] == route[0]:
+                    if intersections[i][-1] == True:
+                        if intersections[i][3] > route[1]:
+                            intersections[i] = intersections[i][:-1] + (False,)
+        for element in intersections:
+            if element[-1] == True:
+                filtered.append(element[:-1])
+
+        return filtered
+
+
+
+
+async def nearby_routes(long, lat, radius, routes):
+    routes_index = []
+    for route_id, route_data in routes.items():
+        route_coords = route_data["line"]["geometry"]["coordinates"]
+        point_index = project_point_on_route((long, lat), route_coords)[0]
+        min_distance = project_point_on_route((long, lat), route_coords)[1]
+        if min_distance <= radius:
+            routes_index.append((route_id, point_index))
+    return (routes_index)
+
+
+
+
+def cascaded_routes(intersections, nearby_A, nearby_B, routes):
+    combinations = cascader(intersections, nearby_A, nearby_B)
+    cascaded_close_routes = {}
+    template = {
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {},
+      "geometry": {
+        "type": "LineString",
+        "coordinates": []
+        
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {},
+      "geometry": {
+        "type": "LineString",
+        "coordinates": []
+      }
+    }
+  ]
+}
+    print('\n\n\n\n\n',combinations,'\n\n\n\n\n')
+    for result in combinations:
+        route_1 = result[0]
+        p1 = result[4]
+        p2 = int(result[1])
+        route_2 = result[2]
+        p3 = int(result[3])
+        p4 = result[5]
+        sliced_1 = routes[route_1]["line"]["geometry"]["coordinates"][p1:p2+1]
+        sliced_2 = routes[route_2]["line"]["geometry"]["coordinates"][p3:p4+1]
+        cascaded_close_routes[str(route_1)+","+str(route_2)] = template.copy()
+        cascaded_close_routes[str(route_1)+","+str(route_2)]["features"][0]["geometry"]["coordinates"] = sliced_1
+        cascaded_close_routes[str(route_1)+","+str(route_2)]["features"][1]["geometry"]["coordinates"] = sliced_2
+    print(cascaded_close_routes)
+    return cascaded_close_routes
+
+async def nearby(long, lat, radius, long2, lat2, radius2, routes):
+    intersections = await db.get_intersections()
+    nearby_A = await nearby_routes(long, lat, radius, routes)
+    nearby_B = await nearby_routes(long2, lat2, radius2, routes)
+
+    not_cascaded_close_routes = await get_nearby_routes_to_2_point(long, lat, radius, long2, lat2, radius2, routes)
+    cascaded_close_routes = cascaded_routes(intersections, nearby_A, nearby_B, routes)
+
+    
+    return {"no chain":not_cascaded_close_routes, "chain": cascaded_close_routes}
+
