@@ -1,5 +1,5 @@
 from pydantic import BaseModel, model_validator
-from typing import Literal
+from typing import Literal, List
 class vehicle_location(BaseModel):
     longitude: float
     latitude: float
@@ -41,6 +41,20 @@ class Point(BaseModel):
     longitude: float
     latitude: float
 
-class Review(BaseModel):
-    reaction: bool
-    complaint: str | None = None
+class Passenger_Review(BaseModel):
+    reaction: Literal["thumbs_up", "thumbs_down"]
+    complaints: List[str] | None = None
+    vehicle_id: int
+
+    @model_validator(mode="before")
+    def validate_review(cls, values):
+        if values.get("reaction") == False:
+            if values.get("complaints") is None:
+                raise ValueError("Please include a list of complaints for negative reviews.")
+
+        return values
+
+class Review_DB_Entry(Passenger_Review):
+    passenger_id: int
+
+

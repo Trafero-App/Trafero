@@ -131,9 +131,6 @@ INSERT INTO waypoint (longitude, latitude, route_id, projection_index) VALUES
 (35.487638, 33.893756, 14, 611);
     
     
-INSERT INTO feedback (passenger_id, vehicle_id, reaction, complaint) VALUES
-    (1, 2, True, Null),
-    (2, 3, False, 'bad condition');
 
 INSERT INTO station (route_id, station_name, longitude, latitude) VALUES
     (1, 'Dawra 15', 35.5498, 33.8936), (2, 'Naher el Mot 15', 35.5402, 33.8798),
@@ -143,3 +140,17 @@ INSERT INTO station (route_id, station_name, longitude, latitude) VALUES
     (9, 'Hamra 2', 35.4836, 33.8939), (10, 'Antelias 2', 35.5896, 33.9165),
     (11, 'Dawra 10', 35.5501, 33.8941), (12, 'Airport 10', 35.4929, 33.8261),
     (13, 'Hamra 24', 35.4877, 33.8938), (14, 'Badaro 24', 35.5189, 33.8769);
+
+INSERT INTO fixed_complaint (complaint_details) VALUES
+('Drives too slow'), ('Reckless driving'), ('Rude behvior'), ('Uncomfortable seats'),
+('Vehicle in bad condition'), ('Unpleasent smell'), ('Wait too much time'), ('1'), ('2'), ('3'), ('4');
+
+INSERT INTO feedback (passenger_id, vehicle_id, reaction) VALUES 
+(1, 1, 'thumbs_up'), (2, 1, 'thumbs_up'), (3, 1, 'thumbs_down'),
+(2, 2, 'thumbs_down'), (3, 2, 'thumbs_down');
+
+INSERT INTO feedback_fixed_complaint (feedback_id, fixed_complaint_id) VALUES
+(3, 1), (3, 2), (3, 3), (4, 1), (4, 5), (4, 6), (5, 1), (5, 5), (5, 6);
+
+INSERT INTO other_complaint (feedback_id, complaint_details) VALUES 
+(3, 'other1'), (4, 'other2'), (5, 'other5');
