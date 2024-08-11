@@ -44,9 +44,11 @@ class db:
             routes_data = [
                             {"route_id": record[0], "file_name": record[1], "route_name": record[2],
                              "description": record[3], "working_hours": record[4], "active_days": record[5],
-                             "capacity": record[6], "company_name": record[7], "expected_price":record[8]}
+                             "company_name": record[6], "expected_price":record[7], "phone_number":record[8],"distance":record[9],"estimated_travel_time":record[10], 
+                             "route_type": record[11]}
                             for record in await con.fetch("""SELECT id, file_name, route_name, description,
-                                                          working_hours, active_days, capacity, company_name, expected_price FROM route""")
+                                                          working_hours, active_days, company_name, expected_price,
+                                                          company_phone_number, distance, estimated_travel_time, route_type FROM route""")
                           ]
             return routes_data
 

@@ -212,8 +212,7 @@ async def route(requested_route_id: int, response: Response):
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "Error: Route not found."}
     
-    route_data = app.state.routes[requested_route_id]
-    
+    route_data = helper.flatten_route_data(app.state.routes[requested_route_id])
     route_vehicles = await db.get_route_vehicles(requested_route_id)
     for vehicle in route_vehicles:
         del vehicle["latitude"]
@@ -333,7 +332,7 @@ async def vehicle_time(long1:float, lat1:float, long2:float, lat2:float, respons
     return {"message": "All Good.", "time_estimation" : helper.get_time_estimation([(long1, lat1), (long2, lat2)], os.getenv("mapbox_token"), "walking")}
 
 @app.get("/vehicle_eta/{vehicle_id}")
-async def bus_eta(vehicle_id: int, pick_up_long:float, pick_up_lat:float):
+async def vehicle_eta(vehicle_id: int, pick_up_long:float, pick_up_lat:float):
     location = await db.get_vehicle_location(vehicle_id)
     v_long, v_lat = location["longitude"], location["latitude"]
     route_id = await db.get_vehicle_route_id(vehicle_id)
@@ -351,7 +350,7 @@ async def bus_eta(vehicle_id: int, pick_up_long:float, pick_up_lat:float):
             "message": "All good.",
             "content":{
                 "passed": False,
-                "eta": helper.get_time_estimation(rem_waypoints, MAPBOX_TOKEN, "driving")
+                "expected_time": int(helper.get_time_estimation(rem_waypoints, MAPBOX_TOKEN, "driving") // 60)
                 }
         }
 
@@ -384,7 +383,8 @@ async def search_vehicles(query: str):
     vehicles_search_info = await db.get_vehicles_search_info()
     
     vehicles_indices = helper.search_vehicles(query, vehicles_search_info)
-    res = [vehicles_search_info[i] for i in vehicles_indices]
+    res = [{"id": vehicles_search_info[i][0], "license_plate": vehicles_search_info[i][1],
+            "status": vehicles_search_info[i][2]} for i in vehicles_indices]
 
     return {"message": "All good.", "vehicles": res}
 
@@ -483,4 +483,31 @@ async def get_stations(response: Response):
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "no stations."}
     else:
-        return {"message": "All Good", "stations":result}
+        features = []
+        for stop in result:
+            properties = helper.flatten_route_data(app.state.routes[stop["route_id"]])
+            del properties["route_name"]
+            del properties["description"]
+            del properties["company_name"]
+            del properties["phone_number"]
+            del properties["distance"]
+            del properties["estimated_travel_time"]
+            del properties["route_type"]
+            properties["stop_name"] = stop["station_name"]
+            feature = {
+                "type": "Feature",
+                "properties": properties,
+                "geometry": {
+                    "coordinates": [
+                        stop["longitude"],
+                        stop["latitude"]
+                    ],
+                    "type": "Point"
+                }
+            }
+            features.append(feature)
+             
+        return {"message": "All Good", "content":{
+            "type": "FeatureCollection",
+            "features": features 
+        }}

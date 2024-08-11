@@ -283,3 +283,8 @@ async def get_nearby_routes_to_2_point(long, lat, radius, long2, lat2, radius2, 
     close_routes.sort(key=lambda route: routes_distances[route["details"]["route_id"]])
     return close_routes
             
+def flatten_route_data(route):
+    res: dict = route["details"].copy()
+    res["line"] = route["line"]
+    return res
+    
