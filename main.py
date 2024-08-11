@@ -297,15 +297,21 @@ async def route_vehicles_eta(route_id:int, response: Response,
     
 
 @app.get("/vehicle/{vehicle_id}", status_code=status.HTTP_200_OK)
-async def get_vehicle(vehicle_id: int, response: Response, user_info: authentication.authorize_passenger):
-    passenger_id = user_info["id"]
+async def get_vehicle(vehicle_id: int, response: Response, user_info: authentication.authorize_anyone):
+    if user_info is not None and user_info["type"] == "passenger":
+        passenger_id = user_info.get("id")
+    else: passenger_id = None
     vehicle_details = await db.get_vehicle_details(vehicle_id)
     if vehicle_details is None:
         response.status = status.HTTP_404_NOT_FOUND
         return {"message": "vehicle not found"}
     vehicle_route = app.state.routes[vehicle_details["route_id"]]
     vehicle_details["route_name"] = vehicle_route["details"]["route_name"]
-    vehicle_details["user_choice"] = (await db.get_passenger_reaction(passenger_id, vehicle_id))["reaction"]
+    if passenger_id is not None:
+        vehicle_details["user_choice"] = (await db.get_passenger_reaction(passenger_id, vehicle_id))["reaction"]
+    else:
+        vehicle_details["user_choice"] = None
+
     vehicle_details["remaining_route"] = {
         "type": "Feature",
         "properties": {},
@@ -352,7 +358,7 @@ async def vehicle_eta(vehicle_id: int, pick_up_long:float, pick_up_lat:float):
             "message": "All good.",
             "content":{
                 "passed": False,
-                "expected_time": int(helper.get_time_estimation(rem_waypoints, MAPBOX_TOKEN, "driving") // 60)
+                "expected_time": helper.get_time_estimation(rem_waypoints, MAPBOX_TOKEN, "driving")
                 }
         }
 
