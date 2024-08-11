@@ -1,9 +1,7 @@
 import asyncpg
 import geojson
-from validation_classes import Account_Info, Account_DB_Entry
+from validation_classes import Account_DB_Entry
 from typing import Literal
-# load_dotenv(find_dotenv())
-# DB_URL = os.getenv("db_url")
 
 class db:
     @classmethod
@@ -31,8 +29,9 @@ class db:
     @classmethod
     async def update_vehicle_location(cls, vehicle_id, latitude, longitude):
         async with cls.db_pool.acquire() as con:
-            return await con.execute("""UPDATE vehicle_location SET longitude=$1, 
+            res =  await con.execute("""UPDATE vehicle_location SET longitude=$1, 
                                                 latitude=$2 WHERE vehicle_id=$3""", longitude, latitude, vehicle_id)
+            return res != "UPDATE 0"
 
     @classmethod
     async def get_route_file_name(cls, route_id):
@@ -45,9 +44,11 @@ class db:
             routes_data = [
                             {"route_id": record[0], "file_name": record[1], "route_name": record[2],
                              "description": record[3], "working_hours": record[4], "active_days": record[5],
-                             "capacity": record[6], "company_name": record[7], "expected_price":record[8]}
+                             "company_name": record[6], "expected_price":record[7], "phone_number":record[8],"distance":record[9],"estimated_travel_time":record[10], 
+                             "route_type": record[11]}
                             for record in await con.fetch("""SELECT id, file_name, route_name, description,
-                                                          working_hours, active_days, capacity, company_name, expected_price FROM route""")
+                                                          working_hours, active_days, company_name, expected_price,
+                                                          company_phone_number, distance, estimated_travel_time, route_type FROM route""")
                           ]
             return routes_data
 
@@ -65,7 +66,7 @@ class db:
             res = await con.fetch("""SELECT
                                      (vehicle.id, vehicle_location.longitude, vehicle_location.latitude, vehicle.status, vehicle.license_plate)
                                      FROM vehicle JOIN vehicle_location ON vehicle.id = vehicle_location.vehicle_id
-                                     WHERE vehicle.route_id=$1""", route_id)
+                                     WHERE vehicle.cur_route_id=$1""", route_id)
         if res is None: return None
         return [{"id": vehicle_info[0][0], "longitude": vehicle_info[0][1], 
                  "latitude": vehicle_info[0][2], "status": vehicle_info[0][3], "license_plate": vehicle_info[0][4]} for vehicle_info in res]
@@ -83,7 +84,7 @@ class db:
         details = {"id": vehicle_id}
         async with cls.db_pool.acquire() as con:
             vehicle_info = await con.fetchrow("""SELECT
-                                        (status, type, brand, model, license_plate, color, route_id)
+                                        (status, type, brand, model, license_plate, color, cur_route_id)
                                         FROM vehicle WHERE id=$1""", vehicle_id)
             if vehicle_info is None: return None
             vehicle_info = vehicle_info[0]
@@ -127,13 +128,13 @@ class db:
             else:
                 res = await con.fetchrow("SELECT * FROM vehicle WHERE username=$1", username)
         if res is None: return None
-        return {"username": res["username"], "password_hash": res["password_hash"], "first_name": res["first_name"],
+        return {"id": res["id"], "username": res["username"], "password_hash": res["password_hash"], "first_name": res["first_name"],
                 "last_name": res["last_name"], "phone_number": res["phone_number"], "type": account_type}
             
     @classmethod
     async def get_vehicle_route_id(cls, vehicle_id):
         async with cls.db_pool.acquire() as con:
-            res = await con.fetch("SELECT route_id from vehicle WHERE id = $1", vehicle_id)
+            res = await con.fetch("SELECT cur_route_id from vehicle WHERE id = $1", vehicle_id)
         return res[0][0]
 
     @classmethod
@@ -189,14 +190,14 @@ class db:
                             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id""", account_info.username, account_info.password_hash,
                             account_info.first_name, account_info.last_name, account_info.phone_number, account_info.email)
             else:
-                account_id = await con.fetch("""INSERT INTO vehicle (username, password_hash, first_name,
-                            last_name, phone_number, email, route_id, status)
-                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id""", account_info.username,
+                account_id = (await con.fetch("""INSERT INTO vehicle (username, password_hash, first_name,
+                            last_name, phone_number, email, cur_route_id, status, license_plate)
+                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id""", account_info.username,
                             account_info.password_hash, account_info.first_name, account_info.last_name, account_info.phone_number,
-                            account_info.email, account_info.route_id, account_info.status)
+                            account_info.email, account_info.cur_route_id, account_info.status, account_info.license_plate))[0][0]
+                for route_id in account_info.routes:
+                    await con.execute("""INSERT INTO vehicle_routes (vehicle_id, route_id) VALUES ($1, $2)""", account_id, route_id)
 
-            if type == "passenger":
-                await con.execute("""INSERT INTO passenger (id) VALUES ($1)""", account_id)
             
     @classmethod
     async def update_feedback(cls, passenger_id, vehicle_id, review):
@@ -257,6 +258,30 @@ class db:
             res = await con.fetch("SELECT (route_id, station_name, longitude, latitude) FROM station")
             return [{"route_id": station_info[0][0], "station_name": station_info[0][1], 
                      "longitude": station_info[0][2], "latitude": station_info[0][3]} for station_info in res]
+        
+    @classmethod
+    async def get_vehicle_routes(cls, vehicle_id):
+        async with cls.db_pool.acquire() as con:
+            res = await con.fetch("SELECT route_id FROM vehicle_routes WHERE vehicle_id=$1", vehicle_id)
+        return [record[0] for record in res]
+    
+    @classmethod
+    async def change_active_route(cls, vehicle_id, new_active_route):
+        async with cls.db_pool.acquire() as con:
+            await con.execute("UPDATE vehicle SET cur_route_id=$1 WHERE id=$2", new_active_route, vehicle_id)
+
+    @classmethod
+    async def add_route(cls, vehicle_id, new_route_id):
+        async with cls.db_pool.acquire() as con:
+            await con.execute("INSERT INTO vehicle_routes (vehicle_id, route_id) VALUES ($1, $2)", vehicle_id, new_route_id)
+
+    @classmethod
+    async def delete_vehicle_route(cls, vehicle_id, route_id):
+        async with cls.db_pool.acquire() as con:
+            res = await con.execute("DELETE FROM vehicle_routes WHERE vehicle_id=$1 AND route_id=$2", vehicle_id, route_id)
+        return res != "DELETE 0"
+        
+
 
     @classmethod
     async def update_status(cls, vehicle_id, new_status):

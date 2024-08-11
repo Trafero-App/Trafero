@@ -1,4 +1,3 @@
-from typing import Annotated
 from fastapi import FastAPI, Response, status, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,29 +8,23 @@ import os
 from dotenv import load_dotenv, find_dotenv
 
 from validation_classes import vehicle_location, Account_Info, Account_DB_Entry, Review
-
+from typing import Annotated
 
 import helper
 import authentication
 from db_layer import db
-from copy import deepcopy
-# For data validation
-import json
-from fuzzywuzzy import fuzz, process
 
-# Get access credentials to database
 load_dotenv(find_dotenv())
 DB_URL = os.getenv("db_url")
-
 MAPBOX_TOKEN = os.getenv("mapbox_token")
 VEHICLE_TO_ROUTE_THRESHOLD = int(os.getenv("vehicle_to_route_threshold"))
-# Open connection to database when app starts up
-# and close the connection when the app shuts down
-# Also load routes
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Open connection to database when app starts up
     await db.connect(DB_URL)
 
+    # Load all routes for efficient access later on
     app.state.routes = {}
     app.state.routes_search_data = []
     routes_data = await db.get_all_routes_data()
@@ -46,6 +39,7 @@ async def lifespan(app: FastAPI):
 
     yield
     
+    # Close the connection to the db when the app shuts down
     await db.disconnect()
 
 app = FastAPI(lifespan=lifespan)
@@ -58,7 +52,7 @@ origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins, # allow requests from the specified origins
-    allow_credentials=True, # allow credentials to be sent (e.g cookies)
+    allow_credentials=True, # allow credentials to be sent
     allow_methods=["*"], # allow POST, GET, PUT ... `*` is "all"
     allow_headers=["*"]
 
@@ -92,13 +86,15 @@ async def signup(account_data: Account_Info, response: Response):
         phone_number=account_data.phone_number,
         email=account_data.email,
         status=account_data.status,
-        route_id=account_data.route_id
+        cur_route_id=account_data.cur_route_id,
+        routes=account_data.routes,
+        license_plate=account_data.license_plate
                      ))
     
 
 @app.post("/login/{account_type}", status_code=status.HTTP_200_OK)
 async def login(account_type: str, form_data: Annotated[OAuth2PasswordRequestForm, Depends()], response: Response):
-    user = await authentication.get_user(form_data.username, form_data.password, account_type)
+    user = await authentication.check_user_credentials(form_data.username, form_data.password, account_type)
     if user is None:
         response.status_code = status.HTTP_401_UNAUTHORIZED
         return {"message": "Invalid credentials."}
@@ -122,7 +118,7 @@ async def get_vehicle_location(vehicle_id: int, response: Response, user_info: a
 @app.post("/vehicle_location", status_code=status.HTTP_200_OK)
 async def post_vehicle_location(vehicle_location_data: vehicle_location, response: Response, user_info : authentication.authorize_vehicle):
     vehicle_id = user_info["id"]
-    latitude, longitude = vehicle_location_data.vehicle_id, vehicle_location_data.latitude, vehicle_location_data.longitude
+    latitude, longitude = vehicle_location_data.latitude, vehicle_location_data.longitude
     try:
         await db.add_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
     except asyncpg.exceptions.UniqueViolationError:
@@ -142,9 +138,9 @@ async def post_vehicle_location(vehicle_location_data: vehicle_location, respons
 async def put_vehicle_location(vehicle_location_data: vehicle_location, response: Response, user_info : authentication.authorize_vehicle):
     vehicle_id = user_info["id"]
     latitude, longitude = vehicle_location_data.latitude, vehicle_location_data.longitude
-    result = await db.update_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
+    success = await db.update_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
     # False signifies that you tried to update the location of a vehicle whose location isn't in the db yet
-    if result == "UPDATE 0":
+    if not success:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {"message" : """Error: You have attempted to update the location of a vehicle who's location hasn't been added.
                             Maybe you mean to send a POST request?"""}
@@ -169,6 +165,39 @@ async def put_vehicle_status(vehicle_id: int, new_status: str, response: Respons
         return {"message": "No such vehicle"}
 
 
+@app.put("/active_route", status_code=status.HTTP_200_OK)
+async def change_active_route (new_active_route: int, response: Response, user_info : authentication.authorize_vehicle):
+    vehicle_id = user_info["id"]
+    vehicle_routes = await db.get_vehicle_routes(vehicle_id)
+    if new_active_route not in vehicle_routes:
+        response.status = status.HTTP_406_NOT_ACCEPTABLE
+        return {"message": "Invalid route id"}
+    else:
+        await db.change_active_route(vehicle_id, new_active_route)
+        return {"message": "All good."}
+
+@app.post("/vehicle_routes/add", status_code=status.HTTP_200_OK)
+async def add_vehicle_route(new_route_id: int, response: Response, user_info: authentication.authorize_vehicle):
+    vehicle_id = user_info["id"]
+    try:
+        await db.add_route(vehicle_id, new_route_id)
+    except asyncpg.exceptions.ForeignKeyViolationError:
+        return {"message": "Route doesn't exist."}
+    except asyncpg.exceptions.UniqueViolationError:
+        return {"message": f"Route with id '{new_route_id}' is already added to the route list of vehicle with id'{vehicle_id}'"}
+    return {"message": "All good."}
+
+
+@app.delete("/vehicle_routes/delete", status_code=status.HTTP_200_OK)
+async def delete_vehicle_route(route_id: int, response: Response, user_info: authentication.authorize_vehicle):
+    deleted = await db.delete_vehicle_route(user_info["id"], route_id)
+    if not deleted:
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"message": "Route isn't in the list"}
+    else:
+        return {"message": "All good."}
+
+
 @app.get("/route_details/{route_id}", status_code=status.HTTP_200_OK)
 async def route_details(route_id: int, response:Response):
     if route_id not in app.state.routes:
@@ -183,8 +212,7 @@ async def route(requested_route_id: int, response: Response):
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "Error: Route not found."}
     
-    route_data = app.state.routes[requested_route_id]
-    
+    route_data = helper.flatten_route_data(app.state.routes[requested_route_id])
     route_vehicles = await db.get_route_vehicles(requested_route_id)
     for vehicle in route_vehicles:
         del vehicle["latitude"]
@@ -304,7 +332,7 @@ async def vehicle_time(long1:float, lat1:float, long2:float, lat2:float, respons
     return {"message": "All Good.", "time_estimation" : helper.get_time_estimation([(long1, lat1), (long2, lat2)], os.getenv("mapbox_token"), "walking")}
 
 @app.get("/vehicle_eta/{vehicle_id}")
-async def bus_eta(vehicle_id: int, pick_up_long:float, pick_up_lat:float):
+async def vehicle_eta(vehicle_id: int, pick_up_long:float, pick_up_lat:float):
     location = await db.get_vehicle_location(vehicle_id)
     v_long, v_lat = location["longitude"], location["latitude"]
     route_id = await db.get_vehicle_route_id(vehicle_id)
@@ -322,7 +350,7 @@ async def bus_eta(vehicle_id: int, pick_up_long:float, pick_up_lat:float):
             "message": "All good.",
             "content":{
                 "passed": False,
-                "eta": helper.get_time_estimation(rem_waypoints, MAPBOX_TOKEN, "driving")
+                "expected_time": int(helper.get_time_estimation(rem_waypoints, MAPBOX_TOKEN, "driving") // 60)
                 }
         }
 
@@ -355,7 +383,8 @@ async def search_vehicles(query: str):
     vehicles_search_info = await db.get_vehicles_search_info()
     
     vehicles_indices = helper.search_vehicles(query, vehicles_search_info)
-    res = [vehicles_search_info[i] for i in vehicles_indices]
+    res = [{"id": vehicles_search_info[i][0], "license_plate": vehicles_search_info[i][1],
+            "status": vehicles_search_info[i][2]} for i in vehicles_indices]
 
     return {"message": "All good.", "vehicles": res}
 
@@ -454,4 +483,31 @@ async def get_stations(response: Response):
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "no stations."}
     else:
-        return {"message": "All Good", "stations":result}
+        features = []
+        for stop in result:
+            properties = helper.flatten_route_data(app.state.routes[stop["route_id"]])
+            del properties["route_name"]
+            del properties["description"]
+            del properties["company_name"]
+            del properties["phone_number"]
+            del properties["distance"]
+            del properties["estimated_travel_time"]
+            del properties["route_type"]
+            properties["stop_name"] = stop["station_name"]
+            feature = {
+                "type": "Feature",
+                "properties": properties,
+                "geometry": {
+                    "coordinates": [
+                        stop["longitude"],
+                        stop["latitude"]
+                    ],
+                    "type": "Point"
+                }
+            }
+            features.append(feature)
+             
+        return {"message": "All Good", "content":{
+            "type": "FeatureCollection",
+            "features": features 
+        }}
