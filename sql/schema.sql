@@ -1,7 +1,12 @@
-DROP TABLE IF EXISTS feedback;
+
 DROP TABLE IF EXISTS vehicle_status_history;
 DROP TABLE IF EXISTS vehicle_location_history;
+DROP TABLE IF EXISTS feedback_fixed_complaint;
+DROP TABLE IF EXISTS other_complaint;
+DROP TABLE IF EXISTS fixed_complaint;
+DROP TABLE IF EXISTS feedback;
 DROP TABLE IF EXISTS station;
+DROP TABLE IF EXISTS intersection;
 DROP TABLE IF EXISTS vehicle_routes;
 DROP TABLE IF EXISTS passenger;
 DROP TABLE IF EXISTS vehicle_location;
@@ -62,7 +67,7 @@ CREATE TABLE vehicle_routes (
                         route_id INT NOT NULL,
                         CONSTRAINT fk_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicle(id),
                         CONSTRAINT fk_route FOREIGN KEY (route_id) REFERENCES route(id),
-                        CONSTRAINT pk PRIMARY KEY (vehicle_id, route_id)
+                        CONSTRAINT vehicle_routes_pk PRIMARY KEY (vehicle_id, route_id)
                         );
 CREATE TABLE vehicle_location (id SERIAL PRIMARY KEY,
                             longitude DECIMAL NOT NULL,
@@ -86,8 +91,7 @@ CREATE TABLE waypoint (id SERIAL PRIMARY KEY,
 CREATE TABLE feedback  (id SERIAL PRIMARY KEY,
                         passenger_id INT NOT NULL,
                         vehicle_id INT NOT NULL,
-                        reaction BOOLEAN,
-                        complaint VARCHAR(255),
+                        reaction VARCHAR(11),
                         CONSTRAINT fk_passenger
                             FOREIGN KEY(passenger_id)
                                 REFERENCES passenger(id),
@@ -95,11 +99,25 @@ CREATE TABLE feedback  (id SERIAL PRIMARY KEY,
                             FOREIGN KEY(vehicle_id)
                                 REFERENCES vehicle(id),
                         CONSTRAINT not_empty
-                            CHECK  ((reaction IS NOT NULL) OR
-                                    (complaint IS NOT NULL)),
+                            CHECK  (reaction IS NOT NULL),
                         CONSTRAINT unique_feedback
-                            UNIQUE(passenger_id, vehicle_id)
+                            UNIQUE(passenger_id, vehicle_id),
+                        CONSTRAINT legal_reactions CHECK (reaction IN ('thumbs_up', 'thumbs_down'))
                             );
+
+CREATE TABLE fixed_complaint (id SERIAL PRIMARY KEY,
+                        complaint_details VARCHAR(255) NOT NULL
+                        );
+
+CREATE TABLE feedback_fixed_complaint (feedback_id INT NOT NULL,
+                                 fixed_complaint_id INT NOT NULL,
+                                 CONSTRAINT feedback_complaint_pk PRIMARY KEY (feedback_id, fixed_complaint_id),
+                                 CONSTRAINT feedback_fk FOREIGN KEY (feedback_id) REFERENCES feedback(id) ON DELETE CASCADE,
+                                 CONSTRAINT fixed_complaint_fk FOREIGN KEY (fixed_complaint_id) REFERENCES fixed_complaint(id));
+
+CREATE TABLE other_complaint (feedback_id INT NOT NULL,
+                               complaint_details VARCHAR(255) NOT NULL,
+                               CONSTRAINT fk_feedback FOREIGN KEY (feedback_id) REFERENCES feedback(id) ON DELETE CASCADE);
 
 CREATE TABLE station   (id SERIAL PRIMARY KEY,
                         route_id INT NOT NULL,
@@ -133,3 +151,12 @@ CREATE TABLE vehicle_status_history (id SERIAL PRIMARY KEY,
                                        (old_status IN ('active', 'waiting', 'unavailable', 'inactive', 'unknown')),
                                        CONSTRAINT vehicle_fk FOREIGN KEY (vehicle_id) REFERENCES vehicle(id)
                                       ); 
+CREATE TABLE intersection (id SERIAL PRIMARY KEY,
+                            route_id INT NOT NULL,
+                            local_index DECIMAL NOT NULL,
+                            auxiliary_route INT NOT NULL,
+                            auxiliary_index DECIMAL NOT NULL,
+                                CONSTRAINT fk_route
+                                    FOREIGN KEY(route_id)
+                                        REFERENCES route(id)
+                            );

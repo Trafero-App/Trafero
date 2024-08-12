@@ -1,6 +1,6 @@
 import asyncpg
 import geojson
-from validation_classes import Account_DB_Entry
+from validation_classes import Account_DB_Entry, Review_DB_Entry
 from typing import Literal
 
 class db:
@@ -95,7 +95,7 @@ class db:
             vehicle_info = vehicle_info[0]
 
             coords = await cls.get_vehicle_location(vehicle_id)
-            feedback = await cls.get_vehicle_feedbacks(vehicle_id)
+            feedback = await cls.get_vehicle_feedback(vehicle_id)
 
             details["status"] = vehicle_info[0]
             details["coordinates"] = [coords["longitude"], coords["latitude"]]
@@ -106,8 +106,9 @@ class db:
                 "license_plate" : vehicle_info[4],
                 "color" : vehicle_info[5]
             }
-            details["feedback"] = feedback
             details["route_id"] = vehicle_info[6]
+            for key, value in feedback.items():
+                details[key] = value
             
         return details
     
@@ -141,12 +142,6 @@ class db:
         async with cls.db_pool.acquire() as con:
             res = await con.fetch("SELECT cur_route_id from vehicle WHERE id = $1", vehicle_id)
         return res[0][0]
-
-    @classmethod
-    async def add_feedback(cls, passenger_id, vehicle_id, review):
-        async with cls.db_pool.acquire() as con:
-            return await con.execute("""INSERT INTO feedback (passenger_id, vehicle_id, reaction, complaint)
-                                         VALUES ($1, $2, $3, $4)""", passenger_id, vehicle_id, review.reaction, review.complaint)
 
 
     @classmethod
@@ -202,61 +197,82 @@ class db:
                             account_info.email, account_info.cur_route_id, account_info.status, account_info.license_plate))[0][0]
                 for route_id in account_info.routes:
                     await con.execute("""INSERT INTO vehicle_routes (vehicle_id, route_id) VALUES ($1, $2)""", account_id, route_id)
+    @classmethod
+    async def get_fixed_complaints_list(cls):
+        async with cls.db_pool.acquire() as con:
+            res = await con.fetch("""SELECT * FROM fixed_complaint""")
+        return [tuple(record) for record in res]
 
+    @classmethod
+    async def add_complaints(cls, review_data, feedback_id):
+        async with cls.db_pool.acquire() as con:
+            fixed_complaints_list = await cls.get_fixed_complaints_list()
+            complaint_to_id = {record[1]: record[0] for record in fixed_complaints_list}
+            for complaint in review_data.complaints:
+                complaint_id = complaint_to_id.get(complaint, -1)
+                if complaint_id != -1:
+                    await con.execute("""INSERT INTO feedback_fixed_complaint (feedback_id, fixed_complaint_id) VALUES ($1, $2)""", feedback_id, complaint_id)
+                    
+                else:
+                    await con.execute("INSERT INTO other_complaint (feedback_id, complaint_details) VALUES ($1, $2)", feedback_id, complaint)
+
+
+    @classmethod
+    async def add_feedback(cls, review_data: Review_DB_Entry):
+        async with cls.db_pool.acquire() as con:
+            print(review_data)
+            feedback_id = await con.fetch("""INSERT INTO feedback (passenger_id, vehicle_id, reaction) VALUES ($1, $2, $3) RETURNING id""",
+                                    review_data.passenger_id, review_data.vehicle_id, review_data.reaction)
+            print("y")
+            feedback_id = feedback_id[0][0]
+            if review_data.reaction == "thumbs_down":
+                await cls.add_complaints(review_data, feedback_id)
+
+    @classmethod
+    async def update_feedback(cls, review_data: Review_DB_Entry):
+        async with cls.db_pool.acquire() as con:
+            success = await cls.delete_feedback(review_data.passenger_id, review_data.vehicle_id)
+
+            if not success:
+                return False
+            await cls.add_feedback(review_data)
+            return True
+        
+    @classmethod
+    async def delete_feedback(cls, passenger_id, vehicle_id):
+        async with cls.db_pool.acquire() as con:
+            res = await con.execute("DELETE FROM feedback WHERE passenger_id=$1 AND vehicle_id=$2", 
+                        passenger_id, vehicle_id)
+            if res == "DELETE 0": return False
+            else: return True
+
+    @classmethod
+    async def get_passenger_reaction(cls, passenger_id, vehicle_id):
+        async with cls.db_pool.acquire() as con:
+            feedback = await con.fetchrow("""SELECT id, reaction FROM feedback WHERE passenger_id=$1 AND vehicle_id=$2""", passenger_id, vehicle_id)
+            if feedback is None: return {"reaction": "none"}
+            return {"reaction": feedback[1]}
+    
+    @classmethod
+    async def get_vehicle_feedback(cls, vehicle_id):
+        async with cls.db_pool.acquire() as con: 
+            thumbs_up_count = (await con.fetchrow("SELECT COUNT(*) FROM feedback WHERE vehicle_id=$1 AND reaction='thumbs_up'", vehicle_id))[0]
+            thumbs_down_count = (await con.fetchrow("SELECT COUNT(*) FROM feedback WHERE vehicle_id=$1 AND reaction='thumbs_down'", vehicle_id))[0]
+            fixed_complaints = await con.fetch("""SELECT fixed_complaint.complaint_details, COUNT(*) FROM feedback JOIN feedback_fixed_complaint
+                                                  ON feedback.id = feedback_fixed_complaint.feedback_id JOIN fixed_complaint
+                                                 ON feedback_fixed_complaint.fixed_complaint_id = fixed_complaint.id
+                                                 WHERE feedback.vehicle_id=$1 GROUP BY fixed_complaint.complaint_details""", vehicle_id)
+            other_complaints_count = (await con.fetchrow("""SELECT COUNT(*) FROM other_complaint JOIN feedback
+                                                     ON other_complaint.feedback_id = feedback.id WHERE feedback.vehicle_id=$1""", vehicle_id))[0]
+            if other_complaints_count > 0:
+                complaints = [{"complaint": "other", "count": other_complaints_count}]
+            else: complaints = []
+            for complaint, count in fixed_complaints:
+                complaints.append({"complaint": complaint, "count": count})
+            return {"thumbs_up": thumbs_up_count, "thumbs_down": thumbs_down_count,
+                    "complaints": complaints }
             
-    @classmethod
-    async def update_feedback(cls, passenger_id, vehicle_id, review):
-        async with cls.db_pool.acquire() as con:
-            return await con.execute("""UPDATE feedback SET reaction=$3, complaint=$4 
-                                        WHERE passenger_id=$1 AND vehicle_id=$2""", passenger_id, vehicle_id, review.reaction, review.complaint)
-        
-    @classmethod
-    async def remove_feedback(cls, passenger_id, vehicle_id):
-        async with cls.db_pool.acquire() as con:
-            return await con.execute("""DELETE FROM feedback WHERE passenger_id=$1 AND vehicle_id=$2""", passenger_id, vehicle_id)
-        
-    @classmethod
-    async def remove_passenger_feedbacks(cls, passenger_id):
-        async with cls.db_pool.acquire() as con:
-            return await con.execute("""DELETE FROM feedback WHERE passenger_id=$1""", passenger_id)
-        
-    @classmethod
-    async def remove_vehicle_feedbacks(cls,vehicle_id):
-        async with cls.db_pool.acquire() as con:
-            return await con.execute("""DELETE FROM feedback WHERE vehicle_id=$1""",vehicle_id)    
-        
-    @classmethod
-    async def get_all_feedbacks(cls):
-        async with cls.db_pool.acquire() as con:
-            res = await con.fetch("SELECT (passenger_id, vehicle_id, reaction, complaint) FROM feedback")
-            if res is None: return None
-            return [{"passenger_id": feedback_info[0][0], "vehicle_id": feedback_info[0][1],
-                     "reaction": feedback_info[0][2], "complaint": feedback_info[0][3]} for feedback_info in res]
-            
-        
-    @classmethod
-    async def get_vehicle_feedbacks(cls, vehicle_id):
-        async with cls.db_pool.acquire() as con:
-            res = await con.fetch("SELECT (passenger_id, reaction, complaint) FROM feedback WHERE vehicle_id=$1", vehicle_id)
-            if res is None: return None
-            return [{"passenger_id": feedback_info[0][0],
-                     "reaction": feedback_info[0][1], "complaint": feedback_info[0][2]} for feedback_info in res]
-        
-    @classmethod
-    async def get_passenger_feedbacks(cls, passenger_id):
-        async with cls.db_pool.acquire() as con:
-            res = await con.fetch("SELECT (vehicle_id, reaction, complaint) FROM feedback WHERE passenger_id=$1", passenger_id)
-            if res is None: return None
-            return [{"vehicle_id": feedback_info[0][0],
-                     "reaction": feedback_info[0][1], "complaint": feedback_info[0][2]} for feedback_info in res]
-        
-    @classmethod
-    async def get_feedback(cls, passenger_id, vehicle_id):
-        async with cls.db_pool.acquire() as con:
-            res = await con.fetch("SELECT (reaction, complaint) FROM feedback WHERE passenger_id=$1 AND vehicle_id=$2", passenger_id, vehicle_id)
-            if res is None: return None
-            return [{"reaction": feedback_info[0][0], "complaint": feedback_info[0][1]} for feedback_info in res]
-        
+
     @classmethod
     async def get_stations(cls):
         async with cls.db_pool.acquire() as con:
@@ -304,3 +320,11 @@ class db:
             
             
 
+
+    @classmethod 
+    async def get_intersections(cls):
+        async with cls.db_pool.acquire() as con:
+            res = await con.fetch("SELECT (route_id, local_index, auxiliary_route, auxiliary_index) FROM intersection")
+            return [(intersection_info[0][0], intersection_info[0][1], 
+                     intersection_info[0][2], intersection_info[0][3]) for intersection_info in res]
+        
