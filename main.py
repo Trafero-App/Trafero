@@ -7,7 +7,7 @@ import asyncpg
 import os
 from dotenv import load_dotenv, find_dotenv
 
-from validation_classes import vehicle_location, Account_Info, Account_DB_Entry, Review
+from validation_classes import vehicle_location, Account_Info, Account_DB_Entry, Passenger_Review, Review_DB_Entry
 from typing import Annotated
 
 import helper
@@ -207,8 +207,12 @@ async def delete_vehicle_route(route_id: int, response: Response, user_info: aut
 async def route_details(route_id: int, response:Response):
     if route_id not in app.state.routes:
         response.status_code = status.HTTP_404_NOT_FOUND
-        return {"message": "Route not found"}
-    return app.state.routes[route_id]["details"]
+        return {"message": "Error: Route not found."}
+    
+    route_data = helper.flatten_route_data(app.state.routes[route_id])
+
+    return {"message" : "All Good.", "route_data": route_data}
+
 
 
 @app.get("/route/{requested_route_id}", status_code=status.HTTP_200_OK)
@@ -217,42 +221,49 @@ async def route(requested_route_id: int, response: Response):
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "Error: Route not found."}
     
-    route_data = helper.flatten_route_data(app.state.routes[requested_route_id])
+    route_data = app.state.routes[requested_route_id]
+    route_needed_data = {"description": route_data["details"]["description"],
+                         "line": route_data["line"],
+                         "route_id": requested_route_id,
+                         "route_name": route_data["details"]["route_name"],
+                         }
     route_vehicles = await db.get_route_vehicles(requested_route_id)
     for vehicle in route_vehicles:
         del vehicle["latitude"]
         del vehicle["longitude"]
-    route_data["vehicles"] = route_vehicles
+    route_needed_data["vehicles"] = route_vehicles
 
-    return {"message" : "All Good.", "route_data": route_data}
+    return {"message" : "All Good.", "route_data": route_needed_data}
 
 
 
 @app.get("/all_vehicles_location", status_code=status.HTTP_200_OK)
 async def all_vehicles_location():
     vehicle_info = await db.get_all_vehicles_info()
+    features = []
+    for vehicle in vehicle_info:
+        # print(route_coords[helper.project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route_coords)[0]])
+        route_id = await db.get_vehicle_route_id(vehicle["id"])
+        route_coords = app.state.routes[route_id]["line"]["geometry"]["coordinates"]
+        features.append({
+            "type": "Feature",
+            "properties": {
+                "status": vehicle["status"],
+                "id": vehicle["id"]
+            },
+            "geometry": {
+                "coordinates": route_coords[helper.project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route_coords)[0]]
+                ,
+                "type": "Point"
+            
+            }
+        })
 
     return {"message": "All good.",
             "content": {
                 "type": "FeatureCollection",
-                "features": [
-                    {
-                        "type": "Feature",
-                        "properties": {
-                            "status": vehicle["status"],
-                            "id": vehicle["id"]
-                        },
-                        "geometry": {
-                            "coordinates": [
-                                vehicle["longitude"],
-                                vehicle["latitude"]
-                            ],
-                            "type": "Point"
-                        
-                        }
-                        }
-
-                for vehicle in vehicle_info]
+                "features": features
+                    
             }
         }
 
@@ -302,13 +313,21 @@ async def route_vehicles_eta(route_id:int, response: Response,
     
 
 @app.get("/vehicle/{vehicle_id}", status_code=status.HTTP_200_OK)
-async def get_vehicle(vehicle_id: int, response: Response):
+async def get_vehicle(vehicle_id: int, response: Response, user_info: authentication.authorize_anyone):
+    if user_info is not None and user_info["type"] == "passenger":
+        passenger_id = user_info.get("id")
+    else: passenger_id = None
     vehicle_details = await db.get_vehicle_details(vehicle_id)
     if vehicle_details is None:
         response.status = status.HTTP_404_NOT_FOUND
         return {"message": "vehicle not found"}
     vehicle_route = app.state.routes[vehicle_details["route_id"]]
     vehicle_details["route_name"] = vehicle_route["details"]["route_name"]
+    if passenger_id is not None:
+        vehicle_details["user_choice"] = (await db.get_passenger_reaction(passenger_id, vehicle_id))["reaction"]
+    else:
+        vehicle_details["user_choice"] = None
+
     vehicle_details["remaining_route"] = {
         "type": "Feature",
         "properties": {},
@@ -343,7 +362,8 @@ async def vehicle_eta(vehicle_id: int, pick_up_long:float, pick_up_lat:float):
     route_id = await db.get_vehicle_route_id(vehicle_id)
     route = app.state.routes[route_id]["line"]["geometry"]["coordinates"]
     route_waypoints = await db.get_route_waypoints(route_id)
-    rem_waypoints = helper.trim_waypoints_list(route_waypoints, (v_long, v_lat), route_waypoints[-1][:2], route)
+    projected_pick_up = route[helper.project_point_on_route((pick_up_long,pick_up_lat),route)[0]]
+    rem_waypoints = helper.trim_waypoints_list(route_waypoints, (v_long, v_lat), projected_pick_up, route)
     passed = helper.before_on_route((pick_up_long, pick_up_lat), (v_long, v_lat), route)
     if passed:
         return {
@@ -355,7 +375,7 @@ async def vehicle_eta(vehicle_id: int, pick_up_long:float, pick_up_lat:float):
             "message": "All good.",
             "content":{
                 "passed": False,
-                "expected_time": int(helper.get_time_estimation(rem_waypoints, MAPBOX_TOKEN, "driving") // 60)
+                "expected_time": helper.get_time_estimation(rem_waypoints, MAPBOX_TOKEN, "driving")
                 }
         }
 
@@ -397,10 +417,13 @@ async def search_vehicles(query: str):
 
 
 # feedback path operations
-@app.post("/feedback/post", status_code=status.HTTP_200_OK)
-async def post_feedback(passenger_id: int, vehicle_id: int, review: Review, response: Response):
+@app.post("/feedback", status_code=status.HTTP_200_OK)
+async def post_feedback(review: Passenger_Review, response: Response, user_info : authentication.authorize_passenger):
+    passenger_id = user_info["id"]
+    review_entry = Review_DB_Entry(**review.model_dump(), passenger_id=passenger_id)
     try:
-        await db.add_feedback(passenger_id, vehicle_id, review)
+        print('x)')
+        await db.add_feedback(review_entry)
         return {"message": "All Good."}
     except asyncpg.exceptions.UniqueViolationError:
         response.status_code = status.HTTP_400_BAD_REQUEST
@@ -416,71 +439,47 @@ async def post_feedback(passenger_id: int, vehicle_id: int, review: Review, resp
         elif "fk_passenger" in str(e):
             response.status_code = status.HTTP_400_BAD_REQUEST
             return {"message": "Error: You have attempted to add the feedback of a passenger that doesn't exist."}
-    except asyncpg.exceptions.CheckViolationError:
-        response.status_code = status.HTTP_400_BAD_REQUEST
-        return {"message": "Error: 'review' cannot be NULL. Please provide at least one of them."}
+
+@app.put("/feedback", status_code=status.HTTP_200_OK)
+async def put_feedback(review: Passenger_Review, response: Response, user_info: authentication.authorize_passenger):
     
-@app.put("/feedback/put/{passenger_id}/{vehicle_id}", status_code=status.HTTP_200_OK)
-async def put_feedback(passenger_id: int, vehicle_id: int, review: Review, response: Response):
+    passenger_id = user_info["id"]
+    review_entry = Review_DB_Entry(**review.model_dump(), passenger_id=passenger_id)
     try:
-        result = await db.update_feedback(passenger_id, vehicle_id, review)
-        if result == "UPDATE 0":
+        success = await db.update_feedback(review_entry)
+        if not success:
             response.status_code = status.HTTP_400_BAD_REQUEST
-            return {"message" : """Error: You have attempted to update the feedback of a passenger whose feedback hasn't been added to the vehicle yet.
-                            Maybe you mean to send a POST request?"""}
-        else:
-            return {"message": "All Good."}
-    except asyncpg.exceptions.CheckViolationError:
-        response.status_code = status.HTTP_400_BAD_REQUEST
-        return {"message": "Error: 'review' cannot be NULL. Maybe you meant a DELETE request?."}
-    
-@app.delete("/feedback/delete/passenger/{passenger_id}")
-async def delete_passenger_feedbacks(passenger_id: int, response: Response):
-    result = await db.remove_passenger_feedbacks(passenger_id)
-    if result == "DELETE 0":
-        response.status_code = status.HTTP_400_BAD_REQUEST
-        return {"message" : """Error: You have attempted to delete a feedback that doesn't exist."""}
-    else:
+            return {"message": "Feedback cannot be updated (it doesn't exist)"}
         return {"message": "All Good."}
-    
-@app.delete("/feedback/delete/vehicle/{vehicle_id}", status_code=status.HTTP_200_OK)
-async def delete_vehicle_feedbacks( vehicle_id: int, response: Response):
-    result = await db.remove_vehicle_feedbacks(vehicle_id)
-    if result == "DELETE 0":
-        response.status_code = status.HTTP_400_BAD_REQUEST
-        return {"message" : """Error: You have attempted to delete a feedback that doesn't exist."""}
+    except asyncpg.exceptions.ForeignKeyViolationError as e:
+        if "fk_vehicle" in str(e):
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return {"message": "Error: Invalid vehicle id"}
+        elif "fk_passenger" in str(e):
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return {"message": "Error: Invalid passenger id"}
+        
+    return {"message": "All good."}
+
+
+@app.get("/my_reaction/{vehicle_id}", status_code=status.HTTP_200_OK)
+async def get_my_reaction(vehicle_id: int, response: Response, user_info: authentication.authorize_passenger):
+    passenger_id = user_info["id"]
+    return await db.get_passenger_reaction(passenger_id, vehicle_id)
+
+@app.get("/feedback/{vehicle_id}", status_code=status.HTTP_200_OK)
+async def get_vehicle_feedback(vehicle_id: int, response: Response):
+    return await db.get_vehicle_feedback(vehicle_id)
+
+@app.delete("/feedback/{vehicle_id}", status_code=status.HTTP_200_OK)
+async def delete_vehicle_feedback(vehicle_id: int, response: Response, user_info: authentication.authorize_passenger):
+    passenger_id = user_info["id"]
+    success = await db.delete_feedback(vehicle_id, passenger_id)
+    if success: return {"message": "All good."}
     else:
-        return {"message": "All Good."}
-    
-@app.delete("/feedback/delete/{passenger_id}/{vehicle_id}", status_code=status.HTTP_200_OK)
-async def delete_feedback(passenger_id: int, vehicle_id: int, response: Response):
-    result = await db.remove_feedback(passenger_id, vehicle_id)
-    if result == "DELETE 0":
-        response.status_code = status.HTTP_400_BAD_REQUEST
-        return {"message" : """Error: You have attempted to delete a feedback that doesn't exist."""}
-    else:
-        return {"message": "All Good."}
+        response.status_code = status.HTTP_404_NOT_FOUND
+        return {"message": "Entry doesn't exist"}
 
-
-@app.get("/feedback/get/passenger/{passenger_id}", status_code=status.HTTP_200_OK)
-async def get_passenger_feedbacks(passenger_id: int, response: Response):
-    result = await helper.passenger_feedbacks(passenger_id, response)
-    return result
-
-@app.get("/feedback/get/vehicle/{vehicle_id}", status_code=status.HTTP_200_OK)
-async def get_vehicle_feedbacks(vehicle_id: int, response: Response):
-    result = await helper.vehicle_feedbacks(vehicle_id, response)
-    return result
-
-@app.get("/feedback/get/{passenger_id}/{vehicle_id}", status_code=status.HTTP_200_OK)
-async def get_feedback(passenger_id: int, vehicle_id: int, response: Response):
-    result = await helper.feedback(passenger_id, vehicle_id, response)
-    return result
-
-@app.get("/feedback/get", status_code=status.HTTP_200_OK)
-async def get_all_feedbacks(response: Response):
-    result = await helper.all_feedbacks(response)
-    return result
 
 @app.get("/station", status_code=status.HTTP_200_OK)
 async def get_stations(response: Response):

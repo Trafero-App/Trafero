@@ -70,9 +70,10 @@ def trim_waypoints_index(waypoints, route, start_projection_index, end_projectio
         else:
             end_way_point_index = -1
     
-    return  [tuple(route[start_projection_index]) + (start_projection_index,)] \
+    new_waypoints = [tuple(route[start_projection_index]) + (start_projection_index,)] \
             + waypoints[start_way_point_index:end_way_point_index] + \
             [tuple(route[end_projection_index]) + (end_projection_index,)]
+    return new_waypoints
 
 
 def trim_waypoints_list(waypoints, start, end, route):
@@ -120,8 +121,8 @@ def get_time_estimation(waypoints, token, mode):
               'overview': 'full'
               }
     response = requests.get(url, params=params)
-    return round(response.json()["routes"][0]["duration"]/60)
-
+    return round(response.json()["routes"][0]["duration"] / 60)
+  
 def before_on_route(point_a, point_b, route):
     return project_point_on_route(point_a, route)[0] < project_point_on_route(point_b, route)[0]
 
@@ -133,10 +134,11 @@ def filter_vehicles__pick_up(pick_up, vehicles, route):
     for vehicle in vehicles:
         projection_index = project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route)[0]
         vehicle["projection_index"] = projection_index
-    print(vehicles)
+        
     projected_pick_up_point_index = project_point_on_route((long, lat), route)[0]
 
     vehicles.sort(key=lambda x: x["projection_index"], reverse = True)
+    i = 0
     for i, vehicle in enumerate(vehicles):
         if vehicle["projection_index"] <= projected_pick_up_point_index:
             break
