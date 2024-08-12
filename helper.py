@@ -351,8 +351,22 @@ async def nearby_routes(long, lat, radius, routes):
 
 def cascaded_routes(intersections, nearby_A, nearby_B, routes):
     combinations = cascader(intersections, nearby_A, nearby_B)
+    filtered_combinations = combinations.copy()
+    for i in range(len(combinations)):
+        for j in range(i+1, len(combinations)):
+            if combinations[i][0] == combinations[j][0] and combinations[i][2] == combinations[j][2]:
+                lenght_1 = int(combinations[i][1]) - combinations[i][4] + combinations[i][5] - int(combinations[i][3])
+                lenght_2 = int(combinations[j][1]) - combinations[j][4] + combinations[j][5] - int(combinations[j][3])
+                if lenght_1 < lenght_2:
+                    filtered_combinations.remove(combinations[j])
+                else:
+                    filtered_combinations.remove(combinations[i])
+            
     cascaded_close_routes = {}
-    template = {
+    print('\n\n\n\n\n',combinations,'\n\n\n')
+    print(filtered_combinations,'\n\n\n\n\n')
+    for i, result in enumerate(filtered_combinations):
+        template = {
   "type": "FeatureCollection",
   "features": [
     {
@@ -374,8 +388,6 @@ def cascaded_routes(intersections, nearby_A, nearby_B, routes):
     }
   ]
 }
-    print('\n\n\n\n\n',combinations,'\n\n\n\n\n')
-    for result in combinations:
         route_1 = result[0]
         p1 = result[4]
         p2 = int(result[1])
@@ -387,7 +399,6 @@ def cascaded_routes(intersections, nearby_A, nearby_B, routes):
         cascaded_close_routes[str(route_1)+","+str(route_2)] = template.copy()
         cascaded_close_routes[str(route_1)+","+str(route_2)]["features"][0]["geometry"]["coordinates"] = sliced_1
         cascaded_close_routes[str(route_1)+","+str(route_2)]["features"][1]["geometry"]["coordinates"] = sliced_2
-    print(cascaded_close_routes)
     return cascaded_close_routes
 
 async def nearby(long, lat, radius, long2, lat2, radius2, routes):
