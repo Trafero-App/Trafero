@@ -25,18 +25,8 @@ async def lifespan(app: FastAPI):
     await db.connect(DB_URL)
 
     # Load all routes for efficient access later on
-    app.state.routes = {}
-    app.state.routes_search_data = []
-    routes_data = await db.get_all_routes_data()
-    for route_data in routes_data:        
-        route_data = {"details": route_data}
-        route_geojson = await db.get_route_geojson(route_data["details"]["file_name"])
-        del route_data["details"]["file_name"]
-        route_data["line"] = route_geojson
-        app.state.routes[route_data["details"]["route_id"]] = route_data
-
-        app.state.routes_search_data.append(((route_data["details"]["route_id"],) + tuple(route_data["details"]["description"].split(' - '))))
-
+    app.state.routes = db.routes
+    app.state.routes_search_data = db.routes_search_data
     yield
     
     # Close the connection to the db when the app shuts down
@@ -57,11 +47,6 @@ app.add_middleware(
     allow_headers=["*"]
 
 )
-@app.get("/Jtest", status_code=status.HTTP_200_OK)
-
-async def testt():
-    return app.state.routes
-    
 
 @app.post("/signup", status_code=status.HTTP_200_OK)
 async def signup(account_data: Account_Info, response: Response):
@@ -291,10 +276,7 @@ async def route_vehicles_eta(route_id:int, response: Response,
     for i in range(av_vehicles_last_i):
         vehicle = vehicles[i]
 
-        vehicle_waypoints = helper.trim_waypoints_list(waypoints, 
-                                                        (vehicle["longitude"], vehicle["latitude"]), 
-                                                        (pick_up_long, pick_up_lat), route)
-        vehicle["expected_time"] =  helper.get_time_estimation(vehicle_waypoints, MAPBOX_TOKEN , "driving")
+        vehicle["expected_time"] =  helper.get_vehicle_time_estimation(vehicle["id"], (pick_up_long, pick_up_lat), MAPBOX_TOKEN, waypoints)
         vehicle["passed"] = False
 
         del vehicle["longitude"]
@@ -357,28 +339,21 @@ async def vehicle_time(long1:float, lat1:float, long2:float, lat2:float, respons
 
 @app.get("/vehicle_eta/{vehicle_id}")
 async def vehicle_eta(vehicle_id: int, pick_up_long:float, pick_up_lat:float):
-    location = await db.get_vehicle_location(vehicle_id)
-    v_long, v_lat = location["longitude"], location["latitude"]
-    route_id = await db.get_vehicle_route_id(vehicle_id)
-    route = app.state.routes[route_id]["line"]["geometry"]["coordinates"]
-    route_waypoints = await db.get_route_waypoints(route_id)
-    projected_pick_up = route[helper.project_point_on_route((pick_up_long,pick_up_lat),route)[0]]
-    rem_waypoints = helper.trim_waypoints_list(route_waypoints, (v_long, v_lat), projected_pick_up, route)
-    passed = helper.before_on_route((pick_up_long, pick_up_lat), (v_long, v_lat), route)
+    passed = await helper.check_vehicle_passed(vehicle_id, (pick_up_long, pick_up_lat))
     if passed:
         return {
             "message": "All good.",
             "content": {"passed": True}
         }
     else:
+        time_estimation = await helper.get_vehicle_time_estimation(vehicle_id, (pick_up_long, pick_up_lat), MAPBOX_TOKEN)
         return {
             "message": "All good.",
             "content":{
                 "passed": False,
-                "expected_time": helper.get_time_estimation(rem_waypoints, MAPBOX_TOKEN, "driving")
+                "expected_time": time_estimation
                 }
         }
-
 
 
 @app.get("/nearby_routes", status_code=status.HTTP_200_OK)

@@ -77,6 +77,7 @@ def trim_waypoints_index(waypoints, route, start_projection_index, end_projectio
 
 
 def trim_waypoints_list(waypoints, start, end, route):
+    print(start)
     start_projection_index = project_point_on_route(start, route)[0]
     end_projection_index = project_point_on_route(end, route)[0]
 
@@ -123,8 +124,31 @@ def get_time_estimation(waypoints, token, mode):
     response = requests.get(url, params=params)
     return round(response.json()["routes"][0]["duration"] / 60)
   
-def before_on_route(point_a, point_b, route):
-    return project_point_on_route(point_a, route)[0] < project_point_on_route(point_b, route)[0]
+
+async def get_vehicle_time_estimation(vehicle_id, dest, token, route_waypoints=None):
+    vehicle_location = await db.get_vehicle_location(vehicle_id)
+    v_long, v_lat = vehicle_location["longitude"], vehicle_location["latitude"]
+    
+    route_id = await db.get_vehicle_route_id(vehicle_id)
+    route = db.routes[route_id]["line"]["geometry"]["coordinates"]
+    if route_waypoints is None: 
+        route_waypoints = await db.get_route_waypoints(route_id)
+    projected_pick_up = route[project_point_on_route(dest,route)[0]]
+    rem_waypoints = trim_waypoints_list(route_waypoints, (v_long, v_lat), projected_pick_up, route)
+    
+    time_estimation = get_time_estimation(rem_waypoints, token, "driving")
+    return time_estimation
+
+async def check_vehicle_passed(vehicle_id, dest):
+    route_id = await db.get_vehicle_route_id(vehicle_id)
+    vehicle_location = await db.get_vehicle_location(vehicle_id)
+    v_long, v_lat = vehicle_location["longitude"], vehicle_location["latitude"]
+    
+    route_coords = db.routes[route_id]["line"]["geometry"]["coordinates"]
+    vehicle_proj_index = project_point_on_route((v_long, v_lat), route_coords)[0]
+    dest_proj_index = project_point_on_route(dest, route_coords)[0]
+    
+    return vehicle_proj_index >= dest_proj_index
 
 def filter_vehicles__pick_up(pick_up, vehicles, route):
     vehicles = deepcopy(vehicles)
