@@ -8,6 +8,10 @@ from fuzzywuzzy import fuzz, process
 import json
 from fastapi import Response, status
 import asyncpg
+from collections import namedtuple
+from typing import List
+
+Chain = namedtuple("Chain", ["route1_id", "route1_inter_proj", "route2_id", "route2_inter_proj", "pickup_index", "dest_index"])
 
 load_dotenv(find_dotenv())
 
@@ -247,6 +251,11 @@ def off_track(vehicle_id, route, threshold):
         return True
     return False
 
+def flatten_route_data(route):
+    res: dict = route["details"].copy()
+    res["line"] = route["line"]
+    return res
+    
 
 
 
@@ -256,25 +265,6 @@ async def get_nearby_routes_to_1_point(long, lat, radius, routes):
     close_routes = []
     routes_distances = {}
     for route_id, route_data in routes.items():
-        template = {
-                    "route_id": 0,
-                    "route_name": "",
-                    "description": "",
-                    "vehicles": [],
-                    "line": {
-                        "type": "FeatureCollection",
-                        "features": [
-                            {
-                                "type": "Feature",
-                                "properties": {},
-                                "geometry": {
-                                "coordinates": [],
-                                "type": "LineString"
-                                }
-                            }
-                        ]
-                      } 
-                    }
         route_coords = route_data["line"]["geometry"]["coordinates"]
         min_distance = project_point_on_route((long, lat), route_coords)[1]
         print("checking " + route_data["details"]["route_name"] + "...")
@@ -284,21 +274,17 @@ async def get_nearby_routes_to_1_point(long, lat, radius, routes):
             for vehicle in route_vehicles:
                 del vehicle["longitude"]
                 del vehicle["latitude"]
-            route_data["vehicles"] = route_vehicles
 
             route_id = route_data["details"]["route_id"]
-            route_name = route_data["details"]["route_name"]
-            description = route_data["details"]["description"]
-            vehicles = route_data["vehicles"]
-            line = route_data["line"]["geometry"]["coordinates"]
-            template["route_id"] = route_id
-            template["route_name"] = route_name
-            template["description"] = description
-            template["vehicles"] = vehicles
-            template["line"]["features"][0]["geometry"]["coordinates"] = line
-
-            close_routes.append(template)
-    # close_routes.sort(key=lambda route: routes_distances[route["details"]["route_id"]])
+            route_needed_data = {
+                         "route_id": route_id,
+                         "route_name": route_data["details"]["route_name"],
+                         "description": route_data["details"]["description"],
+                         "vehicles" : route_vehicles,
+                         "line": route_data["line"]
+                         }
+            close_routes.append(route_needed_data)
+    close_routes.sort(key=lambda route: routes_distances[route["route_id"]])
     return close_routes
 
 
@@ -306,31 +292,10 @@ async def get_nearby_routes_to_2_point(long, lat, radius, long2, lat2, radius2, 
     close_routes = []
     routes_distances = {}
     for route_id, route_data in routes.items():
-        template = {
-                    "chain": False,
-                    "route_id": 0,
-                    "route_name": "",
-                    "description": "",
-                    "vehicles": [],
-                    "eta": 0,
-                    "line": {
-                        "type": "FeatureCollection",
-                        "features": [
-                            {
-                                "type": "Feature",
-                                "properties": {},
-                                "geometry": {
-                                "coordinates": [],
-                                "type": "LineString"
-                                }
-                            }
-                        ]
-                      } 
-                    }
-        route_data["chain"] = False
         route_coords = route_data["line"]["geometry"]["coordinates"]
-        min_distance = project_point_on_route((long, lat), route_coords)[1]
-        min_distance2 = project_point_on_route((long2, lat2), route_coords)[1]
+        proj1_index, min_distance = project_point_on_route((long, lat), route_coords)
+        proj2_index, min_distance2 = project_point_on_route((long2, lat2), route_coords)
+        if proj2_index < proj1_index: continue
         print("checking " + route_data["details"]["route_name"] + "...")
         if min_distance <= radius and min_distance2 <=radius2:
             routes_distances[route_id] = min_distance
@@ -338,62 +303,34 @@ async def get_nearby_routes_to_2_point(long, lat, radius, long2, lat2, radius2, 
             for vehicle in route_vehicles:
                 del vehicle["longitude"]
                 del vehicle["latitude"]
-            route_data["vehicles"] = route_vehicles
-
-
-            route_id = route_data["details"]["route_id"]
-            route_name = route_data["details"]["route_name"]
-            description = route_data["details"]["description"]
-            vehicles = route_data["vehicles"]
-            line = route_data["line"]["geometry"]["coordinates"]
-            template["route_id"] = route_id
-            template["route_name"] = route_name
-            template["description"] = description
-            template["vehicles"] = vehicles
-            template["line"]["features"][0]["geometry"]["coordinates"] = line
-            template["eta"] = 10
-            close_routes.append(template)
-            # close_routes.sort(key=lambda route: routes_distances[route["details"]["route_id"]])
+                
+            route_needed_data = {
+                "chain": False,
+                "route_id": route_id,
+                "route_name": route_data["details"]["route_name"],
+                "description": route_data["details"]["description"],
+                "eta": 0,
+                "vehicles": route_vehicles,
+                "line": {"type": "FeatureCollection", "features": [route_data["line"]]}
+            }
+            
+            close_routes.append(route_needed_data)
     return close_routes
             
 
-def flatten_route_data(route):
-    res: dict = route["details"].copy()
-    res["line"] = route["line"]
-    return res
-    
 
+def cascader(intersection_data, routes_near_A, routes_near_B):
+    valid_chains = []
+    for A_route_id, pickup_index in routes_near_A:
+        for route1_id, route1_inter_proj, route2_id, route2_inter_proj in intersection_data:
+            if A_route_id != route1_id: continue
+            for B_route_id, dest_index in routes_near_B:
+                if route2_id != B_route_id: continue
+                if pickup_index > route1_inter_proj or dest_index < route2_inter_proj: continue
+                chain = Chain(*map(int, (route1_id, route1_inter_proj, route2_id, route2_inter_proj, pickup_index, dest_index)))
+                valid_chains.append(chain)
 
-def cascader(all_info, routes_near_A, routes_near_B):
-    intersections = []
-    filtered = []
-    for x in routes_near_A:
-        for info in all_info:
-            if info[0] == x[0]:
-                for y in routes_near_B:
-                    if info[2] == y[0]:
-                        intersections.append(info+(x[1],)+(y[1],))
-    if intersections == []:
-        return "NO AVAILABLE ROUTES"
-    else:
-        for i in range (len(intersections)):
-            for route in routes_near_A:
-                if intersections[i][0] == route[0]:
-                    if intersections[i][1] > route[1]:
-                        intersections[i] = intersections[i] + (True,)
-                    else:
-                        intersections[i] = intersections[i] + (False,)
-        for i in range (len(intersections)):
-            for route in routes_near_B:
-                if intersections[i][2] == route[0]:
-                    if intersections[i][-1] == True:
-                        if intersections[i][3] > route[1]:
-                            intersections[i] = intersections[i][:-1] + (False,)
-        for element in intersections:
-            if element[-1] == True:
-                filtered.append(element[:-1])
-
-        return filtered
+    return valid_chains
 
 
 
@@ -402,69 +339,92 @@ async def nearby_routes(long, lat, radius, routes):
     routes_index = []
     for route_id, route_data in routes.items():
         route_coords = route_data["line"]["geometry"]["coordinates"]
-        point_index = project_point_on_route((long, lat), route_coords)[0]
-        min_distance = project_point_on_route((long, lat), route_coords)[1]
+        proj_index, min_distance = project_point_on_route((long, lat), route_coords)
         if min_distance <= radius:
-            routes_index.append((route_id, point_index))
+            routes_index.append((route_id, proj_index))
     return (routes_index)
 
-
-
-
-async def cascaded_routes(intersections, nearby_A, nearby_B, routes):
-    combinations = cascader(intersections, nearby_A, nearby_B)
-    filtered_combinations = combinations.copy()
-    for i in range(len(combinations)):
-        for j in range(i+1, len(combinations)):
-            if combinations[i][0] == combinations[j][0] and combinations[i][2] == combinations[j][2]:
-                lenght_1 = int(combinations[i][1]) - combinations[i][4] + combinations[i][5] - int(combinations[i][3])
-                lenght_2 = int(combinations[j][1]) - combinations[j][4] + combinations[j][5] - int(combinations[j][3])
+async def filter_duplicate_chains(chains):
+    filtered_chains = chains.copy()
+    for i, chain1 in enumerate(chains):
+        for chain2 in chains[i + 1:]:
+            if chain1.route1_id == chain2.route1_id and chain1.route2_id == chain2.route2_id:
+                lenght_1 = int(chain2.route1_inter_proj) - chain1.pickup_index + chain1.dest_index - int(chain1.route2_inter_proj)
+                lenght_2 = int(chain2.route1_inter_proj) - chain2.pickup_index + chain2.dest_index - int(chain2.route2_inter_proj)
                 if lenght_1 < lenght_2:
-                    filtered_combinations.remove(combinations[j])
+                    filtered_chains.remove(chain2)
                 else:
-                    filtered_combinations.remove(combinations[i])
-            
+                    filtered_chains.remove(chain1)
+    return filtered_chains
+
+# Chain = namedtuple("route1_id", "route1_inter_proj", "route2_id", "route2_inter_proj", "pickup_index", "dest_index")
+async def cascaded_routes(intersections, nearby_A, nearby_B, routes, mapbox_token):
+    chains = cascader(intersections, nearby_A, nearby_B)
+    filtered_chains: List[Chain] = await filter_duplicate_chains(chains)
+
     cascaded_output = []
-    for i, result in enumerate(filtered_combinations):
-        template = {
+    for i, chain in enumerate(filtered_chains):
+        route1_id = chain.route1_id
+        waypoints1 = await db.get_route_waypoints(route1_id)
+
+        route_1_coords = routes[route1_id]["line"]["geometry"]["coordinates"]
+        trimed_waypoints1 = trim_waypoints_index(waypoints1, route_1_coords, chain.pickup_index, chain.route1_inter_proj)
+        eta1 = get_time_estimation(trimed_waypoints1, mapbox_token, "driving")
+        vehicles1 = await db.get_route_vehicles(route1_id)
+        for vehicle in vehicles1:
+            del vehicle["longitude"]
+            del vehicle["latitude"]
+        sliced_1 = route_1_coords[chain.pickup_index : chain.route1_inter_proj + 1]
+
+        route2_id = chain.route2_id
+        waypoints2 = await db.get_route_waypoints(route2_id)
+        route_2_coords = routes[route2_id]["line"]["geometry"]["coordinates"]
+        trimed_waypoints2 = trim_waypoints_index(waypoints2, route_2_coords, chain.route2_inter_proj, chain.dest_index)
+        eta2 = get_time_estimation(trimed_waypoints2, mapbox_token, "driving")
+        vehicles2 = await db.get_route_vehicles(route2_id)
+        for vehicle in vehicles2:
+            del vehicle["longitude"]
+            del vehicle["latitude"]
+        sliced_2 = route_2_coords[chain.route2_inter_proj : chain.dest_index + 1]
+        formated_output = {
             "chain": True,
-            "route_id1": 0,
-            "route_name1": "",
-            "description1": "",
-            "vehicles1": [],
-            "eta1": 0,
-            "route_id2": 0,
-            "route_name2": "",
-            "description2": "",
-            "vehicles2": [],
-            "eta2": 0,
-            "eta": 0,
+            "route_id1": route1_id,
+            "route_name1": routes[route1_id]["details"]["route_name"],
+            "description1": routes[route1_id]["details"]["description"],
+            "eta1": eta1,
+            "vehicles1": vehicles1,
+            "route_id2": route2_id,
+            "route_name2": routes[route2_id]["details"]["route_name"],
+            "description2": routes[route2_id]["details"]["description"],
+            "eta2": eta2,
+            "vehicles2": vehicles2,
+            "eta": eta1 + eta2,
             "line1": {
-                "type": "FeatureCollection",
-                "features": [
-                  {
-                    "type": "Feature",
-                    "properties": {},
-                    "geometry": {
-                      "coordinates": [],
-                      "type": "LineString"
-                    }
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "type": "Feature",
+                  "properties": {},
+                  "geometry": {
+                    "coordinates": route_1_coords,
+                    "type": "LineString"
                   }
-                ]
-              },
+                }
+              ]
+            },
             "line2": {
-                "type": "FeatureCollection",
-                "features": [
-                  {
-                    "type": "Feature",
-                    "properties": {},
-                    "geometry": {
-                      "coordinates": [],
-                      "type": "LineString"
-                    }
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "type": "Feature",
+                  "properties": {},
+                  "geometry": {
+                    "coordinates": route_2_coords,
+                    "type": "LineString"
                   }
-                ]
-              },
+                }
+              ]
+            },
             "line": {
               "type": "FeatureCollection",
               "features": [
@@ -472,7 +432,7 @@ async def cascaded_routes(intersections, nearby_A, nearby_B, routes):
                   "type": "Feature",
                   "properties": {},
                   "geometry": {
-                    "coordinates": [],
+                    "coordinates": sliced_1,
                     "type": "LineString"
                   }
                 },
@@ -480,74 +440,24 @@ async def cascaded_routes(intersections, nearby_A, nearby_B, routes):
                   "type": "Feature",
                   "properties": {},
                   "geometry": {
-                    "coordinates": [],
+                    "coordinates": sliced_2,
                     "type": "LineString"
-                  },
-                  "id": 1
+                  }
                 }
               ]
             }
-      }
-        route_id1 = result[0]
-        p1 = result[4]
-        p2 = int(result[1])
-        route_id2 = result[2]
-        p3 = int(result[3])
-        p4 = result[5]
-        line_1 = routes[route_id1]["line"]["geometry"]["coordinates"]
-        line_2 = routes[route_id2]["line"]["geometry"]["coordinates"]
-
-        waypoints1 = await db.get_route_waypoints(route_id1)
-        waypoints2 = await db.get_route_waypoints(route_id2)
-        trimed_waypoints1 = trim_waypoints_index(waypoints1, line_1, p1, p2)
-        trimed_waypoints2 = trim_waypoints_index(waypoints2, line_2, p3, p4)
-        print(trimed_waypoints1)
-        print(trimed_waypoints2)
-        eta1 = get_time_estimation(trimed_waypoints1, "token", "driving")
-        eta2 = get_time_estimation(trimed_waypoints2, "token", "driving")
-        route_name1 = routes[route_id1]["details"]["route_name"]
-        description1 = routes[route_id1]["details"]["description"]
-        vehicles1 = await db.get_route_vehicles(route_id1)
-        for vehicle in vehicles1:
-            del vehicle["longitude"]
-            del vehicle["latitude"]
-        route_name2 = routes[route_id2]["details"]["route_name"]
-        description2 = routes[route_id2]["details"]["description"]
-        vehicles2 = await db.get_route_vehicles(route_id2)
-        for vehicle in vehicles2:
-            del vehicle["longitude"]
-            del vehicle["latitude"]
-        
-        sliced_1 = line_1[p1:p2+1]
-        sliced_2 = line_2[p3:p4+1]
-
-
-        template["route_id1"] = route_id1
-        template["route_name1"] = route_name1
-        template["description1"] = description1
-        template["vehicles1"] = vehicles1
-        template["eta1"] = eta1
-        template["route_id2"] = route_id2
-        template["route_name2"] = route_name2
-        template["description2"] = description2
-        template["vehicles2"] = vehicles2
-        template["eta2"] = eta2
-        template["eta"] = eta1 + eta2
-        template["line1"]["features"][0]["geometry"]["coordinates"] = line_1
-        template["line2"]["features"][0]["geometry"]["coordinates"] = line_2
-        template["line"]["features"][0]["geometry"]["coordinates"] = sliced_1
-        template["line"]["features"][1]["geometry"]["coordinates"] = sliced_2
-        cascaded_output.append(template)    
+        }
+    cascaded_output.append(formated_output)    
 
     return cascaded_output
 
-async def nearby(long, lat, radius, long2, lat2, radius2, routes):
+async def get_nearby_routes(long, lat, radius, long2, lat2, radius2, routes, mapbox_token):
     intersections = await db.get_intersections()
     nearby_A = await nearby_routes(long, lat, radius, routes)
     nearby_B = await nearby_routes(long2, lat2, radius2, routes)
 
     not_cascaded_close_routes = await get_nearby_routes_to_2_point(long, lat, radius, long2, lat2, radius2, routes)
-    cascaded_close_routes = await cascaded_routes(intersections, nearby_A, nearby_B, routes)
+    cascaded_close_routes = await cascaded_routes(intersections, nearby_A, nearby_B, routes, mapbox_token)
 
     total = not_cascaded_close_routes + cascaded_close_routes
     total.sort(key=lambda route: route["eta"])

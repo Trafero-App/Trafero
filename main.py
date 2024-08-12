@@ -365,10 +365,11 @@ async def vehicle_eta(vehicle_id: int, pick_up_long:float, pick_up_lat:float):
 async def nearby_routes(long:float, lat:float, radius:float, 
                         long2: float | None=None, lat2: float|None = None, radius2: float|None=None):
     if long2 is not None and lat2 is not None and radius2 is not None:
-        close_routes = await helper.nearby(long, lat, radius, long2, lat2, radius2, app.state.routes)
+        close_routes = await helper.get_nearby_routes(long, lat, radius, long2, lat2, radius2, app.state.routes, MAPBOX_TOKEN)
     else:
         close_routes = await helper.get_nearby_routes_to_1_point(long, lat, radius, app.state.routes)
     return {"message": "All Good.", "routes": close_routes}
+
 
 @app.get("/search_routes/{query}", status_code=status.HTTP_200_OK)
 async def search_routes(query: str):
