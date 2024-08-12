@@ -283,8 +283,8 @@ async def get_nearby_routes_to_1_point(long, lat, radius, routes):
                          "route_name": route_data["details"]["route_name"],
                          "description": route_data["details"]["description"],
                          "vehicles" : route_vehicles,
-                         "line": route_data["line"]
-                         }
+                         "line": {"type": "FeatureCollection", "features": [route_data["line"]]},
+                        }
             close_routes.append(route_needed_data)
     close_routes.sort(key=lambda route: routes_distances[route["route_id"]])
     return close_routes
