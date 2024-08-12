@@ -125,13 +125,14 @@ def get_time_estimation(waypoints, token, mode):
     return round(response.json()["routes"][0]["duration"] / 60)
   
 
-async def get_vehicle_time_estimation(vehicle_id, dest, token):
+async def get_vehicle_time_estimation(vehicle_id, dest, token, route_waypoints=None):
     vehicle_location = await db.get_vehicle_location(vehicle_id)
     v_long, v_lat = vehicle_location["longitude"], vehicle_location["latitude"]
     
     route_id = await db.get_vehicle_route_id(vehicle_id)
     route = db.routes[route_id]["line"]["geometry"]["coordinates"]
-    route_waypoints = await db.get_route_waypoints(route_id)
+    if route_waypoints is None: 
+        route_waypoints = await db.get_route_waypoints(route_id)
     projected_pick_up = route[project_point_on_route(dest,route)[0]]
     rem_waypoints = trim_waypoints_list(route_waypoints, (v_long, v_lat), projected_pick_up, route)
     

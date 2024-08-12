@@ -47,11 +47,6 @@ app.add_middleware(
     allow_headers=["*"]
 
 )
-@app.get("/Jtest", status_code=status.HTTP_200_OK)
-
-async def testt():
-    return app.state.routes
-    
 
 @app.post("/signup", status_code=status.HTTP_200_OK)
 async def signup(account_data: Account_Info, response: Response):
@@ -281,10 +276,7 @@ async def route_vehicles_eta(route_id:int, response: Response,
     for i in range(av_vehicles_last_i):
         vehicle = vehicles[i]
 
-        vehicle_waypoints = helper.trim_waypoints_list(waypoints, 
-                                                        (vehicle["longitude"], vehicle["latitude"]), 
-                                                        (pick_up_long, pick_up_lat), route)
-        vehicle["expected_time"] =  helper.get_time_estimation(vehicle_waypoints, MAPBOX_TOKEN , "driving")
+        vehicle["expected_time"] =  helper.get_vehicle_time_estimation(vehicle["id"], (pick_up_long, pick_up_lat), MAPBOX_TOKEN, waypoints)
         vehicle["passed"] = False
 
         del vehicle["longitude"]
