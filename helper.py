@@ -122,6 +122,7 @@ def get_time_estimation(waypoints, token, mode):
               'overview': 'full'
               }
     response = requests.get(url, params=params)
+    print(response.json())
     return round(response.json()["routes"][0]["duration"] / 60)
   
 
@@ -130,7 +131,7 @@ async def get_vehicle_time_estimation(vehicle_id, dest, token, route_waypoints=N
     v_long, v_lat = vehicle_location["longitude"], vehicle_location["latitude"]
     
     route_id = await db.get_vehicle_route_id(vehicle_id)
-    route = db.routes[route_id]["line"]["geometry"]["coordinates"]
+    route = db.routes[route_id]["line"]["features"][0]["geometry"]["coordinates"]
     if route_waypoints is None: 
         route_waypoints = await db.get_route_waypoints(route_id)
     projected_pick_up = route[project_point_on_route(dest,route)[0]]
@@ -144,7 +145,7 @@ async def check_vehicle_passed(vehicle_id, dest):
     vehicle_location = await db.get_vehicle_location(vehicle_id)
     v_long, v_lat = vehicle_location["longitude"], vehicle_location["latitude"]
     
-    route_coords = db.routes[route_id]["line"]["geometry"]["coordinates"]
+    route_coords = db.routes[route_id]["line"]["features"][0]["geometry"]["coordinates"]
     vehicle_proj_index = project_point_on_route((v_long, v_lat), route_coords)[0]
     dest_proj_index = project_point_on_route(dest, route_coords)[0]
     
@@ -279,7 +280,7 @@ def off_track(vehicle_id, route, threshold):
 
 def flatten_route_data(route):
     res: dict = route["details"].copy()
-    res["line"] = route["line"]
+    res["line"]= route["line"]
     return res
     
 
@@ -291,7 +292,7 @@ async def get_nearby_routes_to_1_point(long, lat, radius, routes):
     close_routes = []
     routes_distances = {}
     for route_id, route_data in routes.items():
-        route_coords = route_data["line"]["geometry"]["coordinates"]
+        route_coords = route_data["line"]["features"][0]["geometry"]["coordinates"]
         min_distance = project_point_on_route((long, lat), route_coords)[1]
         print("checking " + route_data["details"]["route_name"] + "...")
         if min_distance <= radius:
@@ -307,7 +308,7 @@ async def get_nearby_routes_to_1_point(long, lat, radius, routes):
                          "route_name": route_data["details"]["route_name"],
                          "description": route_data["details"]["description"],
                          "vehicles" : route_vehicles,
-                         "line": {"type": "FeatureCollection", "features": [route_data["line"]]},
+                         "line": route_data["line"]
                         }
             close_routes.append(route_needed_data)
     close_routes.sort(key=lambda route: routes_distances[route["route_id"]])
@@ -318,7 +319,7 @@ async def get_nearby_routes_to_2_point(long, lat, radius, long2, lat2, radius2, 
     close_routes = []
     routes_distances = {}
     for route_id, route_data in routes.items():
-        route_coords = route_data["line"]["geometry"]["coordinates"]
+        route_coords = route_data["line"]["features"][0]["geometry"]["coordinates"]
         proj1_index, min_distance = project_point_on_route((long, lat), route_coords)
         proj2_index, min_distance2 = project_point_on_route((long2, lat2), route_coords)
         if proj2_index < proj1_index: continue
@@ -337,7 +338,7 @@ async def get_nearby_routes_to_2_point(long, lat, radius, long2, lat2, radius2, 
                 "description": route_data["details"]["description"],
                 "eta": 0,
                 "vehicles": route_vehicles,
-                "line": {"type": "FeatureCollection", "features": [route_data["line"]]}
+                "line": route_data["line"]
             }
             
             close_routes.append(route_needed_data)
@@ -345,8 +346,13 @@ async def get_nearby_routes_to_2_point(long, lat, radius, long2, lat2, radius2, 
             
 
 
-def cascader(intersection_data, routes_near_A, routes_near_B):
+def cascader(intersection_data, all_routes_near_A, all_routes_near_B):
     valid_chains = []
+    duplicated_2 = {route[0] for route in all_routes_near_B}
+    routes_near_A = [route for route in all_routes_near_A if route[0] not in duplicated_2]
+    duplicated_1 = {route[0] for route in all_routes_near_A}
+    routes_near_B = [route for route in all_routes_near_B if route[0] not in duplicated_1]
+
     for A_route_id, pickup_index in routes_near_A:
         for route1_id, route1_inter_proj, route2_id, route2_inter_proj in intersection_data:
             if A_route_id != route1_id: continue
@@ -364,7 +370,7 @@ def cascader(intersection_data, routes_near_A, routes_near_B):
 async def nearby_routes(long, lat, radius, routes):
     routes_index = []
     for route_id, route_data in routes.items():
-        route_coords = route_data["line"]["geometry"]["coordinates"]
+        route_coords = route_data["line"]["features"][0]["geometry"]["coordinates"]
         proj_index, min_distance = project_point_on_route((long, lat), route_coords)
         if min_distance <= radius:
             routes_index.append((route_id, proj_index))
@@ -393,7 +399,7 @@ async def cascaded_routes(intersections, nearby_A, nearby_B, routes, mapbox_toke
         route1_id = chain.route1_id
         waypoints1 = await db.get_route_waypoints(route1_id)
 
-        route_1_coords = routes[route1_id]["line"]["geometry"]["coordinates"]
+        route_1_coords = routes[route1_id]["line"]["features"][0]["geometry"]["coordinates"]
         trimed_waypoints1 = trim_waypoints_index(waypoints1, route_1_coords, chain.pickup_index, chain.route1_inter_proj)
         eta1 = get_time_estimation(trimed_waypoints1, mapbox_token, "driving")
         vehicles1 = await db.get_route_vehicles(route1_id)
@@ -404,7 +410,7 @@ async def cascaded_routes(intersections, nearby_A, nearby_B, routes, mapbox_toke
 
         route2_id = chain.route2_id
         waypoints2 = await db.get_route_waypoints(route2_id)
-        route_2_coords = routes[route2_id]["line"]["geometry"]["coordinates"]
+        route_2_coords = routes[route2_id]["line"]["features"][0]["geometry"]["coordinates"]
         trimed_waypoints2 = trim_waypoints_index(waypoints2, route_2_coords, chain.route2_inter_proj, chain.dest_index)
         eta2 = get_time_estimation(trimed_waypoints2, mapbox_token, "driving")
         vehicles2 = await db.get_route_vehicles(route2_id)

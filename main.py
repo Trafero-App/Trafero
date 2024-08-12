@@ -137,7 +137,7 @@ async def put_vehicle_location(vehicle_location_data: vehicle_location, response
     else:
         
         route_id = await db.get_vehicle_route_id(vehicle_id)
-        route = app.state.routes[route_id]["line"]["geometry"]["coordinates"]
+        route = app.state.routes[route_id]["line"]["features"][0]["geometry"]["coordinates"]
         if helper.off_track((longitude, latitude), route, VEHICLE_TO_ROUTE_THRESHOLD):
             await db.update_status(vehicle_id, "unknown")
             return {"message": "status set to unavailable. You are too far from the route."}
@@ -229,7 +229,7 @@ async def all_vehicles_location():
     for vehicle in vehicle_info:
         # print(route_coords[helper.project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route_coords)[0]])
         route_id = await db.get_vehicle_route_id(vehicle["id"])
-        route_coords = app.state.routes[route_id]["line"]["geometry"]["coordinates"]
+        route_coords = app.state.routes[route_id]["line"]["features"][0]["geometry"]["coordinates"]
         features.append({
             "type": "Feature",
             "properties": {
@@ -315,7 +315,7 @@ async def get_vehicle(vehicle_id: int, response: Response, user_info: authentica
         "properties": {},
         "geometry": {
             "type": "LineString",
-            "coordinates": helper.get_remaining_route(vehicle_route["line"]["geometry"]["coordinates"], vehicle_details["coordinates"])
+            "coordinates": helper.get_remaining_route(vehicle_route["line"]["features"][0]["geometry"]["coordinates"], vehicle_details["coordinates"])
         }
     }
     return {"message": "All Good", "content": vehicle_details}
@@ -327,7 +327,7 @@ async def vehicle_time(route_id:int, long1:float, lat1:float, long2:float, lat2:
     if route_id not in app.state.routes:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "Route not found."}
-    route = app.state.routes[route_id]["line"]["geometry"]["coordinates"]
+    route = app.state.routes[route_id]["line"]["features"][0]["geometry"]["coordinates"]
     waypoints = await db.get_route_waypoints(route_id)
     waypoints = helper.trim_waypoints_list(waypoints, (long1, lat1), (long2, lat2), route)
     return {"message": "All Good.", "time_estimation" : helper.get_time_estimation(waypoints, MAPBOX_TOKEN, "driving")}
