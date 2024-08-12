@@ -247,9 +247,8 @@ async def all_vehicles_location():
                 "id": vehicle["id"]
             },
             "geometry": {
-                "coordinates": [
-                    route_coords[helper.project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route_coords)[0]]
-                ],
+                "coordinates": route_coords[helper.project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route_coords)[0]]
+                ,
                 "type": "Point"
             
             }
@@ -358,7 +357,8 @@ async def vehicle_eta(vehicle_id: int, pick_up_long:float, pick_up_lat:float):
     route_id = await db.get_vehicle_route_id(vehicle_id)
     route = app.state.routes[route_id]["line"]["geometry"]["coordinates"]
     route_waypoints = await db.get_route_waypoints(route_id)
-    rem_waypoints = helper.trim_waypoints_list(route_waypoints, (v_long, v_lat), route_waypoints[-1][:2], route)
+    projected_pick_up = route[helper.project_point_on_route((pick_up_long,pick_up_lat),route)[0]]
+    rem_waypoints = helper.trim_waypoints_list(route_waypoints, (v_long, v_lat), projected_pick_up, route)
     passed = helper.before_on_route((pick_up_long, pick_up_lat), (v_long, v_lat), route)
     if passed:
         return {
