@@ -449,7 +449,7 @@ async def cascaded_routes(intersections, nearby_A, nearby_B, routes, mapbox_toke
               ]
             }
         }
-    cascaded_output.append(formated_output)    
+        cascaded_output.append(formated_output)    
 
     return cascaded_output
 
