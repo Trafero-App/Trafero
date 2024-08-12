@@ -7,8 +7,8 @@ import asyncpg
 import os
 from dotenv import load_dotenv, find_dotenv
 
+from typing import Annotated, Literal
 from validation_classes import vehicle_location, Account_Info, Account_DB_Entry, Passenger_Review, Review_DB_Entry
-from typing import Annotated
 
 import helper
 import authentication
@@ -154,15 +154,15 @@ async def put_vehicle_location(vehicle_location_data: vehicle_location, response
         route_id = await db.get_vehicle_route_id(vehicle_id)
         route = app.state.routes[route_id]["line"]["geometry"]["coordinates"]
         if helper.off_track((longitude, latitude), route, VEHICLE_TO_ROUTE_THRESHOLD):
-            db.update_status(vehicle_id, "unknown")
+            await db.update_status(vehicle_id, "unknown")
             return {"message": "status set to unavailable. You are too far from the route."}
         else:
-            db.update_status(vehicle_id, "active")
             return {"message": "All Good. Status set to active."}
 
 
 @app.put("/vehicle_status", status_code=status.HTTP_200_OK)
-async def put_vehicle_status(vehicle_id: int, new_status: str, response: Response):
+async def put_vehicle_status(vehicle_id: int, new_status: Literal["active", "waiting", "unavailable", "inactive", "unknown"],
+                             response: Response):
     success = await db.update_status(vehicle_id, new_status)
     if success: return {"message": "All good."}
     else:
