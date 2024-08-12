@@ -306,3 +306,11 @@ class db:
         if res == "UPDATE 0": return False
         else: return True
 
+
+    @classmethod 
+    async def get_intersections(cls):
+        async with cls.db_pool.acquire() as con:
+            res = await con.fetch("SELECT (route_id, local_index, auxiliary_route, auxiliary_index) FROM intersection")
+            return [(intersection_info[0][0], intersection_info[0][1], 
+                     intersection_info[0][2], intersection_info[0][3]) for intersection_info in res]
+        

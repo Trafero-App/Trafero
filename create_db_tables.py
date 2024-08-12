@@ -14,8 +14,8 @@ def recreate_tables():
 
     cur = conn.cursor()
 
-    cur.execute(open("sql/schema.sql").read())
 
+    cur.execute(open("sql/schema.sql").read())
     conn.commit()
     cur.close()
     conn.close()

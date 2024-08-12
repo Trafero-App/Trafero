@@ -3,6 +3,7 @@ DROP TABLE IF EXISTS other_complaint;
 DROP TABLE IF EXISTS fixed_complaint;
 DROP TABLE IF EXISTS feedback;
 DROP TABLE IF EXISTS station;
+DROP TABLE IF EXISTS intersection;
 DROP TABLE IF EXISTS vehicle_routes;
 DROP TABLE IF EXISTS feedback;
 DROP TABLE IF EXISTS passenger;
@@ -124,4 +125,15 @@ CREATE TABLE station   (id SERIAL PRIMARY KEY,
                             CONSTRAINT fk_route
                                 FOREIGN KEY(route_id)
                                     REFERENCES route(id)
+                            );
+
+
+CREATE TABLE intersection (id SERIAL PRIMARY KEY,
+                            route_id INT NOT NULL,
+                            local_index DECIMAL NOT NULL,
+                            auxiliary_route INT NOT NULL,
+                            auxiliary_index DECIMAL NOT NULL,
+                                CONSTRAINT fk_route
+                                    FOREIGN KEY(route_id)
+                                        REFERENCES route(id)
                             );
