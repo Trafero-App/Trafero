@@ -41,16 +41,12 @@ def project_point_on_route(point, route):
 
 
 
-def trim_waypoints_list(waypoints, start, end, route=None, start_projection_index=None, end_projection_index=None):
-    if start_projection_index is None:
-        start_projection_index = project_point_on_route(start, route)[0]
-    if end_projection_index is None:
-        end_projection_index = project_point_on_route(end, route)[0]
+def trim_waypoints_index(waypoints, route, start_projection_index, end_projection_index):
 
     if start_projection_index == end_projection_index:
         return None
     
-    if start == waypoints[0][:2]:
+    if start_projection_index == waypoints[0][2]:
             start_way_point_index = 0
     else:
         for i, way_point in enumerate(waypoints):
@@ -60,7 +56,7 @@ def trim_waypoints_list(waypoints, start, end, route=None, start_projection_inde
         else:
             start_way_point_index = 0
 
-    if end == waypoints[-1][:2]:
+    if end_projection_index == waypoints[-1][2]:
             end_way_point_index = len(waypoints)-1
     else:
         for i, way_point in enumerate(waypoints):
@@ -73,6 +69,13 @@ def trim_waypoints_list(waypoints, start, end, route=None, start_projection_inde
     return  [tuple(route[start_projection_index]) + (start_projection_index,)] \
             + waypoints[start_way_point_index:end_way_point_index] + \
             [tuple(route[end_projection_index]) + (end_projection_index,)]
+
+
+def trim_waypoints_list(waypoints, start, end, route):
+    start_projection_index = project_point_on_route(start, route)[0]
+    end_projection_index = project_point_on_route(end, route)[0]
+
+    return trim_waypoints_index(waypoints, route, start_projection_index, end_projection_index)
 
 #For later use
 def get_remaining_route(route, start):
@@ -113,7 +116,7 @@ def get_time_estimation(waypoints, token, mode):
               'overview': 'full'
               }
     response = requests.get(url, params=params)
-    return response.json()["routes"][0]["duration"]
+    return round(response.json()["routes"][0]["duration"]/60)
 
 def before_on_route(point_a, point_b, route):
     return project_point_on_route(point_a, route)[0] < project_point_on_route(point_b, route)[0]
@@ -243,18 +246,6 @@ def off_track(vehicle_id, route, threshold):
     if project_point_on_route(vehicle_id, route)[1] >= threshold:
         return True
     return False
-
-
-
-
-
-
-async def eta(route_id:int, long1:float, lat1:float, long2:float, lat2:float, routes):
-    # Load route
-    route = routes[route_id]["line"]["geometry"]["coordinates"]
-    waypoints = await db.get_route_waypoints(route_id)
-    waypoints = trim_waypoints_list(waypoints, (long1, lat1), (long2, lat2), route)
-    return get_time_estimation(waypoints, "pk.eyJ1IjoibWFyY2FzMTIzIiwiYSI6ImNseTY5Mmh1czA4YXAybHNhNGRibmh5MmoifQ.n-2d-SQkNvAkjZAoVQNcsA", "driving")
 
 
 
@@ -434,8 +425,6 @@ async def cascaded_routes(intersections, nearby_A, nearby_B, routes):
                     filtered_combinations.remove(combinations[i])
             
     cascaded_output = []
-    print('\n\n\n\n\n',combinations,'\n\n\n')
-    print(filtered_combinations,'\n\n\n\n\n')
     for i, result in enumerate(filtered_combinations):
         template = {
             "chain": True,
@@ -449,6 +438,7 @@ async def cascaded_routes(intersections, nearby_A, nearby_B, routes):
             "description2": "",
             "vehicles2": [],
             "eta2": 0,
+            "eta": 0,
             "line1": {
                 "type": "FeatureCollection",
                 "features": [
@@ -504,7 +494,17 @@ async def cascaded_routes(intersections, nearby_A, nearby_B, routes):
         route_id2 = result[2]
         p3 = int(result[3])
         p4 = result[5]
+        line_1 = routes[route_id1]["line"]["geometry"]["coordinates"]
+        line_2 = routes[route_id2]["line"]["geometry"]["coordinates"]
 
+        waypoints1 = await db.get_route_waypoints(route_id1)
+        waypoints2 = await db.get_route_waypoints(route_id2)
+        trimed_waypoints1 = trim_waypoints_index(waypoints1, line_1, p1, p2)
+        trimed_waypoints2 = trim_waypoints_index(waypoints2, line_2, p3, p4)
+        print(trimed_waypoints1)
+        print(trimed_waypoints2)
+        eta1 = get_time_estimation(trimed_waypoints1, "token", "driving")
+        eta2 = get_time_estimation(trimed_waypoints2, "token", "driving")
         route_name1 = routes[route_id1]["details"]["route_name"]
         description1 = routes[route_id1]["details"]["description"]
         vehicles1 = await db.get_route_vehicles(route_id1)
@@ -517,8 +517,7 @@ async def cascaded_routes(intersections, nearby_A, nearby_B, routes):
         for vehicle in vehicles2:
             del vehicle["longitude"]
             del vehicle["latitude"]
-        line_1 = routes[route_id1]["line"]["geometry"]["coordinates"]
-        line_2 = routes[route_id2]["line"]["geometry"]["coordinates"]
+        
         sliced_1 = line_1[p1:p2+1]
         sliced_2 = line_2[p3:p4+1]
 
@@ -527,12 +526,13 @@ async def cascaded_routes(intersections, nearby_A, nearby_B, routes):
         template["route_name1"] = route_name1
         template["description1"] = description1
         template["vehicles1"] = vehicles1
-        template["eta1"] = 15
+        template["eta1"] = eta1
         template["route_id2"] = route_id2
         template["route_name2"] = route_name2
         template["description2"] = description2
         template["vehicles2"] = vehicles2
-        template["eta2"] = 20
+        template["eta2"] = eta2
+        template["eta"] = eta1 + eta2
         template["line1"]["features"][0]["geometry"]["coordinates"] = line_1
         template["line2"]["features"][0]["geometry"]["coordinates"] = line_2
         template["line"]["features"][0]["geometry"]["coordinates"] = sliced_1
@@ -549,8 +549,9 @@ async def nearby(long, lat, radius, long2, lat2, radius2, routes):
     not_cascaded_close_routes = await get_nearby_routes_to_2_point(long, lat, radius, long2, lat2, radius2, routes)
     cascaded_close_routes = await cascaded_routes(intersections, nearby_A, nearby_B, routes)
 
-    
-    return not_cascaded_close_routes + cascaded_close_routes
+    total = not_cascaded_close_routes + cascaded_close_routes
+    total.sort(key=lambda route: route["eta"])
+    return total
 
 
 
