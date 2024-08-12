@@ -249,7 +249,12 @@ def off_track(vehicle_id, route, threshold):
 
 
 
-
+async def eta(route_id:int, long1:float, lat1:float, long2:float, lat2:float, routes):
+    # Load route
+    route = routes[route_id]["line"]["geometry"]["coordinates"]
+    waypoints = await db.get_route_waypoints(route_id)
+    waypoints = trim_waypoints_list(waypoints, (long1, lat1), (long2, lat2), route)
+    return get_time_estimation(waypoints, "pk.eyJ1IjoibWFyY2FzMTIzIiwiYSI6ImNseTY5Mmh1czA4YXAybHNhNGRibmh5MmoifQ.n-2d-SQkNvAkjZAoVQNcsA", "driving")
 
 
 
@@ -260,6 +265,25 @@ async def get_nearby_routes_to_1_point(long, lat, radius, routes):
     close_routes = []
     routes_distances = {}
     for route_id, route_data in routes.items():
+        template = {
+                    "route_id": 0,
+                    "route_name": "",
+                    "description": "",
+                    "vehicles": [],
+                    "line": {
+                        "type": "FeatureCollection",
+                        "features": [
+                            {
+                                "type": "Feature",
+                                "properties": {},
+                                "geometry": {
+                                "coordinates": [],
+                                "type": "LineString"
+                                }
+                            }
+                        ]
+                      } 
+                    }
         route_coords = route_data["line"]["geometry"]["coordinates"]
         min_distance = project_point_on_route((long, lat), route_coords)[1]
         print("checking " + route_data["details"]["route_name"] + "...")
@@ -270,8 +294,20 @@ async def get_nearby_routes_to_1_point(long, lat, radius, routes):
                 del vehicle["longitude"]
                 del vehicle["latitude"]
             route_data["vehicles"] = route_vehicles
-            close_routes.append(route_data)
-    close_routes.sort(key=lambda route: routes_distances[route["details"]["route_id"]])
+
+            route_id = route_data["details"]["route_id"]
+            route_name = route_data["details"]["route_name"]
+            description = route_data["details"]["description"]
+            vehicles = route_data["vehicles"]
+            line = route_data["line"]["geometry"]["coordinates"]
+            template["route_id"] = route_id
+            template["route_name"] = route_name
+            template["description"] = description
+            template["vehicles"] = vehicles
+            template["line"]["features"][0]["geometry"]["coordinates"] = line
+
+            close_routes.append(template)
+    # close_routes.sort(key=lambda route: routes_distances[route["details"]["route_id"]])
     return close_routes
 
 
@@ -279,6 +315,28 @@ async def get_nearby_routes_to_2_point(long, lat, radius, long2, lat2, radius2, 
     close_routes = []
     routes_distances = {}
     for route_id, route_data in routes.items():
+        template = {
+                    "chain": False,
+                    "route_id": 0,
+                    "route_name": "",
+                    "description": "",
+                    "vehicles": [],
+                    "eta": 0,
+                    "line": {
+                        "type": "FeatureCollection",
+                        "features": [
+                            {
+                                "type": "Feature",
+                                "properties": {},
+                                "geometry": {
+                                "coordinates": [],
+                                "type": "LineString"
+                                }
+                            }
+                        ]
+                      } 
+                    }
+        route_data["chain"] = False
         route_coords = route_data["line"]["geometry"]["coordinates"]
         min_distance = project_point_on_route((long, lat), route_coords)[1]
         min_distance2 = project_point_on_route((long2, lat2), route_coords)[1]
@@ -290,8 +348,21 @@ async def get_nearby_routes_to_2_point(long, lat, radius, long2, lat2, radius2, 
                 del vehicle["longitude"]
                 del vehicle["latitude"]
             route_data["vehicles"] = route_vehicles
-            close_routes.append(route_data)
-    close_routes.sort(key=lambda route: routes_distances[route["details"]["route_id"]])
+
+
+            route_id = route_data["details"]["route_id"]
+            route_name = route_data["details"]["route_name"]
+            description = route_data["details"]["description"]
+            vehicles = route_data["vehicles"]
+            line = route_data["line"]["geometry"]["coordinates"]
+            template["route_id"] = route_id
+            template["route_name"] = route_name
+            template["description"] = description
+            template["vehicles"] = vehicles
+            template["line"]["features"][0]["geometry"]["coordinates"] = line
+            template["eta"] = 10
+            close_routes.append(template)
+            # close_routes.sort(key=lambda route: routes_distances[route["details"]["route_id"]])
     return close_routes
             
 
@@ -349,7 +420,7 @@ async def nearby_routes(long, lat, radius, routes):
 
 
 
-def cascaded_routes(intersections, nearby_A, nearby_B, routes):
+async def cascaded_routes(intersections, nearby_A, nearby_B, routes):
     combinations = cascader(intersections, nearby_A, nearby_B)
     filtered_combinations = combinations.copy()
     for i in range(len(combinations)):
@@ -362,44 +433,113 @@ def cascaded_routes(intersections, nearby_A, nearby_B, routes):
                 else:
                     filtered_combinations.remove(combinations[i])
             
-    cascaded_close_routes = {}
+    cascaded_output = []
     print('\n\n\n\n\n',combinations,'\n\n\n')
     print(filtered_combinations,'\n\n\n\n\n')
     for i, result in enumerate(filtered_combinations):
         template = {
-  "type": "FeatureCollection",
-  "features": [
-    {
-      "type": "Feature",
-      "properties": {},
-      "geometry": {
-        "type": "LineString",
-        "coordinates": []
-        
+            "chain": True,
+            "route_id1": 0,
+            "route_name1": "",
+            "description1": "",
+            "vehicles1": [],
+            "eta1": 0,
+            "route_id2": 0,
+            "route_name2": "",
+            "description2": "",
+            "vehicles2": [],
+            "eta2": 0,
+            "line1": {
+                "type": "FeatureCollection",
+                "features": [
+                  {
+                    "type": "Feature",
+                    "properties": {},
+                    "geometry": {
+                      "coordinates": [],
+                      "type": "LineString"
+                    }
+                  }
+                ]
+              },
+            "line2": {
+                "type": "FeatureCollection",
+                "features": [
+                  {
+                    "type": "Feature",
+                    "properties": {},
+                    "geometry": {
+                      "coordinates": [],
+                      "type": "LineString"
+                    }
+                  }
+                ]
+              },
+            "line": {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "type": "Feature",
+                  "properties": {},
+                  "geometry": {
+                    "coordinates": [],
+                    "type": "LineString"
+                  }
+                },
+                {
+                  "type": "Feature",
+                  "properties": {},
+                  "geometry": {
+                    "coordinates": [],
+                    "type": "LineString"
+                  },
+                  "id": 1
+                }
+              ]
+            }
       }
-    },
-    {
-      "type": "Feature",
-      "properties": {},
-      "geometry": {
-        "type": "LineString",
-        "coordinates": []
-      }
-    }
-  ]
-}
-        route_1 = result[0]
+        route_id1 = result[0]
         p1 = result[4]
         p2 = int(result[1])
-        route_2 = result[2]
+        route_id2 = result[2]
         p3 = int(result[3])
         p4 = result[5]
-        sliced_1 = routes[route_1]["line"]["geometry"]["coordinates"][p1:p2+1]
-        sliced_2 = routes[route_2]["line"]["geometry"]["coordinates"][p3:p4+1]
-        cascaded_close_routes[str(route_1)+","+str(route_2)] = template.copy()
-        cascaded_close_routes[str(route_1)+","+str(route_2)]["features"][0]["geometry"]["coordinates"] = sliced_1
-        cascaded_close_routes[str(route_1)+","+str(route_2)]["features"][1]["geometry"]["coordinates"] = sliced_2
-    return cascaded_close_routes
+
+        route_name1 = routes[route_id1]["details"]["route_name"]
+        description1 = routes[route_id1]["details"]["description"]
+        vehicles1 = await db.get_route_vehicles(route_id1)
+        for vehicle in vehicles1:
+            del vehicle["longitude"]
+            del vehicle["latitude"]
+        route_name2 = routes[route_id2]["details"]["route_name"]
+        description2 = routes[route_id2]["details"]["description"]
+        vehicles2 = await db.get_route_vehicles(route_id2)
+        for vehicle in vehicles2:
+            del vehicle["longitude"]
+            del vehicle["latitude"]
+        line_1 = routes[route_id1]["line"]["geometry"]["coordinates"]
+        line_2 = routes[route_id2]["line"]["geometry"]["coordinates"]
+        sliced_1 = line_1[p1:p2+1]
+        sliced_2 = line_2[p3:p4+1]
+
+
+        template["route_id1"] = route_id1
+        template["route_name1"] = route_name1
+        template["description1"] = description1
+        template["vehicles1"] = vehicles1
+        template["eta1"] = 15
+        template["route_id2"] = route_id2
+        template["route_name2"] = route_name2
+        template["description2"] = description2
+        template["vehicles2"] = vehicles2
+        template["eta2"] = 20
+        template["line1"]["features"][0]["geometry"]["coordinates"] = line_1
+        template["line2"]["features"][0]["geometry"]["coordinates"] = line_2
+        template["line"]["features"][0]["geometry"]["coordinates"] = sliced_1
+        template["line"]["features"][1]["geometry"]["coordinates"] = sliced_2
+        cascaded_output.append(template)    
+
+    return cascaded_output
 
 async def nearby(long, lat, radius, long2, lat2, radius2, routes):
     intersections = await db.get_intersections()
@@ -407,8 +547,10 @@ async def nearby(long, lat, radius, long2, lat2, radius2, routes):
     nearby_B = await nearby_routes(long2, lat2, radius2, routes)
 
     not_cascaded_close_routes = await get_nearby_routes_to_2_point(long, lat, radius, long2, lat2, radius2, routes)
-    cascaded_close_routes = cascaded_routes(intersections, nearby_A, nearby_B, routes)
+    cascaded_close_routes = await cascaded_routes(intersections, nearby_A, nearby_B, routes)
 
     
-    return {"no chain":not_cascaded_close_routes, "chain": cascaded_close_routes}
+    return not_cascaded_close_routes + cascaded_close_routes
+
+
 

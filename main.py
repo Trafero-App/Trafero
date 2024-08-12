@@ -57,6 +57,11 @@ app.add_middleware(
     allow_headers=["*"]
 
 )
+@app.get("/Jtest", status_code=status.HTTP_200_OK)
+
+async def testt():
+    return app.state.routes
+    
 
 @app.post("/signup", status_code=status.HTTP_200_OK)
 async def signup(account_data: Account_Info, response: Response):
