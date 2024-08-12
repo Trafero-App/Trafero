@@ -202,8 +202,12 @@ async def delete_vehicle_route(route_id: int, response: Response, user_info: aut
 async def route_details(route_id: int, response:Response):
     if route_id not in app.state.routes:
         response.status_code = status.HTTP_404_NOT_FOUND
-        return {"message": "Route not found"}
-    return app.state.routes[route_id]["details"]
+        return {"message": "Error: Route not found."}
+    
+    route_data = helper.flatten_route_data(app.state.routes[route_id])
+
+    return {"message" : "All Good.", "route_data": route_data}
+
 
 
 @app.get("/route/{requested_route_id}", status_code=status.HTTP_200_OK)
@@ -212,42 +216,50 @@ async def route(requested_route_id: int, response: Response):
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "Error: Route not found."}
     
-    route_data = helper.flatten_route_data(app.state.routes[requested_route_id])
+    route_data = app.state.routes[requested_route_id]
+    route_needed_data = {"description": route_data["details"]["description"],
+                         "line": route_data["line"],
+                         "route_id": requested_route_id,
+                         "route_name": route_data["details"]["route_name"],
+                         }
     route_vehicles = await db.get_route_vehicles(requested_route_id)
     for vehicle in route_vehicles:
         del vehicle["latitude"]
         del vehicle["longitude"]
-    route_data["vehicles"] = route_vehicles
+    route_needed_data["vehicles"] = route_vehicles
 
-    return {"message" : "All Good.", "route_data": route_data}
+    return {"message" : "All Good.", "route_data": route_needed_data}
 
 
 
 @app.get("/all_vehicles_location", status_code=status.HTTP_200_OK)
 async def all_vehicles_location():
     vehicle_info = await db.get_all_vehicles_info()
+    features = []
+    for vehicle in vehicle_info:
+        # print(route_coords[helper.project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route_coords)[0]])
+        route_id = await db.get_vehicle_route_id(vehicle["id"])
+        route_coords = app.state.routes[route_id]["line"]["geometry"]["coordinates"]
+        features.append({
+            "type": "Feature",
+            "properties": {
+                "status": vehicle["status"],
+                "id": vehicle["id"]
+            },
+            "geometry": {
+                "coordinates": [
+                    route_coords[helper.project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route_coords)[0]]
+                ],
+                "type": "Point"
+            
+            }
+        })
 
     return {"message": "All good.",
             "content": {
                 "type": "FeatureCollection",
-                "features": [
-                    {
-                        "type": "Feature",
-                        "properties": {
-                            "status": vehicle["status"],
-                            "id": vehicle["id"]
-                        },
-                        "geometry": {
-                            "coordinates": [
-                                vehicle["longitude"],
-                                vehicle["latitude"]
-                            ],
-                            "type": "Point"
-                        
-                        }
-                        }
-
-                for vehicle in vehicle_info]
+                "features": features
+                    
             }
         }
 
