@@ -19,8 +19,11 @@ JWT_ALGORITHM = os.getenv("jwt_algorithm")
 AUTHENTICATION_SECRET_KEY = os.getenv("auth_secret_key")
 ACCESS_TOKEN_VALIDITY_TIME_IN_MINUTES = int(os.getenv("access_token_validity_time_in_minutes"))
 
-expired_token_error = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="expired token")
-unauthorizzed_error = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Please provide a valid token")
+# Used to catch these specific errors
+class Unauthorized_Exception(HTTPException): pass
+class Expired_Token_Exception(HTTPException): pass
+unauthorizzed_error = Unauthorized_Exception(status_code=status.HTTP_401_UNAUTHORIZED, detail="Please provide a valid token")
+expired_token_error = Expired_Token_Exception(status_code=status.HTTP_401_UNAUTHORIZED, detail="expired token")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
@@ -35,7 +38,7 @@ async def decode_token(token):
     except jwt.ExpiredSignatureError:
         raise expired_token_error
     except InvalidTokenError:
-        raise InvalidTokenError
+        raise unauthorizzed_error
     return payload
 
 async def get_user_info(payload):
@@ -61,11 +64,21 @@ async def check_role(token, role):
 
 async def check_authorization_passenger(token: Annotated[str, Depends(oauth2_scheme)]): return await check_role(token, "passenger")
 async def check_authorization_vehicle(token: Annotated[str, Depends(oauth2_scheme)]): return await check_role(token, "vehicle")
-async def check_authorization_all(token: Annotated[str, Depends(oauth2_scheme)]): return await check_role(token, "*")
+async def check_authorization_any_account(token: Annotated[str, Depends(oauth2_scheme)]): return await check_role(token, "*")
+
+async def check_authorization_anyone(token: Annotated[str, Depends(oauth2_scheme)] | None = None): 
+    try:
+        user = await check_role(token, "*")
+    except Unauthorized_Exception:
+        return None
+    except Expired_Token_Exception:
+        return None
+    return user
 
 authorize_passenger = Annotated[dict, Depends(check_authorization_passenger)]
 authorize_vehicle = Annotated[dict, Depends(check_authorization_vehicle)]
-authorize_all = Annotated[dict, Depends(check_authorization_all)]
+authorize_any_account = Annotated[dict, Depends(check_authorization_any_account)]
+authorize_anyone = Annotated[dict | None, Depends(check_authorization_anyone)]
 
 
 # Used on signup
