@@ -7,6 +7,7 @@ class db:
     @classmethod
     async def connect(cls, DB_URL):
         cls.db_pool = await asyncpg.create_pool(DB_URL)
+        await cls.store_all_routes_data()
         
     @classmethod
     async def disconnect(cls):
@@ -37,6 +38,23 @@ class db:
     async def get_route_file_name(cls, route_id):
         async with cls.db_pool.acquire() as con:
             return await con.fetchrow("SELECT file_name FROM route WHERE id=$1", route_id)["file_name"]
+
+    @classmethod
+    async def store_all_routes_data(cls):
+        routes = {}
+        routes_search_data = []
+        routes_data = await db.get_all_routes_data()
+        for route_data in routes_data:        
+            route_data = {"details": route_data}
+            route_geojson = await db.get_route_geojson(route_data["details"]["file_name"])
+            del route_data["details"]["file_name"]
+            route_data["line"] = route_geojson
+            routes[route_data["details"]["route_id"]] = route_data
+
+            routes_search_data.append(((route_data["details"]["route_id"],) + tuple(route_data["details"]["description"].split(' - '))))
+        cls.routes = routes
+        cls.routes_search_data = routes_search_data
+
 
     @classmethod
     async def get_all_routes_data(cls):
