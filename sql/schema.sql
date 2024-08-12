@@ -1,6 +1,8 @@
+DROP TABLE IF EXISTS feedback;
+DROP TABLE IF EXISTS vehicle_status_history;
+DROP TABLE IF EXISTS vehicle_location_history;
 DROP TABLE IF EXISTS station;
 DROP TABLE IF EXISTS vehicle_routes;
-DROP TABLE IF EXISTS feedback;
 DROP TABLE IF EXISTS passenger;
 DROP TABLE IF EXISTS vehicle_location;
 DROP TABLE IF EXISTS vehicle;
@@ -108,3 +110,26 @@ CREATE TABLE station   (id SERIAL PRIMARY KEY,
                                 FOREIGN KEY(route_id)
                                     REFERENCES route(id)
                             );
+
+
+CREATE TABLE vehicle_location_history (id SERIAL PRIMARY KEY,
+                                       time_stamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                       vehicle_id INT NOT NULL,
+                                       old_lat DECIMAL NOT NULL,
+                                       old_long DECIMAL NOT NULL,
+                                       new_lat DECIMAL NOT NULL,
+                                       new_long DECIMAL NOT NULL,
+                                       CONSTRAINT vehicle_fk FOREIGN KEY (vehicle_id) REFERENCES vehicle(id)
+                                      );
+
+CREATE TABLE vehicle_status_history (id SERIAL PRIMARY KEY,
+                                       time_stamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                       vehicle_id INT NOT NULL,
+                                       old_status VARCHAR(20) NOT NULL,
+                                       new_status VARCHAR(20) NOT NULL,
+                                       CONSTRAINT legal_new_status CHECK
+                                       (new_status IN ('active', 'waiting', 'unavailable', 'inactive', 'unknown')),
+                                       CONSTRAINT legal_old_status CHECK
+                                       (old_status IN ('active', 'waiting', 'unavailable', 'inactive', 'unknown')),
+                                       CONSTRAINT vehicle_fk FOREIGN KEY (vehicle_id) REFERENCES vehicle(id)
+                                      ); 

@@ -29,6 +29,11 @@ class db:
     @classmethod
     async def update_vehicle_location(cls, vehicle_id, latitude, longitude):
         async with cls.db_pool.acquire() as con:
+            old_location = await con.fetchrow("SELECT (longitude, latitude) FROM vehicle_location WHERE vehicle_id=$1", vehicle_id)
+            if old_location is None: return False
+            old_long, old_lat = old_location[0]
+            await con.execute("INSERT INTO vehicle_location_history (vehicle_id, old_long, old_lat, new_long, new_lat) VALUES ($1, $2, $3, $4, $5)",
+                              vehicle_id, old_long, old_lat, longitude, latitude)
             res =  await con.execute("""UPDATE vehicle_location SET longitude=$1, 
                                                 latitude=$2 WHERE vehicle_id=$3""", longitude, latitude, vehicle_id)
             return res != "UPDATE 0"
@@ -286,7 +291,16 @@ class db:
     @classmethod
     async def update_status(cls, vehicle_id, new_status):
         async with cls.db_pool.acquire() as con:
+            # To keep track of status history
+            old_status_res = (await con.fetchrow("SELECT status FROM vehicle WHERE id=$1", vehicle_id))
+            if old_status_res == None: return False
+            old_status = old_status_res[0]
+            await con.execute("INSERT INTO vehicle_status_history (vehicle_id, old_status, new_status) VALUES ($1, $2, $3)",
+                            vehicle_id, old_status, new_status)
+
             res = await con.execute("UPDATE vehicle SET status=$1 WHERE id=$2", new_status, vehicle_id)
-        if res == "UPDATE 0": return False
-        else: return True
+
+            return res != "UPDATE 0"
+            
+            
 

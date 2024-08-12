@@ -143,3 +143,4 @@ INSERT INTO station (route_id, station_name, longitude, latitude) VALUES
     (9, 'Hamra 2', 35.4836, 33.8939), (10, 'Antelias 2', 35.5896, 33.9165),
     (11, 'Dawra 10', 35.5501, 33.8941), (12, 'Airport 10', 35.4929, 33.8261),
     (13, 'Hamra 24', 35.4877, 33.8938), (14, 'Badaro 24', 35.5189, 33.8769);
+
