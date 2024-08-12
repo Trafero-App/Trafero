@@ -141,7 +141,7 @@ INSERT INTO station (route_id, station_name, longitude, latitude) VALUES
     (11, 'Dawra 10', 35.5501, 33.8941), (12, 'Airport 10', 35.4929, 33.8261),
     (13, 'Hamra 24', 35.4877, 33.8938), (14, 'Badaro 24', 35.5189, 33.8769);
 
-    
+
 INSERT INTO intersection (route_id, local_index, auxiliary_route, auxiliary_index) VALUES
     (1, 14, 10, 804),
     (1, 264, 9, 739),
@@ -314,3 +314,4 @@ INSERT INTO feedback_fixed_complaint (feedback_id, fixed_complaint_id) VALUES
 
 INSERT INTO other_complaint (feedback_id, complaint_details) VALUES 
 (3, 'other1'), (4, 'other2'), (5, 'other5');
+
