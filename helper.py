@@ -110,6 +110,8 @@ def geojsonify_vehicle_list(vehicle_list):
             vehicle_list[i]["properties"]["passed"] = vehicle["passed"]
          
 def get_time_estimation(waypoints, token, mode):
+    if waypoints == None:
+        return 0
     if mode == "driving": mapbox_mode = "driving-traffic"
     elif mode == "walking": mapbox_mode = "walking"
     url = f"https://api.mapbox.com/directions/v5/mapbox/{mapbox_mode}/" + \
@@ -167,6 +169,8 @@ def filter_vehicles__pick_up(pick_up, vehicles, route):
     for i, vehicle in enumerate(vehicles):
         if vehicle["projection_index"] <= projected_pick_up_point_index:
             break
+    else:
+        i += 1
     vehicles.reverse()
     return vehicles, len(vehicles) - i
 
