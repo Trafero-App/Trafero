@@ -13,7 +13,7 @@ from validation_classes import Point, Account_Info, Account_DB_Entry, Passenger_
 import helper
 import authentication
 from db_layer import db
-
+import regex as re
 
 load_dotenv(find_dotenv())
 DB_URL = os.getenv("db_url")
@@ -69,32 +69,66 @@ async def signup(account_data: Account_Info):
     - HTTPException: If email is already in use. (status code: 409)
     """
     account_type = account_data.account_type
-    username_av = await db.check_username_available(account_data.username, account_type)
-    phone_num_av = await db.check_phone_number_available(account_data.phone_number, account_type)
-    email_av = await db.check_email_available(account_data.email, account_data.account_type)
-    if not username_av:
+    is_valid_password = helper.is_valid_password(account_data.password)
+    if not is_valid_password:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail={"error_code": "USERNAME_ALREADY_USED",
-                                    "msg": "The username you attempted to sign-up with is already used by another user."})
+                            detail={"error_code": "PASSWORD_INVALID",
+                                    "msg": "The password you attempted to sign-up with is invalid."})
+    if account_data.phone_number is not None:
+        is_valid_phone_number = helper.is_valid_phone_number(account_data.phone_number)
+        if not is_valid_phone_number:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                detail={"error_code": "PHONE_NUM_INVALID",
+                                        "msg":"The phone number you attempted to sign-up with is not valid."
+                                        }
+                                )
+        is_available_phone_number = await db.check_phone_number_available(account_data.phone_number, account_type)
+        if not is_available_phone_number:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail={"error_code": "PHONE_NUM_UNAVAILABLE",
+                                        "msg":"The phone number you attempted to sign-up with is already used by another user."
+                                        }
+                                )
     
-    if not phone_num_av:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail={"error_code": "PHONE_NUM_ALREADY_USED",
-                                    "msg":"The phone number you attempted to sign-up with is already used by another user."
-                                    }
-                            )
-    
-    if not email_av:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail={"error_code": "PHONE_NUM_ALREADY_USED",
-                                    "msg":"The email you attempted to sign-up with is already used by another user."
-                                    }
-                            )
+    if account_data.email is not None:
+        is_valid_email = helper.is_valid_email(account_data.email)
+        if not is_valid_email:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail={"error_code": "EMAIL_INVALID",
+                                        "msg":"The email you attempted to sign-up with is not valid."
+                                        }
+                                )
 
+        is_available_email = await db.check_email_available(account_data.email, account_data.account_type)
+        if not is_available_email:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail={"error_code": "EMAIL_UNAVAILABLE",
+                                        "msg":"The email you attempted to sign-up with is already used by another user."
+                                        }
+                                )
+ 
     password_hash = authentication.hash_password(account_data.password)
     await db.add_account(Account_DB_Entry(**account_data.model_dump(exclude={"password"}), password_hash=password_hash))
     return {"message": "Account was signed up successfully."}
     
+@app.get("/check_email/{account_type}", status_code=status.HTTP_200_OK)
+async def check_email(account_type: Literal["passenger", "vehicle"], email: str):
+    """Check if email has proper form and is unused
+    """
+    return {"message": "Validating email complete.", "is_valid": await helper.check_email(email, account_type)}
+
+@app.get("/check_phone_number/{account_type}", status_code=status.HTTP_200_OK)
+async def check_phone_number(account_type: Literal["passenger", "vehicle"], phone_number: str):
+    """Check if phone number has proper form and is unused
+    """
+    return {"message": "Validating email complete.", "is_valid": await helper.check_phone_number(phone_number, account_type)}
+
+@app.get("/check_password", status_code=status.HTTP_200_OK)
+async def check_password(password: str):
+    """Check if password has proper form
+    """
+    return {"message": "Validating email complete.", "is_valid": helper.is_valid_password(password)}
+
 
 @app.post("/login/{account_type}", status_code=status.HTTP_200_OK)
 async def login(account_type: Literal["passenger", "vehicle"], form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
@@ -112,14 +146,17 @@ async def login(account_type: Literal["passenger", "vehicle"], form_data: Annota
     - HTTPException: If the input is not in the correct structure (status code: 422)
     - HTTPException: If credentials are invalid (status code: 401)
     """
-    user = await authentication.check_user_credentials(form_data.username, form_data.password, account_type)
+    # Find login method
+    identifier = form_data.username
+    if helper.is_valid_phone_number(identifier): login_method = "phone_number"
+    else: login_method = "email"
+
+    user = await authentication.check_user_credentials(form_data.username, form_data.password, account_type, login_method)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"error_code": "INVALID_CREDENTIALS",
                                                                               "msg": "The entered credentials are invalid"})
-    token_data = {"sub": user["username"], "type": account_type}
-    access_token = authentication.create_access_token(
-        token_data=token_data
-    )
+    token_data = {"sub": user["id"], "type": account_type}
+    access_token = authentication.create_access_token(token_data)
     return {"message": "Token generated successfully.", "token": {"access_token": access_token, "token_type": "bearer"}}
 
 

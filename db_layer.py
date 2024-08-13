@@ -141,16 +141,41 @@ class db:
         return result
     
     @classmethod
-    async def get_account_info(cls, username, account_type: Literal["passenger", "vehicle"]):
+    async def get_account_info_by_email(cls, identifier, account_type: Literal["passenger", "vehicle"]):
         async with cls.db_pool.acquire() as con:
             if account_type == "passenger":
-                res = await con.fetchrow("SELECT * FROM passenger WHERE username=$1", username)
+                res = await con.fetchrow("SELECT * FROM passenger WHERE email=$1", identifier)
             else:
-                res = await con.fetchrow("SELECT * FROM vehicle WHERE username=$1", username)
+                res = await con.fetchrow("SELECT * FROM vehicle WHERE email=$1", identifier)
+
         if res is None: return None
-        return {"id": res["id"], "username": res["username"], "password_hash": res["password_hash"], "first_name": res["first_name"],
+        return {"id": res["id"], "password_hash": res["password_hash"], "first_name": res["first_name"],
                 "last_name": res["last_name"], "phone_number": res["phone_number"], "type": account_type}
-            
+    
+    @classmethod
+    async def get_account_info_by_phone_number(cls, identifier, account_type: Literal["passenger", "vehicle"]):
+        async with cls.db_pool.acquire() as con:
+            if account_type == "passenger":
+                res = await con.fetchrow("SELECT * FROM passenger WHERE phone_number=$1", identifier)
+
+            else:
+                res = await con.fetchrow("SELECT * FROM vehicle WHERE phone_number=$1", identifier)
+
+        if res is None: return None
+        return {"id": res["id"], "password_hash": res["password_hash"], "first_name": res["first_name"],
+                "last_name": res["last_name"], "phone_number": res["phone_number"], "type": account_type}
+    
+    @classmethod
+    async def get_account_info_by_id(cls, user_id, account_type: Literal["passenger", "vehicle"]):
+        async with cls.db_pool.acquire() as con:
+            if account_type == "passenger":
+                    res = await con.fetchrow("SELECT * FROM passenger WHERE id=$1", user_id)
+            else:
+                    res = await con.fetchrow("SELECT * FROM vehicle WHERE id=$1", user_id)
+        if res is None: return None
+        return {"id": res["id"], "password_hash": res["password_hash"], "first_name": res["first_name"],
+                "last_name": res["last_name"], "phone_number": res["phone_number"], "type": account_type}
+    
     @classmethod
     async def get_vehicle_route_id(cls, vehicle_id):
         async with cls.db_pool.acquire() as con:
@@ -168,16 +193,6 @@ class db:
         else: return False
     
     @classmethod 
-    async def check_username_available(cls, username, account_type: Literal["passenger", "vehicle"]):
-        async with cls.db_pool.acquire() as con:
-            if account_type == "passenger":
-                res = await con.fetchrow("SELECT * FROM passenger WHERE username=$1", username)
-            else:
-                res = await con.fetchrow("SELECT * FROM vehicle WHERE username=$1", username)
-        if res is None: return True
-        else: return False
-    
-    @classmethod 
     async def check_email_available(cls, email, account_type: Literal["passenger", "vehicle"]):
         async with cls.db_pool.acquire() as con:
             if account_type == "passenger":
@@ -191,15 +206,15 @@ class db:
     async def add_account(cls, account_info: Account_DB_Entry):
         async with cls.db_pool.acquire() as con:
             if account_info.account_type == "passenger":
-                account_id = await con.fetch("""INSERT INTO passenger (username, password_hash, first_name,
+                account_id = await con.fetch("""INSERT INTO passenger (password_hash, first_name,
                             last_name, phone_number, email)
-                            VALUES ($1, $2, $3, $4, $5, $6) RETURNING id""", account_info.username, account_info.password_hash,
+                            VALUES ($1, $2, $3, $4, $5) RETURNING id""", account_info.password_hash,
                             account_info.first_name, account_info.last_name, account_info.phone_number, account_info.email)
             else:
-                account_id = (await con.fetch("""INSERT INTO vehicle (username, password_hash, first_name,
+                account_id = (await con.fetch("""INSERT INTO vehicle (password_hash, first_name,
                             last_name, phone_number, email, cur_route_id, status, license_plate)
-                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id""", account_info.username,
-                            account_info.password_hash, account_info.first_name, account_info.last_name, account_info.phone_number,
+                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id""", account_info.password_hash,
+                            account_info.first_name, account_info.last_name, account_info.phone_number,
                             account_info.email, account_info.cur_route_id, account_info.status, account_info.license_plate))[0][0]
                 for route_id in account_info.routes:
                     await con.execute("""INSERT INTO vehicle_routes (vehicle_id, route_id) VALUES ($1, $2)""", account_id, route_id)

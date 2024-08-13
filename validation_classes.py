@@ -7,7 +7,6 @@ class Point(BaseModel):
 
 class Account_Info(BaseModel):
     account_type: Literal["passenger", "vehicle"]
-    username: str
     password: str
     first_name: str
     last_name: str
@@ -20,9 +19,12 @@ class Account_Info(BaseModel):
 
     @model_validator(mode="before")
     def phone_or_email(cls, values):
-        if values.get("phone_number") is None and values.get("email") is None:
-            raise ValueError("Please include either phone_number or email.")
+        if values.get("account_type") == "passenger":
+            if values.get("phone_number") is None and values.get("email") is None:
+                raise ValueError("Please include either phone_number or email.")
         if values.get("account_type") == "vehicle":
+            if values.get("phone_number") is None:
+                raise ValueError("Please give the vehice a phone number")
             if values.get("status") is None or values.get("cur_route_id") is None \
                 or values.get("license_plate") is None or values.get("routes") is None:
                 raise ValueError("Please include status, current route id, valid route ids, and license plate for vehicle accounts.")
