@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Response, status, Depends
+from fastapi import FastAPI, Response, status, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -14,10 +14,12 @@ import helper
 import authentication
 from db_layer import db
 
+
 load_dotenv(find_dotenv())
 DB_URL = os.getenv("db_url")
 MAPBOX_TOKEN = os.getenv("mapbox_token")
 VEHICLE_TO_ROUTE_THRESHOLD = int(os.getenv("vehicle_to_route_threshold"))
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -48,79 +50,137 @@ app.add_middleware(
 
 )
 
+
+
 @app.post("/signup", status_code=status.HTTP_200_OK)
-async def signup(account_data: Account_Info, response: Response):
+async def signup(account_data: Account_Info):
+    """Validate user data and add it to database.
+
+    Parameters:
+    - account_data: Account data of user signing up
+
+    Returns:
+    - Message indicating the sign-up process went smoothly
+
+    Raises:
+    - HTTPException: If username is already in use. (status code: 409)
+    - HTTPException: If phone number is already in use. (status code: 409)
+    - HTTPException: If email is already in use. (status code: 409)
+    - HTTPException: If `account_data` is not in the correct format (status code: 422)
+    """
     account_type = account_data.account_type
-    phone_num_av = await db.check_phone_number_available(account_data.phone_number, account_type)
     username_av = await db.check_username_available(account_data.username, account_type)
+    phone_num_av = await db.check_phone_number_available(account_data.phone_number, account_type)
     email_av = await db.check_email_available(account_data.email, account_data.account_type)
-    if not phone_num_av:
-        response.status_code = status.HTTP_409_CONFLICT
-        return {"message": "Sign-up failed. Phone number already in use."}
-    
     if not username_av:
-        response.status_code = status.HTTP_409_CONFLICT
-        return {"message": "Sign-up failed. Username already in use."}
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail={"error_code": "USERNAME_ALREADY_USED",
+                                    "msg": "The username you attempted to sign-up with is already used by another user."})
+    
+    if not phone_num_av:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail={"error_code": "PHONE_NUM_ALREADY_USED",
+                                    "msg":"The phone number you attempted to sign-up with is already used by another user."
+                                    }
+                            )
     
     if not email_av:
-        response.status_code = status.HTTP_409_CONFLICT
-        return {"message": "Sign-up failed. Email already in use."}
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail={"error_code": "PHONE_NUM_ALREADY_USED",
+                                    "msg":"The email you attempted to sign-up with is already used by another user."
+                                    }
+                            )
 
     password_hash = authentication.hash_password(account_data.password)
-    await db.add_account(Account_DB_Entry(
-        account_type=account_data.account_type,
-        username=account_data.username,
-        password_hash=password_hash,
-        first_name=account_data.first_name,
-        last_name=account_data.last_name,
-        phone_number=account_data.phone_number,
-        email=account_data.email,
-        status=account_data.status,
-        cur_route_id=account_data.cur_route_id,
-        routes=account_data.routes,
-        license_plate=account_data.license_plate
-                     ))
+    await db.add_account(Account_DB_Entry(**account_data.model_dump(exclude={"password"}), password_hash=password_hash))
+    return {"message": "Account was signed up successfully."}
     
 
 @app.post("/login/{account_type}", status_code=status.HTTP_200_OK)
-async def login(account_type: str, form_data: Annotated[OAuth2PasswordRequestForm, Depends()], response: Response):
+async def login(account_type: Literal["passenger", "vehicle"], form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+    """Validate user credentials and provide authentication token
+
+    Parameters:
+    - account_type: specifies if the user is attempting to log in
+      as a passenger or as a vehicle
+    - from_data: data containing user credentials (username and password)
+
+    Returns:
+    - Authentication token
+
+    Raises:
+    - HTTPException: If credentials are invalid (status code: 401)
+    """
     user = await authentication.check_user_credentials(form_data.username, form_data.password, account_type)
     if user is None:
-        response.status_code = status.HTTP_401_UNAUTHORIZED
-        return {"message": "Invalid credentials."}
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"error_code": "INVALID_CREDENTIALS",
+                                                                              "msg": "The entered credentials are invalid"})
     token_data = {"sub": user["username"], "type": account_type}
     access_token = authentication.create_access_token(
         token_data=token_data
     )
-    return {"message": "All good.", "token": {"access_token": access_token, "token_type": "bearer"}}
-
+    return {"message": "Token generated successfully.", "token": {"access_token": access_token, "token_type": "bearer"}}
 
 
 @app.get("/vehicle_location/{vehicle_id}", status_code=status.HTTP_200_OK)
-async def get_vehicle_location(vehicle_id: int, response: Response, user_info: authentication.authorize_passenger):
+async def get_vehicle_location(vehicle_id: int):
+    """Get the location of the vehicle having id `vehicle_id`
+
+    Parameters:
+    - vehicle_id: id of the vehicle whose location is needed
+
+    Returns:
+    - [long, lat] representing the vehicle's coordinates
+
+    Raises:
+    - HTTPException: If the entered vehicle id doesn't correspond 
+      to a valid vehicle in the database (status code: 404)
+
+    """
     entry = await db.get_vehicle_location(vehicle_id)
     if entry is None:
-        response.status_code = status.HTTP_404_NOT_FOUND
-        return {"message" : "Error: Vehicle location is not available."}
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail={"error_code": "INVALID_VEHICLE_ID", "msg": f"'{vehicle_id}' isn't a valid vehicle id"})
     
-    return {"message": "All Good.", "longitude": entry["longitude"], "latitude" : entry["latitude"]}
+    return {"message": "Coordinates found successfully.", "coordinates":[entry["longitude"], entry["latitude"]]}
 
 @app.post("/vehicle_location", status_code=status.HTTP_200_OK)
-async def post_vehicle_location(vehicle_location_data: Point, response: Response, user_info : authentication.authorize_vehicle):
+async def post_vehicle_location(vehicle_location_data: Point, user_info : authentication.authorize_vehicle):
+    """Adds the location of an existing vehicle to the database
+
+    Parameters:
+    - vehicle_location_data: A `Point` representing the vehicle's location
+    - user_info: user information extracted from the authentication token
+
+    Returns:
+    - Message indicating the location was succesfully updated
+    
+    Raises:
+    - HTTPException: If the input is not in the correct structure (status code: 422)
+    - HTTPException: If the request doesn't include a valid vehicle account
+      access token (status code: 422)
+    - HTTPException: If the location of the vehicle has already been added. (status code: 400)
+    - HTTPException: If the vehicle id is invalid (status code: 400)
+
+    Notes:
+    - Only requests with tokens corresponding to vehicle accounts may 
+    send this request.
+    - Only use this POST request to add the location of a vehicle when
+      its location hasn't been added already. To update the location
+      of a vehicle, send a PUT request to `/vehicle_location`
+    """
     vehicle_id = user_info["id"]
     latitude, longitude = vehicle_location_data.latitude, vehicle_location_data.longitude
     try:
         await db.add_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
     except asyncpg.exceptions.UniqueViolationError:
-        response.status_code = status.HTTP_400_BAD_REQUEST
-        return {
-                "message":
-                """Error: You have attempted to add the location of a vehicle who's location has
-                already been added. Maybe you meant to send a PUT request?"""
-                }
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail={"error_code": "LOCATION_ALREADY_ADDED",
+                                    "msg": "Your location has already been added. Maybe you meant to send a PUT request?"})
     except asyncpg.exceptions.ForeignKeyViolationError:
-        response.status_code = status.HTTP_400_BAD_REQUEST
-        return {"message": "Error: You have attempted to add the location of a vehicle that doesn't exist."}
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail={"error_code": "INVALID_VEHICLE_ID",
+                                    "msg": "The vehicle id used is invalid.Try to generate another token."})
     return {"message": "All Good."}
 
 
