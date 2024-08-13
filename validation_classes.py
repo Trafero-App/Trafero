@@ -1,6 +1,7 @@
 from pydantic import BaseModel, model_validator
 from typing import Literal, List
-class vehicle_location(BaseModel):
+
+class Point(BaseModel):
     longitude: float
     latitude: float
 
@@ -37,10 +38,6 @@ class Account_DB_Entry(Account_Info):
     password_hash: str
     password: None = None
     
-class Point(BaseModel):
-    longitude: float
-    latitude: float
-
 class Passenger_Review(BaseModel):
     reaction: Literal["thumbs_up", "thumbs_down"]
     complaints: List[str] | None = None

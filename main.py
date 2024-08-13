@@ -8,7 +8,7 @@ import os
 from dotenv import load_dotenv, find_dotenv
 
 from typing import Annotated, Literal
-from validation_classes import vehicle_location, Account_Info, Account_DB_Entry, Passenger_Review, Review_DB_Entry
+from validation_classes import Point, Account_Info, Account_DB_Entry, Passenger_Review, Review_DB_Entry
 
 import helper
 import authentication
@@ -106,7 +106,7 @@ async def get_vehicle_location(vehicle_id: int, response: Response, user_info: a
     return {"message": "All Good.", "longitude": entry["longitude"], "latitude" : entry["latitude"]}
 
 @app.post("/vehicle_location", status_code=status.HTTP_200_OK)
-async def post_vehicle_location(vehicle_location_data: vehicle_location, response: Response, user_info : authentication.authorize_vehicle):
+async def post_vehicle_location(vehicle_location_data: Point, response: Response, user_info : authentication.authorize_vehicle):
     vehicle_id = user_info["id"]
     latitude, longitude = vehicle_location_data.latitude, vehicle_location_data.longitude
     try:
@@ -125,7 +125,7 @@ async def post_vehicle_location(vehicle_location_data: vehicle_location, respons
 
 
 @app.put("/vehicle_location", status_code=status.HTTP_200_OK)
-async def put_vehicle_location(vehicle_location_data: vehicle_location, response: Response, user_info : authentication.authorize_vehicle):
+async def put_vehicle_location(vehicle_location_data: Point, response: Response, user_info : authentication.authorize_vehicle):
     vehicle_id = user_info["id"]
     latitude, longitude = vehicle_location_data.latitude, vehicle_location_data.longitude
     success = await db.update_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
