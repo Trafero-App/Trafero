@@ -113,14 +113,20 @@ async def signup(account_data: Account_Info):
     
 @app.get("/check_email/{account_type}", status_code=status.HTTP_200_OK)
 async def check_email(account_type: Literal["passenger", "vehicle"], email: str):
+    """Check if email has proper form and is unused
+    """
     return {"message": "Validating email complete.", "is_valid": await helper.check_email(email, account_type)}
 
 @app.get("/check_phone_number/{account_type}", status_code=status.HTTP_200_OK)
 async def check_phone_number(account_type: Literal["passenger", "vehicle"], phone_number: str):
+    """Check if phone number has proper form and is unused
+    """
     return {"message": "Validating email complete.", "is_valid": await helper.check_phone_number(phone_number, account_type)}
 
 @app.get("/check_password", status_code=status.HTTP_200_OK)
 async def check_password(password: str):
+    """Check if password has proper form
+    """
     return {"message": "Validating email complete.", "is_valid": helper.is_valid_password(password)}
 
 
@@ -140,10 +146,11 @@ async def login(account_type: Literal["passenger", "vehicle"], form_data: Annota
     - HTTPException: If the input is not in the correct structure (status code: 422)
     - HTTPException: If credentials are invalid (status code: 401)
     """
+    # Find login method
     identifier = form_data.username
     if helper.is_valid_phone_number(identifier): login_method = "phone_number"
     else: login_method = "email"
-    
+
     user = await authentication.check_user_credentials(form_data.username, form_data.password, account_type, login_method)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"error_code": "INVALID_CREDENTIALS",
