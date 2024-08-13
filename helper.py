@@ -85,27 +85,7 @@ def get_remaining_route(route, start):
     start_proj_i = project_point_on_route(start, route)[0]
     return route[start_proj_i:]
 
-def geojsonify_vehicle_list(vehicle_list):
-    for i, vehicle in enumerate(vehicle_list):
-        vehicle_list[i] = {
-                            "type": "Feature", 
-                            "properties": {
-                                 "id": vehicle["id"],
-                                 "status": vehicle["status"],
-                                 "license_plate" : vehicle["license_plate"]
-                                },
-                            "geometry": {
-                                 "type": "Point",
-                                 "coordinates": [
-                                      vehicle["longitude"],
-                                      vehicle["latitude"]
-                                 ] 
-                            } }
-        if "projection_index" in vehicle:
-            vehicle_list[i]["properties"]["TEST"] = vehicle["projection_index"]
-        if "passed" in vehicle:
-            vehicle_list[i]["properties"]["passed"] = vehicle["passed"]
-         
+ 
 def get_time_estimation(waypoints, token, mode):
     if waypoints == None:
         return 0

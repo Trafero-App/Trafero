@@ -63,10 +63,10 @@ async def signup(account_data: Account_Info):
     - Message indicating the sign-up process went smoothly
 
     Raises:
+    - HTTPException: If the input is not in the correct structure (status code: 422)
     - HTTPException: If username is already in use. (status code: 409)
     - HTTPException: If phone number is already in use. (status code: 409)
     - HTTPException: If email is already in use. (status code: 409)
-    - HTTPException: If `account_data` is not in the correct format (status code: 422)
     """
     account_type = account_data.account_type
     username_av = await db.check_username_available(account_data.username, account_type)
@@ -109,6 +109,7 @@ async def login(account_type: Literal["passenger", "vehicle"], form_data: Annota
     - Authentication token
 
     Raises:
+    - HTTPException: If the input is not in the correct structure (status code: 422)
     - HTTPException: If credentials are invalid (status code: 401)
     """
     user = await authentication.check_user_credentials(form_data.username, form_data.password, account_type)
@@ -133,8 +134,9 @@ async def get_vehicle_location(vehicle_id: int):
     - [long, lat] representing the vehicle's coordinates
 
     Raises:
-    - HTTPException: If the entered vehicle id doesn't correspond 
-      to a valid vehicle in the database (status code: 404)
+    - HTTPException: If the input is not in the correct structure (status code: 422)
+    - HTTPException: If the entered vehicle id doesn't correspond to a valid vehicle
+      in the database (status code: 404)
 
     """
     entry = await db.get_vehicle_location(vehicle_id)
@@ -146,25 +148,25 @@ async def get_vehicle_location(vehicle_id: int):
 
 @app.post("/vehicle_location", status_code=status.HTTP_200_OK)
 async def post_vehicle_location(vehicle_location_data: Point, user_info : authentication.authorize_vehicle):
-    """Adds the location of an existing vehicle to the database
+    """Add the location of an existing vehicle to the database
 
     Parameters:
     - vehicle_location_data: A `Point` representing the vehicle's location
     - user_info: user information extracted from the authentication token
 
     Returns:
-    - Message indicating the location was succesfully updated
+    - Message indicating the location was succesfully added
     
     Raises:
     - HTTPException: If the input is not in the correct structure (status code: 422)
     - HTTPException: If the request doesn't include a valid vehicle account
-      access token (status code: 422)
-    - HTTPException: If the location of the vehicle has already been added. (status code: 400)
+      unexpired access token (status code: 401)
+    - HTTPException: If the location of the vehicle has already been added (status code: 400)
     - HTTPException: If the vehicle id is invalid (status code: 400)
 
     Notes:
     - Only requests with tokens corresponding to vehicle accounts may 
-    send this request.
+      send this request.
     - Only use this POST request to add the location of a vehicle when
       its location hasn't been added already. To update the location
       of a vehicle, send a PUT request to `/vehicle_location`
@@ -180,51 +182,110 @@ async def post_vehicle_location(vehicle_location_data: Point, user_info : authen
     except asyncpg.exceptions.ForeignKeyViolationError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail={"error_code": "INVALID_VEHICLE_ID",
-                                    "msg": "The vehicle id used is invalid.Try to generate another token."})
+                                    "msg": "The vehicle id used is invalid. Try to generate another token."})
     return {"message": "All Good."}
 
 
 @app.put("/vehicle_location", status_code=status.HTTP_200_OK)
-async def put_vehicle_location(vehicle_location_data: Point, response: Response, user_info : authentication.authorize_vehicle):
+async def put_vehicle_location(vehicle_location_data: Point, user_info : authentication.authorize_vehicle):
+    """Update the location of an existing vehicle in the database
+
+    Parameters:
+    - vehicle_location_data: A `Point` representing the vehicle's location
+    - user_info: user information extracted from the authentication token
+
+    Returns:
+    - Message indicating the location was succesfully added
+
+    Raises:
+    - HTTPException: If the input is not in the correct structure (status code: 422)
+    - HTTPException: If the request doesn't include a valid vehicle account
+      unexpired access token (status code: 401)
+    - HTTPException: If the location of the vehicle has not been added yet (status code: 400)
+    - HTTPException: If the vehicle id is invalid (status code: 400)
+
+    Notes:
+    - Only requests with tokens corresponding to vehicle accounts may 
+      send this request.
+    - Only use this PUT request to update the location of a vehicle when
+      its location has been added already. To add the location of a vehicle,
+      send a POST request to `/vehicle_location`
+    """
     vehicle_id = user_info["id"]
     latitude, longitude = vehicle_location_data.latitude, vehicle_location_data.longitude
     success = await db.update_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
     # False signifies that you tried to update the location of a vehicle whose location isn't in the db yet
     if not success:
-        response.status_code = status.HTTP_400_BAD_REQUEST
-        return {"message" : """Error: You have attempted to update the location of a vehicle who's location hasn't been added.
-                            Maybe you mean to send a POST request?"""}
-    else:
-        
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, 
+                            detail={"error_code": "LOCATION_NOT_ADDED_PREVIOUSLY",
+                                    "msg": "Your location has not been added previously. Maybe you meant to send a POST request?"})
+    else:   
         route_id = await db.get_vehicle_route_id(vehicle_id)
         route = app.state.routes[route_id]["line"]["features"][0]["geometry"]["coordinates"]
         if helper.off_track((longitude, latitude), route, VEHICLE_TO_ROUTE_THRESHOLD):
             await db.update_status(vehicle_id, "unknown")
-            return {"message": "status set to unavailable. You are too far from the route."}
+            return {"message": "Location succesfully updated. Status set to unknown: you are too far from your route."}
         else:
-            return {"message": "All Good. Status set to active."}
+            return {"message": "Location succesfully updated."}
 
 
 @app.put("/vehicle_status", status_code=status.HTTP_200_OK)
-async def put_vehicle_status(vehicle_id: int, new_status: Literal["active", "waiting", "unavailable", "inactive", "unknown"],
-                             response: Response):
+async def put_vehicle_status(vehicle_id: int, new_status: Literal["active", "waiting", "unavailable", "inactive", "unknown"]): # to be changed
+    """Update vehicle status
+
+    Parameters:
+    - vehicle_id: id of the vehicle whose status is to be updated
+    - new_status: the status the vehicle should take on
+
+    Returns:
+    - Message indicating the status was successfully updated
+
+    Raises:
+    - HTTPException: If the input is not in the correct structure (status code: 422)
+    - HTTPException: If no vehicle with the given id is found (status code: 404)
+    """
     success = await db.update_status(vehicle_id, new_status)
-    if success: return {"message": "All good."}
+    if success:
+        return {"message": "Status updated successfully."}
     else:
-        response.status_code = status.HTTP_404_NOT_FOUND
-        return {"message": "No such vehicle"}
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail={"error_code": "INVALID_VEHICLE_ID",
+                                    "msg":"Please provide a valid vehicle id"}) # to be changed
 
 
 @app.put("/active_route", status_code=status.HTTP_200_OK)
-async def change_active_route (new_active_route: int, response: Response, user_info : authentication.authorize_vehicle):
+async def change_active_route (new_active_route: int, user_info : authentication.authorize_vehicle):
+    """Update the active route of a certain vehicle
+
+
+    Parameters:
+    - new_active_route: The id of the route that the vehicle is
+      to take on as its active route.
+    - user_info: user information extracted from the authentication token
+
+    Returns:
+    - Message indicating the vehicle's active route was successfully updated
+
+    Raises:
+    - HTTPException: If the input is not in the correct structure (status code: 422)
+    - HTTPException: if the given route id is not one of the vehicle's
+      routes (status code: 406)
+    - HTTPException: If no vehicle with the given id is found (status code: 404)
+    """
     vehicle_id = user_info["id"]
     vehicle_routes = await db.get_vehicle_routes(vehicle_id)
     if new_active_route not in vehicle_routes:
-        response.status = status.HTTP_406_NOT_ACCEPTABLE
-        return {"message": "Invalid route id"}
-    else:
-        await db.change_active_route(vehicle_id, new_active_route)
-        return {"message": "All good."}
+        raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE,
+                            detail={"error_code": "ROUTE_NOT_VALID_FOR_THIS_VEHICLE"})
+    success = await db.change_active_route(vehicle_id, new_active_route)
+
+    if not success:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail={"error_code": "INVALID_VEHICLE_ID",
+                                    "msg": "The vehicle id used is invalid. Try to generate another token."})
+
+    
+    return {"message": f"Changed your active route to the route with id '{new_active_route}'"}
 
 @app.post("/vehicle_routes/add", status_code=status.HTTP_200_OK)
 async def add_vehicle_route(new_route_id: int, response: Response, user_info: authentication.authorize_vehicle):

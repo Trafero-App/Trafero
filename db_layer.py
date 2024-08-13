@@ -295,7 +295,8 @@ class db:
     @classmethod
     async def change_active_route(cls, vehicle_id, new_active_route):
         async with cls.db_pool.acquire() as con:
-            await con.execute("UPDATE vehicle SET cur_route_id=$1 WHERE id=$2", new_active_route, vehicle_id)
+            res = await con.execute("UPDATE vehicle SET cur_route_id=$1 WHERE id=$2", new_active_route, vehicle_id)
+        return res != "UPDATE 0"
 
     @classmethod
     async def add_route(cls, vehicle_id, new_route_id):
