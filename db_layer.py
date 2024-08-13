@@ -39,10 +39,6 @@ class db:
                                                 latitude=$2 WHERE vehicle_id=$3""", longitude, latitude, vehicle_id)
             return res != "UPDATE 0"
 
-    @classmethod
-    async def get_route_file_name(cls, route_id):
-        async with cls.db_pool.acquire() as con:
-            return await con.fetchrow("SELECT file_name FROM route WHERE id=$1", route_id)["file_name"]
 
     @classmethod
     async def store_all_routes_data(cls):
@@ -161,14 +157,6 @@ class db:
             res = await con.fetch("SELECT cur_route_id from vehicle WHERE id = $1", vehicle_id)
         return res[0][0]
 
-
-    @classmethod
-    async def get_account_password_hash(cls, username, account_type: Literal["passenger", "vehicle"]):
-        async with cls.db_pool.acquire() as con:
-            res = await con.fetchrow("SELECT password_hash FROM account WHERE username=$1 AND account_type=$2", username, account_type)
-        if res is None: return None
-        return {"password_hash": res[0]}
-    
     @classmethod 
     async def check_phone_number_available(cls, phone_number, account_type: Literal["passenger", "vehicle"]):
         async with cls.db_pool.acquire() as con:
