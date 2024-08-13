@@ -13,7 +13,7 @@ from validation_classes import Point, Account_Info, Account_DB_Entry, Passenger_
 import helper
 import authentication
 from db_layer import db
-
+import regex as re
 
 load_dotenv(find_dotenv())
 DB_URL = os.getenv("db_url")
@@ -69,32 +69,60 @@ async def signup(account_data: Account_Info):
     - HTTPException: If email is already in use. (status code: 409)
     """
     account_type = account_data.account_type
-    username_av = await db.check_username_available(account_data.username, account_type)
-    phone_num_av = await db.check_phone_number_available(account_data.phone_number, account_type)
-    email_av = await db.check_email_available(account_data.email, account_data.account_type)
-    if not username_av:
+    is_available_username = await db.check_username_available(account_data.username, account_type)
+    if not is_available_username:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail={"error_code": "USERNAME_ALREADY_USED",
+                            detail={"error_code": "USERNAME_UNAVAILABLE",
                                     "msg": "The username you attempted to sign-up with is already used by another user."})
+    if account_data.phone_number is not None:
+        is_valid_phone_number = helper.is_valid_phone_number(account_data.phone_number)
+        if not is_valid_phone_number:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                detail={"error_code": "PHONE_NUM_INVALID",
+                                        "msg":"The phone number you attempted to sign-up with is not valid."
+                                        }
+                                )
+        is_available_phone_number = await db.check_phone_number_available(account_data.phone_number, account_type)
+        if not is_available_phone_number:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail={"error_code": "PHONE_NUM_UNAVAILABLE",
+                                        "msg":"The phone number you attempted to sign-up with is already used by another user."
+                                        }
+                                )
     
-    if not phone_num_av:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail={"error_code": "PHONE_NUM_ALREADY_USED",
-                                    "msg":"The phone number you attempted to sign-up with is already used by another user."
-                                    }
-                            )
-    
-    if not email_av:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail={"error_code": "PHONE_NUM_ALREADY_USED",
-                                    "msg":"The email you attempted to sign-up with is already used by another user."
-                                    }
-                            )
+    if account_data.email is not None:
+        is_valid_email = helper.is_valid_email(account_data.email)
+        if not is_valid_email:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail={"error_code": "EMAIL_INVALID",
+                                        "msg":"The email you attempted to sign-up with is not valid."
+                                        }
+                                )
 
+        is_available_email = await db.check_email_available(account_data.email, account_data.account_type)
+        if not is_available_email:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail={"error_code": "EMAIL_UNAVAILABLE",
+                                        "msg":"The email you attempted to sign-up with is already used by another user."
+                                        }
+                                )
+ 
     password_hash = authentication.hash_password(account_data.password)
     await db.add_account(Account_DB_Entry(**account_data.model_dump(exclude={"password"}), password_hash=password_hash))
     return {"message": "Account was signed up successfully."}
     
+@app.get("/check_email/{account_type}", status_code=status.HTTP_200_OK)
+async def check_email(account_type: Literal["passenger", "vehicle"], email: str):
+    return {"message": "Validating email complete.", "is_valid": await helper.check_email(email, account_type)}
+
+@app.get("/check_phone_number/{account_type}", status_code=status.HTTP_200_OK)
+async def check_phone_number(account_type: Literal["passenger", "vehicle"], phone_number: str):
+    return {"message": "Validating email complete.", "is_valid": await helper.check_phone_number(phone_number, account_type)}
+
+@app.get("/check_password", status_code=status.HTTP_200_OK)
+async def check_password(password: str):
+    return {"message": "Validating email complete.", "is_valid": helper.is_valid_password(password)}
+
 
 @app.post("/login/{account_type}", status_code=status.HTTP_200_OK)
 async def login(account_type: Literal["passenger", "vehicle"], form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
