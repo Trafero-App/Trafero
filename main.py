@@ -69,11 +69,11 @@ async def signup(account_data: Account_Info):
     - HTTPException: If email is already in use. (status code: 409)
     """
     account_type = account_data.account_type
-    is_available_username = await db.check_username_available(account_data.username, account_type)
-    if not is_available_username:
+    is_valid_password = helper.is_valid_password(account_data.password)
+    if not is_valid_password:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail={"error_code": "USERNAME_UNAVAILABLE",
-                                    "msg": "The username you attempted to sign-up with is already used by another user."})
+                            detail={"error_code": "PASSWORD_INVALID",
+                                    "msg": "The password you attempted to sign-up with is invalid."})
     if account_data.phone_number is not None:
         is_valid_phone_number = helper.is_valid_phone_number(account_data.phone_number)
         if not is_valid_phone_number:
@@ -140,14 +140,16 @@ async def login(account_type: Literal["passenger", "vehicle"], form_data: Annota
     - HTTPException: If the input is not in the correct structure (status code: 422)
     - HTTPException: If credentials are invalid (status code: 401)
     """
-    user = await authentication.check_user_credentials(form_data.username, form_data.password, account_type)
+    identifier = form_data.username
+    if helper.is_valid_phone_number(identifier): login_method = "phone_number"
+    else: login_method = "email"
+    
+    user = await authentication.check_user_credentials(form_data.username, form_data.password, account_type, login_method)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"error_code": "INVALID_CREDENTIALS",
                                                                               "msg": "The entered credentials are invalid"})
-    token_data = {"sub": user["username"], "type": account_type}
-    access_token = authentication.create_access_token(
-        token_data=token_data
-    )
+    token_data = {"sub": user["id"], "type": account_type}
+    access_token = authentication.create_access_token(token_data)
     return {"message": "Token generated successfully.", "token": {"access_token": access_token, "token_type": "bearer"}}
 
 

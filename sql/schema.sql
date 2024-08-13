@@ -15,7 +15,6 @@ DROP TABLE IF EXISTS waypoint;
 DROP TABLE IF EXISTS route;
 
 CREATE TABLE passenger (id SERIAL PRIMARY KEY,
-                        username VARCHAR(255) NOT NULL UNIQUE,
                         password_hash TEXT NOT NULL,
                         first_name VARCHAR(255) NOT NULL,
                         last_name VARCHAR(255) NOT NULL,
@@ -41,11 +40,10 @@ CREATE TABLE route (id SERIAL PRIMARY KEY,
 
 
 CREATE TABLE vehicle   (id SERIAL PRIMARY KEY,
-                        username VARCHAR(255) NOT NULL UNIQUE,
                         password_hash TEXT NOT NULL,
                         first_name VARCHAR(255) NOT NULL,
                         last_name VARCHAR(255) NOT NULL,
-                        phone_number VARCHAR(20) UNIQUE,
+                        phone_number VARCHAR(20) UNIQUE NOT NULL,
                         email VARCHAR(50) UNIQUE,
                         cur_route_id INT NOT NULL,
                         status VARCHAR(20) NOT NULL,
@@ -57,9 +55,7 @@ CREATE TABLE vehicle   (id SERIAL PRIMARY KEY,
                         CONSTRAINT fk_route
                             FOREIGN KEY(cur_route_id) REFERENCES route(id),
                         CONSTRAINT legal_statuses
-                        CHECK (status IN ('active', 'waiting', 'unavailable', 'inactive', 'unknown')),
-                        CONSTRAINT phone_or_email
-                        CHECK ((phone_number IS NOT NULL) OR (email IS NOT NULL))
+                        CHECK (status IN ('active', 'waiting', 'unavailable', 'inactive', 'unknown'))
                         );
 
 CREATE TABLE vehicle_routes (
