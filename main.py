@@ -260,7 +260,6 @@ async def route_vehicles_eta(route_id:int, response: Response,
     if route_id not in app.state.routes:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "Route not found."}
-    route_geojson = app.state.routes[route_id]["line"]
     
     # Get route vehicles
     vehicles = await db.get_route_vehicles(route_id)
@@ -270,13 +269,13 @@ async def route_vehicles_eta(route_id:int, response: Response,
 
                 "available_vehicle" : {}}
 
-    route = route_geojson["geometry"]["coordinates"]
+    route = app.state.routes[route_id]["line"]["features"][0]["geometry"]["coordinates"]
     vehicles, av_vehicles_last_i = helper.filter_vehicles__pick_up((pick_up_long, pick_up_lat), vehicles, route)
     waypoints = await db.get_route_waypoints(route_id)
     for i in range(av_vehicles_last_i):
         vehicle = vehicles[i]
 
-        vehicle["expected_time"] =  helper.get_vehicle_time_estimation(vehicle["id"], (pick_up_long, pick_up_lat), MAPBOX_TOKEN, waypoints)
+        vehicle["expected_time"] =  await helper.get_vehicle_time_estimation(vehicle["id"], (pick_up_long, pick_up_lat), MAPBOX_TOKEN, waypoints)
         vehicle["passed"] = False
 
         del vehicle["longitude"]
