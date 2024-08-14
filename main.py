@@ -89,8 +89,10 @@ async def signup(account_data: Account_Info):
                                 )
  
     password_hash = authentication.hash_password(account_data.password)
-    await db.add_account(Account_DB_Entry(**account_data.model_dump(exclude={"password"}), password_hash=password_hash))
-    return {"message": "Account was signed up successfully."}
+    user_id = await db.add_account(Account_DB_Entry(**account_data.model_dump(exclude={"password"}), password_hash=password_hash))
+    token_data = {"sub": user_id, "type": account_data.account_type}
+    access_token = authentication.create_access_token(token_data)
+    return {"message": "Account was signed up successfully.", "token": {"access_token": access_token, "token_type": "bearer"}}
     
 @app.get("/check_email/{account_type}", status_code=status.HTTP_200_OK)
 async def check_email(account_type: Literal["passenger", "vehicle"], email: str):
