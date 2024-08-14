@@ -424,8 +424,9 @@ async def all_vehicles_location():
         route_id = await db.get_vehicle_route_id(vehicle["id"])
         route_coords = app.state.routes[route_id]["line"]["features"][0]["geometry"]["coordinates"]
         if vehicle["status"] != "unknown":
-            route_coords = route_coords[helper.project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route_coords)[0]]
-
+            vehicle_coords = route_coords[helper.project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route_coords)[0]]
+        else:
+            vehicle_coords = (vehicle["longitude"], vehicle["latitude"])
         features.append({
             "type": "Feature",
             "properties": {
