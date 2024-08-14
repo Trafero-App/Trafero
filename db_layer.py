@@ -7,7 +7,7 @@ class db:
     @classmethod
     async def connect(cls, DB_URL):
         cls.db_pool = await asyncpg.create_pool(DB_URL)
-        await cls.store_all_routes_data()
+        await cls.load_all_routes_data()
         
     @classmethod
     async def disconnect(cls):
@@ -41,7 +41,7 @@ class db:
 
 
     @classmethod
-    async def store_all_routes_data(cls):
+    async def load_all_routes_data(cls):
         routes = {}
         routes_search_data = []
         routes_data = await db.get_all_routes_data()

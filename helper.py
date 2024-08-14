@@ -7,9 +7,6 @@ from copy import deepcopy
 from fuzzywuzzy import fuzz, process
 from collections import namedtuple
 from typing import List
-import regex as re
-from typing import Literal
-from validation import is_valid_phone_number,  is_valid_email
 
 Chain = namedtuple("Chain", ["route1_id", "route1_inter_proj", "route2_id", "route2_inter_proj", "pickup_index", "dest_index"])
 

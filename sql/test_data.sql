@@ -22,10 +22,10 @@ INSERT INTO route (file_name, route_name, "description", working_hours, active_d
     ('bus_24_1.geojson', 'Bus 24 (Hamra - Badaro)', 'Hamra - Verdun - Corniche el Mazraa - Mathaf - Adliye - Badaro', '6:00 AM - 7:00 PM', 'Monday -> Sunday', 'Rabah Transport', '50.000 LL'), 
     ('bus_24_2.geojson', 'Bus 24 (Badaro - Hamra)', 'Badaro - Adliye - Mathaf - Corniche el Mazraa - Verdun - Hamra', '6:00 AM - 7:00 PM', 'Monday -> Sunday',  'Rabah Transport', '50.000 LL');
 
-INSERT INTO vehicle (password_hash, first_name, last_name, phone_number, email, cur_route_id, "status", license_plate, date_of_birth) VALUES 
-    ('$2b$12$ipMawf8bhVJSH2mvcFIx..PjeCbMrlZqwZAWWupp.qcKxwCfEfp0G', 'v1f', 'v1l', '12345678', NULL, 2, 'active', 'B 12345', '1111-11-22'),
-    ('$2b$12$DzT92dyevkLveACbcnJzz.6c4a.fwXoriW9Uhz0Wq99Kjbb7WKCMy', 'v2f', 'v2l', '12345096', NULL, 2, 'active', 'A 12345', '1111-22-33'),
-    ('$2b$12$XKoRYKz/UGvgff6Sg8JCIOwuR3FRebIP4F.WypDwj57j0v24r6wH6', 'v3f', 'v3l', '12045079', NULL, 2, 'active', 'C 55555', '1111-33-44');
+INSERT INTO vehicle (password_hash, first_name, last_name, phone_number, email, cur_route_id, "status", license_plate, date_of_birth, "type", brand, model, color) VALUES 
+    ('$2b$12$ipMawf8bhVJSH2mvcFIx..PjeCbMrlZqwZAWWupp.qcKxwCfEfp0G', 'v1f', 'v1l', '12345678', NULL, 2, 'active', 'B 12345', '1111-11-22', 'bus', 'some_brand1', 'some_model1', 'red'),
+    ('$2b$12$DzT92dyevkLveACbcnJzz.6c4a.fwXoriW9Uhz0Wq99Kjbb7WKCMy', 'v2f', 'v2l', '12345096', NULL, 2, 'active', 'A 12345', '1111-22-33', 'bus', 'some_brand2', 'some_model2', 'black'),
+    ('$2b$12$XKoRYKz/UGvgff6Sg8JCIOwuR3FRebIP4F.WypDwj57j0v24r6wH6', 'v3f', 'v3l', '12045079', NULL, 2, 'active', 'C 55555', '1111-33-44', 'van', 'some_brand3', 'some_model3', 'white');
 
 INSERT INTO vehicle_location (longitude, latitude, vehicle_id) VALUES
     (35.5149, 33.8966, 1),
