@@ -68,8 +68,8 @@ CREATE TABLE vehicle_routes (
                         CONSTRAINT vehicle_routes_pk PRIMARY KEY (vehicle_id, route_id)
                         );
 CREATE TABLE vehicle_location (id SERIAL PRIMARY KEY,
-                            longitude DECIMAL NOT NULL,
-                            latitude DECIMAL NOT NULL,
+                            longitude DECIMAL,
+                            latitude DECIMAL,
                             vehicle_id INT NOT NULL UNIQUE,
                             CONSTRAINT fk_vehicle
                                     FOREIGN KEY(vehicle_id) 

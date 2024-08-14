@@ -92,6 +92,8 @@ async def signup(account_data: Account_Info):
     user_id = await db.add_account(Account_DB_Entry(**account_data.model_dump(exclude={"password"}), password_hash=password_hash))
     token_data = {"sub": user_id, "type": account_data.account_type}
     access_token = authentication.create_access_token(token_data)
+    if account_data.account_type == "vehicle":
+        await db.add_vehicle_location(user_id, None, None)
     return {"message": "Account was signed up successfully.", "token": {"access_token": access_token, "token_type": "bearer"}}
     
 @app.get("/check_email/{account_type}", status_code=status.HTTP_200_OK)
