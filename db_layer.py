@@ -314,9 +314,11 @@ class db:
         return res != "UPDATE 0"
 
     @classmethod
-    async def add_route(cls, vehicle_id, new_route_id):
+    async def set_route(cls, vehicle_id, new_routes):
         async with cls.db_pool.acquire() as con:
-            await con.execute("INSERT INTO vehicle_routes (vehicle_id, route_id) VALUES ($1, $2)", vehicle_id, new_route_id)
+            await con.execute("DELETE FROM vehicle_routes WHERE vehicle_id=$1", vehicle_id)
+            for new_route_id in new_routes:
+                await con.execute("INSERT INTO vehicle_routes (vehicle_id, route_id) VALUES ($1, $2)", vehicle_id, new_route_id)
 
     @classmethod
     async def delete_vehicle_route(cls, vehicle_id, route_id):

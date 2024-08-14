@@ -7,13 +7,12 @@ import asyncpg
 import os
 from dotenv import load_dotenv, find_dotenv
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, List
 from validation_classes import Point, Account_Info, Account_DB_Entry, Passenger_Review, Review_DB_Entry
 
 import helper
 import authentication
 from db_layer import db
-import regex as re
 
 load_dotenv(find_dotenv())
 DB_URL = os.getenv("db_url")
@@ -137,7 +136,7 @@ async def login(account_type: Literal["passenger", "vehicle"], form_data: Annota
     Parameters:
     - account_type: specifies if the user is attempting to log in
       as a passenger or as a vehicle
-    - from_data: data containing user credentials (username and password)
+    - form_data: data containing user credentials (username and password)
 
     Returns:
     - Authentication token
@@ -324,26 +323,30 @@ async def change_active_route (new_active_route: int, user_info : authentication
     
     return {"message": f"Changed your active route to the route with id '{new_active_route}'"}
 
-@app.post("/vehicle_routes/add", status_code=status.HTTP_200_OK)
-async def add_vehicle_route(new_route_id: int, response: Response, user_info: authentication.authorize_vehicle):
+@app.post("/vehicle_routes", status_code=status.HTTP_200_OK)
+async def add_vehicle_route(new_routes: List[int], user_info: authentication.authorize_vehicle):
+    """Updates the routes of a vehicle
+    
+    Parameters:
+    - new_routes: list of ids of the routes of the vehicle
+    - user_info: user information extracted from the authentication token
+
+    Returns:
+    - Message indicating the vehicle's routes where replaced successfully
+
+    Raises:
+    - HTTPException: If the input is not in the correct structure (status code: 422)
+    - HTTPException: If any of the given route ids is invalid (status code: 404)
+
+    """
     vehicle_id = user_info["id"]
     try:
-        await db.add_route(vehicle_id, new_route_id)
+        await db.set_route(vehicle_id, new_routes)
     except asyncpg.exceptions.ForeignKeyViolationError:
-        return {"message": "Route doesn't exist."}
-    except asyncpg.exceptions.UniqueViolationError:
-        return {"message": f"Route with id '{new_route_id}' is already added to the route list of vehicle with id'{vehicle_id}'"}
-    return {"message": "All good."}
-
-
-@app.delete("/vehicle_routes/delete", status_code=status.HTTP_200_OK)
-async def delete_vehicle_route(route_id: int, response: Response, user_info: authentication.authorize_vehicle):
-    deleted = await db.delete_vehicle_route(user_info["id"], route_id)
-    if not deleted:
-        response.status_code = status.HTTP_404_NOT_FOUND
-        return {"message": "Route isn't in the list"}
-    else:
-        return {"message": "All good."}
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail={"error_code": "INVALID_ROUTE_ID",
+                                    "msg": "One of the route ids given is invalid."})
+    return {"message": f"Successfully replaced your route_list with {new_routes}"}
 
 
 @app.get("/route_details/{route_id}", status_code=status.HTTP_200_OK)

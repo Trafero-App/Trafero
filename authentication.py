@@ -60,7 +60,7 @@ async def check_authorization_passenger(token: Annotated[str, Depends(oauth2_sch
 async def check_authorization_vehicle(token: Annotated[str, Depends(oauth2_scheme)]): return await check_role(token, "vehicle")
 async def check_authorization_any_account(token: Annotated[str, Depends(oauth2_scheme)]): return await check_role(token, "*")
 
-async def check_authorization_anyone(token: Annotated[str, Depends(oauth2_scheme)] | None = None): 
+async def check_authorization_anyone(token: Annotated[str | None, Depends(oauth2_scheme)]= None): 
     try:
         user = await check_role(token, "*")
     except Unauthorized_Exception:
