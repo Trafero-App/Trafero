@@ -148,6 +148,12 @@ async def login(account_type: Literal["passenger", "vehicle"], form_data: Annota
 async def get_account_info(user_info: authentication.authorize_any_account):
     """Gives account info"""
     del user_info["password_hash"]
+    if user_info["account_type"] == "vehicle": # user is a vehicle
+        user_info["route_list"] = [{"route_id": route_id,
+                                    "name": db.routes[route_id]["details"]["route_name"],
+                                    "description": db.routes[route_id]["details"]["description"],
+                                    "line": db.routes[route_id]["line"]
+                                    } for route_id in user_info["route_list"]]
     return user_info
 
 

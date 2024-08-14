@@ -47,13 +47,13 @@ class Account_Info(BaseModel):
     phone_number: str | None = None
     email: str | None = None
     cur_route_id: int | None = None
-    status: Literal["active", "unknown", "inactive", "unavailable", "waiting"] | None = None
+    status: Literal["active", "unknown", "inactive", "unavailable", "waiting"] | None= None
     vehicle_type: Literal["van", "bus"] | None = None
     brand: str | None = None
     model: str | None = None
     license_plate: str | None = None
     vehicle_color: str | None = None
-    routes:list | None = None
+    routes: List[int] | None = None
 
     @model_validator(mode="after")
     def phone_or_email(cls, values):
@@ -75,8 +75,8 @@ class Account_Info(BaseModel):
             
         if values.account_type == "vehicle":
             if values.phone_number is None: raise ValueError("Please provide a valid phone number")
-            if values.cur_route_id is None: raise ValueError("Please specify the id of the route you are currently on")
-            if values.status is None: raise ValueError("Please provide a vehicle status.")
+            if values.cur_route_id is None: values.cur_route_id = values.routes[0]
+            if values.status is None: values.status = "inactive"
             if values.vehicle_type is None: raise ValueError("Please specify the vehicle's type")
             if values.brand is None: raise ValueError("Please specify the vehicle's brand")
             if values.model is None: raise ValueError("Please specify the vehicle's model")

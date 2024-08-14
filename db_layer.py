@@ -147,6 +147,7 @@ class db:
                 res = await con.fetchrow("SELECT * FROM passenger WHERE email=$1", identifier)
                 if res is None: return None
                 res = dict(res)
+                res["account_type"] = "passenger"
             else:
                 res = await con.fetchrow("SELECT * FROM vehicle WHERE email=$1", identifier)
                 if res is None: return None
@@ -154,6 +155,7 @@ class db:
                 route_list = await con.fetch("SELECT route_id FROM vehicle_routes WHERE vehicle_id=$1", res["vehicle_id"])
                 route_list = [record[0] for record in route_list]
                 res["route_list"] = route_list
+                res["account_type"] = "vehicle"
         return res
              
     
@@ -164,6 +166,7 @@ class db:
                 res = await con.fetchrow("SELECT * FROM passenger WHERE phone_number=$1", identifier)
                 if res is None: return None
                 res = dict(res)
+                res["account_type"] = "passenger"
             else:
                 res = await con.fetchrow("SELECT * FROM vehicle WHERE phone_number=$1", identifier)
                 if res is None: return None
@@ -171,6 +174,7 @@ class db:
                 route_list = await con.fetch("SELECT route_id FROM vehicle_routes WHERE vehicle_id=$1", res["vehicle_id"])
                 route_list = [record[0] for record in route_list]
                 res["route_list"] = route_list
+                res["account_type"] = "vehicle"
         return res
     
     @classmethod
@@ -180,6 +184,7 @@ class db:
                 res = await con.fetchrow("SELECT * FROM passenger WHERE id=$1", user_id)
                 if res is None: return None
                 res = dict(res)
+                res["account_type"] = "passenger"
             else:
                 res = await con.fetchrow("SELECT * FROM vehicle WHERE id=$1", user_id)
                 if res is None: return None
@@ -187,6 +192,8 @@ class db:
                 route_list = await con.fetch("SELECT route_id FROM vehicle_routes WHERE vehicle_id=$1", user_id)
                 route_list = [record[0] for record in route_list]
                 res["route_list"] = route_list
+                res["account_type"] = "vehicle"
+
         return res
     
     @classmethod
