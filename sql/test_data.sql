@@ -4,7 +4,7 @@ INSERT INTO passenger
     ('p2', '$2b$12$usNoxufPKA8S6U4QB8Hv7..nL6MjuBF4MOBXia7O1a4d430uAsVGS', 'p2f', 'p2l', NULL, 'p2email'),
     ('p3', '$2b$12$AgOK5l0J0el8JaSgrNtMLeiQXWZeq5ARAYZRbUQ.4SpSoqiSVYaAi', 'p3f', 'p3l', 'p3phone', 'p3email');
 
-INSERT INTO route (file_name, route_name, description, working_hours, active_days, company_name, expected_price) VALUES 
+INSERT INTO route (file_name, route_name, description, working_hours, active_days, company_name, expected_price, company_phone_number, distance, estimated_travel_time, route_type) VALUES 
     ('bus_15_1.geojson', 'Bus 15 (Dawra - Nahr al Mot)', 'Dawra - Port - Biel - Ain el Mrayse - Raouche - Unesco - Cola - Corniche el Mazraa - Barbir - Mathaf - Adliye - Souk el Ahad - Nahr el Mot', '6:00 AM - 8:00 PM', 'Monday -> Sunday', 'Rabah Transport','80.000 LL', '03 302355', 17, 90, 'Coverage commuter'), 
     ('bus_15_2.geojson', 'Bus 15 (Nahr al Mot - Dawra)', 'Nahr al Mot - Souk el Ahad - Adliye - Mathaf - Barbir - Corniche el Mazraa - Cola - Unesco - Raouche - Ain el Mrayse - Biel - Port - Dawra', '6:00 AM - 8:00 PM', 'Monday -> Sunday', 'Rabah Transport','80.000 LL', '03 302355', 17, 90, 'Coverage commuter'), 
     ('beirut_saida_1.geojson', 'Van Saida (Beirut - Saida)', 'Cola - Madine al Riyadiye - Airport Highway - Khalde - Doha - Nahmeh - Damour - Jiye - Jadra - Saida (sehit nejme)', '5:00 AM - 9:00 PM', 'Monday -> Sunday', 'individual operators', '140.000 LL', 'NA', 49, 50, 'Intercity'), 
