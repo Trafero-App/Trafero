@@ -144,6 +144,12 @@ async def login(account_type: Literal["passenger", "vehicle"], form_data: Annota
     access_token = authentication.create_access_token(token_data)
     return {"message": "Token generated successfully.", "token": {"access_token": access_token, "token_type": "bearer"}}
 
+@app.get("/account_info")
+async def get_account_info(user_info: authentication.authorize_any_account):
+    """Gives account info"""
+    del user_info["password_hash"]
+    return user_info
+
 
 @app.get("/vehicle_location/{vehicle_id}", status_code=status.HTTP_200_OK)
 async def get_vehicle_location(vehicle_id: int):

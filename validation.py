@@ -46,10 +46,14 @@ class Account_Info(BaseModel):
     date_of_birth: str
     phone_number: str | None = None
     email: str | None = None
-    status: Literal["active", "unknown", "inactive", "unavailable", "waiting"] | None = None
     cur_route_id: int | None = None
-    routes:list | None = None
+    status: Literal["active", "unknown", "inactive", "unavailable", "waiting"] | None = None
+    vehicle_type: Literal["van", "bus"] | None = None
+    brand: str | None = None
+    model: str | None = None
     license_plate: str | None = None
+    vehicle_color: str | None = None
+    routes:list | None = None
 
     @model_validator(mode="after")
     def phone_or_email(cls, values):
@@ -70,16 +74,15 @@ class Account_Info(BaseModel):
                 raise ValueError("Please provide either a phone_number or an email.")
             
         if values.account_type == "vehicle":
-            if values.phone_number is None:
-                raise ValueError("Please provide a valid phone number")
-            if values.status is None or values.cur_route_id is None \
-                or values.license_plate is None or values.routes is None:
-                raise ValueError("Please include status, current route id, valid route ids, and license plate for vehicle accounts.")
-            if values.routes is None:
-                raise ValueError("Please provide a list of route ids that the vehicle corresponds to.")
-            if values.cur_route_id not in values.routes:
-                raise ValueError("The current route id provided is not in the list of valid ids for this vehicle.")
-
+            if values.phone_number is None: raise ValueError("Please provide a valid phone number")
+            if values.cur_route_id is None: raise ValueError("Please specify the id of the route you are currently on")
+            if values.status is None: raise ValueError("Please provide a vehicle status.")
+            if values.vehicle_type is None: raise ValueError("Please specify the vehicle's type")
+            if values.brand is None: raise ValueError("Please specify the vehicle's brand")
+            if values.model is None: raise ValueError("Please specify the vehicle's model")
+            if values.license_plate is None: raise ValueError("Please specify your license plate")
+            if values.vehicle_color is None: raise ValueError("Please specify the vehicle's color")
+            if values.routes in (None, []): raise ValueError("Please provide a non-empty list of routes")
         return values
     
 

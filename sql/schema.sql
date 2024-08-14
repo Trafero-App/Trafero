@@ -12,7 +12,7 @@ DROP TABLE IF EXISTS passenger;
 DROP TABLE IF EXISTS vehicle_location;
 DROP TABLE IF EXISTS vehicle;
 DROP TABLE IF EXISTS waypoint;
-DROP TABLE IF EXISTS route;
+DROP TABLE IF EXISTS "route";
 
 CREATE TABLE passenger (id SERIAL PRIMARY KEY,
                         password_hash TEXT NOT NULL,
@@ -48,8 +48,8 @@ CREATE TABLE vehicle   (id SERIAL PRIMARY KEY,
                         phone_number VARCHAR(20) UNIQUE NOT NULL,
                         email VARCHAR(50) UNIQUE,
                         cur_route_id INT NOT NULL,
-                        status VARCHAR(20) NOT NULL,
-                        type VARCHAR(30),
+                        "status" VARCHAR(20) NOT NULL,
+                        "type" VARCHAR(30),
                         brand VARCHAR(30),
                         model VARCHAR(30),
                         license_plate VARCHAR(30) NOT NULL,
