@@ -461,8 +461,9 @@ async def get_vehicle(vehicle_id: int, response: Response, user_info: authentica
     else: passenger_id = None
     vehicle_details = await db.get_vehicle_details(vehicle_id)
     if vehicle_details is None:
-        response.status = status.HTTP_404_NOT_FOUND
-        return {"message": "vehicle not found"}
+        HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                      detail={"error_code": "INVALID_VEHICLE_ID",
+                              "details": "The given vehicle id is invalid"})
     vehicle_route = app.state.routes[vehicle_details["route_id"]]
     vehicle_details["route_name"] = vehicle_route["details"]["route_name"]
     if passenger_id is not None:
