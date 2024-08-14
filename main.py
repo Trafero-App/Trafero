@@ -434,7 +434,7 @@ async def all_vehicles_location():
                 "id": vehicle["id"]
             },
             "geometry": {
-                "coordinates": route_coords,
+                "coordinates": vehicle_coords,
                 "type": "Point"
             
             }
