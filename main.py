@@ -8,7 +8,8 @@ import os
 from dotenv import load_dotenv, find_dotenv
 
 from typing import Annotated, Literal, List
-from validation_classes import Point, Account_Info, Account_DB_Entry, Passenger_Review, Review_DB_Entry
+from validation import is_valid_password, is_valid_dob, is_valid_email, is_valid_name, \
+is_valid_phone_number, Account_Info, Point, Account_DB_Entry, Passenger_Review, Review_DB_Entry
 
 import helper
 import authentication
@@ -68,19 +69,8 @@ async def signup(account_data: Account_Info):
     - HTTPException: If email is already in use. (status code: 409)
     """
     account_type = account_data.account_type
-    is_valid_password = helper.is_valid_password(account_data.password)
-    if not is_valid_password:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail={"error_code": "PASSWORD_INVALID",
-                                    "msg": "The password you attempted to sign-up with is invalid."})
+
     if account_data.phone_number is not None:
-        is_valid_phone_number = helper.is_valid_phone_number(account_data.phone_number)
-        if not is_valid_phone_number:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                                detail={"error_code": "PHONE_NUM_INVALID",
-                                        "msg":"The phone number you attempted to sign-up with is not valid."
-                                        }
-                                )
         is_available_phone_number = await db.check_phone_number_available(account_data.phone_number, account_type)
         if not is_available_phone_number:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT,
@@ -90,14 +80,6 @@ async def signup(account_data: Account_Info):
                                 )
     
     if account_data.email is not None:
-        is_valid_email = helper.is_valid_email(account_data.email)
-        if not is_valid_email:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                                detail={"error_code": "EMAIL_INVALID",
-                                        "msg":"The email you attempted to sign-up with is not valid."
-                                        }
-                                )
-
         is_available_email = await db.check_email_available(account_data.email, account_data.account_type)
         if not is_available_email:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT,
@@ -112,15 +94,17 @@ async def signup(account_data: Account_Info):
     
 @app.get("/check_email/{account_type}", status_code=status.HTTP_200_OK)
 async def check_email(account_type: Literal["passenger", "vehicle"], email: str):
-    """Check if email has proper form and is unused
-    """
-    return {"message": "Validating email complete.", "is_valid": await helper.check_email(email, account_type)}
+    """Check if email has proper form and is unused"""
+    has_proper_form = is_valid_phone_number(email)
+    is_unused = await db.check_email_available(email, account_type)
+    return {"message": "Validating email complete.", "is_valid": has_proper_form and is_unused}
 
 @app.get("/check_phone_number/{account_type}", status_code=status.HTTP_200_OK)
 async def check_phone_number(account_type: Literal["passenger", "vehicle"], phone_number: str):
-    """Check if phone number has proper form and is unused
-    """
-    return {"message": "Validating email complete.", "is_valid": await helper.check_phone_number(phone_number, account_type)}
+    """Check if phone number has proper form and is unused"""
+    has_proper_form = is_valid_phone_number(phone_number)
+    is_unused = await db.check_phone_number_available(phone_number, account_type)
+    return {"message": "Validating email complete.", "is_valid": has_proper_form and is_unused}
 
 @app.get("/check_password", status_code=status.HTTP_200_OK)
 async def check_password(password: str):

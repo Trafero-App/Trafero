@@ -1,12 +1,12 @@
 INSERT INTO passenger 
-    (password_hash, first_name, last_name, phone_number, email) VALUES
-    ('$2b$12$UV.jCkFpPt2DVMWp4RjLN..p0yXZuxFZsbqqmK5xQ1pdnBdjByLo6', 'p1f', 'p1l', '12345678', 'p1@mail.com'),
-    ('$2b$12$EmxAwWZZLxbA6ABF6jErQO.tGddTSYDwB9TzdQ2n2QKdmszxJEWiO', 'p2f', 'p2l', NULL, 'p2@mail.com'),
-    ('$2b$12$PRX4BGK5vvyuIcBsIGaz4Ou4uHscFuk2tefTimAMKm9z5WphFw8VG', 'p3f', 'p3l', '33333333', NULL);
+    (password_hash, first_name, last_name, phone_number, email, date_of_birth) VALUES
+    ('$2b$12$UV.jCkFpPt2DVMWp4RjLN..p0yXZuxFZsbqqmK5xQ1pdnBdjByLo6', 'p1f', 'p1l', '12345678', 'p1@mail.com', '1111-11-11'),
+    ('$2b$12$EmxAwWZZLxbA6ABF6jErQO.tGddTSYDwB9TzdQ2n2QKdmszxJEWiO', 'p2f', 'p2l', NULL, 'p2@mail.com', '1111-22-22'),
+    ('$2b$12$PRX4BGK5vvyuIcBsIGaz4Ou4uHscFuk2tefTimAMKm9z5WphFw8VG', 'p3f', 'p3l', '33333333', NULL, '1111-33-33');
     
     
 
-INSERT INTO route (file_name, route_name, description, working_hours, active_days, company_name, expected_price) VALUES 
+INSERT INTO route (file_name, route_name, "description", working_hours, active_days, company_name, expected_price) VALUES 
     ('bus_15_1.geojson', 'Bus 15 (Dawra - Nahr al Mot)', 'Dawra - Port - Biel - Ain el Mrayse - Raouche - Unesco - Cola - Corniche el Mazraa - Barbir - Mathaf - Adliye - Souk el Ahad - Nahr el Mot', '6:00 AM - 8:00 PM', 'Monday -> Sunday', 'Rabah Transport','80.000 LL'), 
     ('bus_15_2.geojson', 'Bus 15 (Nahr al Mot - Dawra)', 'Nahr al Mot - Souk el Ahad - Adliye - Mathaf - Barbir - Corniche el Mazraa - Cola - Unesco - Raouche - Ain el Mrayse - Biel - Port - Dawra', '6:00 AM - 8:00 PM', 'Monday -> Sunday', 'Rabah Transport','80.000 LL'), 
     ('beirut_saida_1.geojson', 'Van Saida (Beirut - Saida)', 'Cola - Madine al Riyadiye - Airport Highway - Khalde - Doha - Nahmeh - Damour - Jiye - Jadra - Saida (sehit nejme)', '5:00 AM - 9:00 PM', 'Monday -> Sunday', 'individual operators', '130.000 LL'), 
@@ -22,10 +22,10 @@ INSERT INTO route (file_name, route_name, description, working_hours, active_day
     ('bus_24_1.geojson', 'Bus 24 (Hamra - Badaro)', 'Hamra - Verdun - Corniche el Mazraa - Mathaf - Adliye - Badaro', '6:00 AM - 7:00 PM', 'Monday -> Sunday', 'Rabah Transport', '50.000 LL'), 
     ('bus_24_2.geojson', 'Bus 24 (Badaro - Hamra)', 'Badaro - Adliye - Mathaf - Corniche el Mazraa - Verdun - Hamra', '6:00 AM - 7:00 PM', 'Monday -> Sunday',  'Rabah Transport', '50.000 LL');
 
-INSERT INTO vehicle (password_hash, first_name, last_name, phone_number, email, cur_route_id, status, license_plate) VALUES 
-    ('$2b$12$ipMawf8bhVJSH2mvcFIx..PjeCbMrlZqwZAWWupp.qcKxwCfEfp0G', 'v1f', 'v1l', '12345678', NULL, 1, 'active', 'B 12345'),
-    ('$2b$12$DzT92dyevkLveACbcnJzz.6c4a.fwXoriW9Uhz0Wq99Kjbb7WKCMy', 'v2f', 'v2l', '12345096', NULL, 2, 'active', 'A 12345'),
-    ('$2b$12$XKoRYKz/UGvgff6Sg8JCIOwuR3FRebIP4F.WypDwj57j0v24r6wH6', 'v3f', 'v3l', '12045079', NULL, 4, 'active', 'C 55555');
+INSERT INTO vehicle (password_hash, first_name, last_name, phone_number, email, cur_route_id, "status", license_plate, date_of_birth) VALUES 
+    ('$2b$12$ipMawf8bhVJSH2mvcFIx..PjeCbMrlZqwZAWWupp.qcKxwCfEfp0G', 'v1f', 'v1l', '12345678', NULL, 1, 'active', 'B 12345', '1111-11-22'),
+    ('$2b$12$DzT92dyevkLveACbcnJzz.6c4a.fwXoriW9Uhz0Wq99Kjbb7WKCMy', 'v2f', 'v2l', '12345096', NULL, 2, 'active', 'A 12345', '1111-22-33'),
+    ('$2b$12$XKoRYKz/UGvgff6Sg8JCIOwuR3FRebIP4F.WypDwj57j0v24r6wH6', 'v3f', 'v3l', '12045079', NULL, 4, 'active', 'C 55555', '1111-33-44');
 
 INSERT INTO vehicle_location (longitude, latitude, vehicle_id) VALUES
     (35.5149, 33.8966, 1),

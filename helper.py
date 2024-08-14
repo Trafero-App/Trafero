@@ -9,6 +9,7 @@ from collections import namedtuple
 from typing import List
 import regex as re
 from typing import Literal
+from validation import is_valid_phone_number,  is_valid_email
 
 Chain = namedtuple("Chain", ["route1_id", "route1_inter_proj", "route2_id", "route2_inter_proj", "pickup_index", "dest_index"])
 
@@ -440,67 +441,4 @@ async def get_nearby_routes(long, lat, radius, long2, lat2, radius2, routes, map
     total = not_cascaded_close_routes + cascaded_close_routes
     total.sort(key=lambda route: route["eta"])
     return total
-
-
-def is_valid_email(email: str):
-    """Check if email has a valid form
-
-    Parameters:
-    - email: string to be validated
-
-    Returns: 
-    - True if `email` contains a valid email, False otherwise
-    
-    """
-    email_regex_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-    valid_email = re.match(email_regex_pattern, email) is not None
-    return valid_email
-
-async def check_email(email: str, account_type: Literal["passenger", "vehicle"]):
-    """Check if email has a valid form and is un-used
-
-    Parameters:
-    - email: string to be validated
-
-    Returns: 
-    - True if `email` contains a valid email that is unused, False otherwise
-    
-    """
-    valid_email = is_valid_email(email)
-    is_available_email = await db.check_email_available(email, account_type)
-    return valid_email and is_available_email
-
-def is_valid_phone_number(phone_number: str):
-    """Check if phone number has a valid form
-
-    Parameters:
-    - phone_number: string to be validated
-
-    Returns: 
-    - True if `phone_number` contains a valid phone number, False otherwise
-    
-    """
-    phone_number_regex_pattern = r"^\d{8}$"
-    valid_phone_number = (re.match(phone_number_regex_pattern, phone_number) is not None)
-    return valid_phone_number
-
-async def check_phone_number(phone_number: str, account_type: Literal["passenger", "vehicle"]):
-    """Check if phone number has a valid form and is un-used
-
-    Parameters:
-    - phone_number: string to be validated
-
-    Returns: 
-    - True if `phone_number` contains a valid phone number that is un-used, False otherwise
-    
-    """
-    valid_phone_number = is_valid_phone_number(phone_number)
-    is_available_phone_number = await db.check_phone_number_available(phone_number, account_type)
-    return valid_phone_number and is_available_phone_number
-
-def is_valid_password(password: str):
-    """Check if password has correct form"""
-    password_regex_pattern = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$"
-    is_valid_password = re.match(password_regex_pattern, password) is not None
-    return is_valid_password
 

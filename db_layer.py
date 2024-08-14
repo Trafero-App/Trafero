@@ -1,6 +1,6 @@
 import asyncpg
 import geojson
-from validation_classes import Account_DB_Entry, Review_DB_Entry
+from validation import Account_DB_Entry, Review_DB_Entry
 from typing import Literal
 
 class db:
@@ -206,15 +206,16 @@ class db:
     async def add_account(cls, account_info: Account_DB_Entry):
         async with cls.db_pool.acquire() as con:
             if account_info.account_type == "passenger":
-                account_id = await con.fetch("""INSERT INTO passenger (password_hash, first_name,
-                            last_name, phone_number, email)
-                            VALUES ($1, $2, $3, $4, $5) RETURNING id""", account_info.password_hash,
-                            account_info.first_name, account_info.last_name, account_info.phone_number, account_info.email)
+                await con.execute("""INSERT INTO passenger (password_hash, first_name,
+                            last_name, date_of_birth, phone_number, email)
+                            VALUES ($1, $2, $3, $4, $5, $6) RETURNING id""", account_info.password_hash,
+                            account_info.first_name, account_info.last_name, account_info.date_of_birth,
+                            account_info.phone_number, account_info.email)
             else:
                 account_id = (await con.fetch("""INSERT INTO vehicle (password_hash, first_name,
-                            last_name, phone_number, email, cur_route_id, status, license_plate)
-                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id""", account_info.password_hash,
-                            account_info.first_name, account_info.last_name, account_info.phone_number,
+                            last_name, date_of_birth, phone_number, email, cur_route_id, status, license_plate)
+                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id""", account_info.password_hash,
+                            account_info.first_name, account_info.last_name, account_info.date_of_birth, account_info.phone_number,
                             account_info.email, account_info.cur_route_id, account_info.status, account_info.license_plate))[0][0]
                 for route_id in account_info.routes:
                     await con.execute("""INSERT INTO vehicle_routes (vehicle_id, route_id) VALUES ($1, $2)""", account_id, route_id)
@@ -271,7 +272,7 @@ class db:
     async def get_passenger_reaction(cls, passenger_id, vehicle_id):
         async with cls.db_pool.acquire() as con:
             feedback = await con.fetchrow("""SELECT id, reaction FROM feedback WHERE passenger_id=$1 AND vehicle_id=$2""", passenger_id, vehicle_id)
-            if feedback is None: return {"reaction": "none"}
+            if feedback is None: return {"reaction": None}
             return {"reaction": feedback[1]}
     
     @classmethod
