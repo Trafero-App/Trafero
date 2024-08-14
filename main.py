@@ -392,8 +392,6 @@ async def route(route_id: int):
     Raises:
     - HTTPException: If the input is not in the correct structure (status code: 422)
     - HTTPException: if the given route_id is invalid (status_code: 404)
-
-    
     """
     if route_id not in app.state.routes:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
@@ -418,7 +416,7 @@ async def route(route_id: int):
 
 @app.get("/all_vehicles_location", status_code=status.HTTP_200_OK)
 async def all_vehicles_location():
-    """Gets the location and status of all vehicles"""
+    """Get the location and status of all vehicles"""
     vehicle_info = await db.get_all_vehicles_info()
     features = []
     for vehicle in vehicle_info:
@@ -449,7 +447,18 @@ async def all_vehicles_location():
 
 @app.get("/route_vehicles_eta/{route_id}", status_code=status.HTTP_200_OK)
 async def route_vehicles_eta(route_id:int, response: Response,
-                             pick_up_long:float, pick_up_lat:float): 
+                             pick_up_long:float, pick_up_lat:float):
+    """Get the etas of all busses on a specific route to
+    a specific destination
+
+    Parameters:
+    - route_id: the id of the route whose vehicle etas are requested
+    - [pick_up_long, pick_up_lat]: coordinates of the destination
+
+    Returns:
+    - The eta of every vehicle to the destination. If the vehicle,
+      already
+    """
     # Load route
     if route_id not in app.state.routes:
         response.status_code = status.HTTP_404_NOT_FOUND
@@ -591,7 +600,6 @@ async def post_feedback(review: Passenger_Review, response: Response, user_info 
     passenger_id = user_info["id"]
     review_entry = Review_DB_Entry(**review.model_dump(), passenger_id=passenger_id)
     try:
-        print('x)')
         await db.add_feedback(review_entry)
         return {"message": "All Good."}
     except asyncpg.exceptions.UniqueViolationError:
@@ -643,7 +651,7 @@ async def get_vehicle_feedback(vehicle_id: int, response: Response):
 @app.delete("/feedback/{vehicle_id}", status_code=status.HTTP_200_OK)
 async def delete_vehicle_feedback(vehicle_id: int, response: Response, user_info: authentication.authorize_passenger):
     passenger_id = user_info["id"]
-    success = await db.delete_feedback(vehicle_id, passenger_id)
+    success = await db.delete_feedback(passenger_id, vehicle_id)
     if success: return {"message": "All good."}
     else:
         response.status_code = status.HTTP_404_NOT_FOUND

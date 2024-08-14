@@ -297,8 +297,8 @@ INSERT INTO intersection (route_id, local_index, auxiliary_route, auxiliary_inde
     
 
 INSERT INTO fixed_complaint (complaint_details) VALUES
-('Drives too slow'), ('Reckless driving'), ('Rude behvior'), ('Uncomfortable seats'),
-('Vehicle in bad condition'), ('Unpleasent smell'), ('Wait too much time'), ('1'), ('2'), ('3'), ('4');
+('drives too slow'), ('reckless driving'), ('rude behavior'), ('uncomfortable'),
+('bad condition'), ('unpleasant smell'), ('waits too much'), ('other');
 
 INSERT INTO feedback (passenger_id, vehicle_id, reaction) VALUES 
 (1, 1, 'thumbs_up'), (2, 1, 'thumbs_up'), (3, 1, 'thumbs_down'),

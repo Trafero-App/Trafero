@@ -282,12 +282,9 @@ class db:
             fixed_complaints = await con.fetch("""SELECT fixed_complaint.complaint_details, COUNT(*) FROM feedback JOIN feedback_fixed_complaint
                                                   ON feedback.id = feedback_fixed_complaint.feedback_id JOIN fixed_complaint
                                                  ON feedback_fixed_complaint.fixed_complaint_id = fixed_complaint.id
-                                                 WHERE feedback.vehicle_id=$1 GROUP BY fixed_complaint.complaint_details""", vehicle_id)
-            other_complaints_count = (await con.fetchrow("""SELECT COUNT(*) FROM other_complaint JOIN feedback
-                                                     ON other_complaint.feedback_id = feedback.id WHERE feedback.vehicle_id=$1""", vehicle_id))[0]
-            if other_complaints_count > 0:
-                complaints = [{"complaint": "other", "count": other_complaints_count}]
-            else: complaints = []
+                                                 WHERE feedback.vehicle_id=$1 GROUP BY fixed_complaint.complaint_details ORDER BY COUNT(*) DESC""", vehicle_id)
+            
+            complaints = []
             for complaint, count in fixed_complaints:
                 complaints.append({"complaint": complaint, "count": count})
             return {"thumbs_up": thumbs_up_count, "thumbs_down": thumbs_down_count,
