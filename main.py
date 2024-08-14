@@ -304,6 +304,8 @@ async def change_active_route (new_active_route: int, user_info : authentication
 
     Raises:
     - HTTPException: If the input is not in the correct structure (status code: 422)
+    - HTTPException: If the request doesn't include a valid vehicle account
+      unexpired access token (status code: 401)
     - HTTPException: if the given route id is not one of the vehicle's
       routes (status code: 406)
     - HTTPException: If no vehicle with the given id is found (status code: 404)
@@ -336,6 +338,8 @@ async def add_vehicle_route(new_routes: List[int], user_info: authentication.aut
 
     Raises:
     - HTTPException: If the input is not in the correct structure (status code: 422)
+    - HTTPException: If the request doesn't include a valid vehicle account
+      unexpired access token (status code: 401)
     - HTTPException: If any of the given route ids is invalid (status code: 404)
 
     """
@@ -345,50 +349,79 @@ async def add_vehicle_route(new_routes: List[int], user_info: authentication.aut
     except asyncpg.exceptions.ForeignKeyViolationError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail={"error_code": "INVALID_ROUTE_ID",
-                                    "msg": "One of the route ids given is invalid."})
+                                    "msg": "One of the route ids given is invalid"})
     return {"message": f"Successfully replaced your route_list with {new_routes}"}
 
 
 @app.get("/route_details/{route_id}", status_code=status.HTTP_200_OK)
-async def route_details(route_id: int, response:Response):
+async def route_details(route_id: int):
+    """Get details of a specific route
+
+    Parameters:
+    - route_id: the id of the route whose details are requested
+
+    Returns:
+    - The data of the requested route
+
+    Raises:
+    - HTTPException: If the route id is invalid (status code: 404)
+    """
     if route_id not in app.state.routes:
-        response.status_code = status.HTTP_404_NOT_FOUND
-        return {"message": "Error: Route not found."}
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail={"error_code": "INVALID_ROUTE_ID",
+                                    "msg": "The given route id is invalid"})
     
     route_data = helper.flatten_route_data(app.state.routes[route_id])
 
-    return {"message" : "All Good.", "route_data": route_data}
+    return {"message" : f"Successfully collected the route data of the route with id {route_id}",
+            "route_data": route_data}
 
 
 
-@app.get("/route/{requested_route_id}", status_code=status.HTTP_200_OK)
-async def route(requested_route_id: int, response: Response):
-    if requested_route_id not in app.state.routes:
-        response.status_code = status.HTTP_404_NOT_FOUND
-        return {"message": "Error: Route not found."}
+@app.get("/route/{route_id}", status_code=status.HTTP_200_OK)
+async def route(route_id: int):
+    """Get some information about a route and about the 
+       vehicles currently on it
+
+    Parameters:
+    - route_id: The id of the route whose information is requested
+
+    Returns:
+    - The requested info described above
+
+    Raises:
+    - HTTPException: If the input is not in the correct structure (status code: 422)
+    - HTTPException: if the given route_id is invalid (status_code: 404)
+
     
-    route_data = app.state.routes[requested_route_id]
+    """
+    if route_id not in app.state.routes:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail={"error_code": "INVALID_ROUTE_ID",
+                                    "details": "The given route id is invalid"})
+    
+    route_data = app.state.routes[route_id]
     route_needed_data = {"description": route_data["details"]["description"],
                          "line": route_data["line"],
-                         "route_id": requested_route_id,
+                         "route_id": route_id,
                          "route_name": route_data["details"]["route_name"],
                          }
-    route_vehicles = await db.get_route_vehicles(requested_route_id)
+    route_vehicles = await db.get_route_vehicles(route_id)
     for vehicle in route_vehicles:
         del vehicle["latitude"]
         del vehicle["longitude"]
     route_needed_data["vehicles"] = route_vehicles
-
-    return {"message" : "All Good.", "route_data": route_needed_data}
+    return {"message" : f"Successfully collected the data of the route with id {route_id} and its vehicles",
+            "route_data": route_needed_data}
 
 
 
 @app.get("/all_vehicles_location", status_code=status.HTTP_200_OK)
 async def all_vehicles_location():
+    """Gets the location and status of all vehicles"""
     vehicle_info = await db.get_all_vehicles_info()
     features = []
     for vehicle in vehicle_info:
-        # print(route_coords[helper.project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route_coords)[0]])
         route_id = await db.get_vehicle_route_id(vehicle["id"])
         route_coords = app.state.routes[route_id]["line"]["features"][0]["geometry"]["coordinates"]
         features.append({
@@ -461,7 +494,7 @@ async def get_vehicle(vehicle_id: int, response: Response, user_info: authentica
     else: passenger_id = None
     vehicle_details = await db.get_vehicle_details(vehicle_id)
     if vehicle_details is None:
-        HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                       detail={"error_code": "INVALID_VEHICLE_ID",
                               "details": "The given vehicle id is invalid"})
     vehicle_route = app.state.routes[vehicle_details["route_id"]]

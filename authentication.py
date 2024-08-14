@@ -27,6 +27,7 @@ expired_token_error = Expired_Token_Exception(status_code=status.HTTP_401_UNAUTH
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+oauth2_scheme_optional_token = OAuth2PasswordBearer(tokenUrl="login", auto_error=False)
 
 
 # Define dependencies for path operations
@@ -43,7 +44,7 @@ async def decode_token(token):
 
 async def check_role(token, role):
     payload = await decode_token(token)
-
+    print(payload)
     user_id: str | None = payload.get("sub")
     account_type: Literal["passenger", "vehicle"] | None = payload.get("type")
     if user_id is None or account_type is None: return None
@@ -60,7 +61,7 @@ async def check_authorization_passenger(token: Annotated[str, Depends(oauth2_sch
 async def check_authorization_vehicle(token: Annotated[str, Depends(oauth2_scheme)]): return await check_role(token, "vehicle")
 async def check_authorization_any_account(token: Annotated[str, Depends(oauth2_scheme)]): return await check_role(token, "*")
 
-async def check_authorization_anyone(token: Annotated[str | None, Depends(oauth2_scheme)]= None): 
+async def check_authorization_anyone(token: Annotated[str | None, Depends(oauth2_scheme_optional_token)]= None): 
     try:
         user = await check_role(token, "*")
     except Unauthorized_Exception:
