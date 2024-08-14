@@ -44,16 +44,13 @@ async def decode_token(token):
 
 async def check_role(token, role):
     payload = await decode_token(token)
-    print(payload)
     user_id: str | None = payload.get("sub")
     account_type: Literal["passenger", "vehicle"] | None = payload.get("type")
     if user_id is None or account_type is None: return None
-
     user_info = await db.get_account_info_by_id(user_id, account_type)
     if user_info is None:
         raise unauthorizzed_error
-    
-    if not (role == "*" or user_info["type"] == role):
+    if not (role == "*" or user_info["account_type"] == role):
         raise unauthorizzed_error
     return user_info
 

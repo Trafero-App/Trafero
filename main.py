@@ -248,6 +248,7 @@ async def put_vehicle_location(vehicle_location_data: Point, user_info : authent
       send a POST request to `/vehicle_location`
     """
     vehicle_id = user_info["id"]
+    print(vehicle_id, "COEJDE")
     latitude, longitude = vehicle_location_data.latitude, vehicle_location_data.longitude
     success = await db.update_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
     # False signifies that you tried to update the location of a vehicle whose location isn't in the db yet
@@ -422,6 +423,9 @@ async def all_vehicles_location():
     for vehicle in vehicle_info:
         route_id = await db.get_vehicle_route_id(vehicle["id"])
         route_coords = app.state.routes[route_id]["line"]["features"][0]["geometry"]["coordinates"]
+        if vehicle["status"] != "unknown":
+            route_coords = route_coords[helper.project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route_coords)[0]]
+
         features.append({
             "type": "Feature",
             "properties": {
@@ -429,8 +433,7 @@ async def all_vehicles_location():
                 "id": vehicle["id"]
             },
             "geometry": {
-                "coordinates": route_coords[helper.project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route_coords)[0]]
-                ,
+                "coordinates": route_coords,
                 "type": "Point"
             
             }
