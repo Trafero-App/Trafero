@@ -151,9 +151,9 @@ CREATE TABLE vehicle_status_history (id SERIAL PRIMARY KEY,
                                       ); 
 CREATE TABLE intersection (id SERIAL PRIMARY KEY,
                             route_id INT NOT NULL,
-                            local_index DECIMAL NOT NULL,
+                            local_index INT NOT NULL,
                             auxiliary_route INT NOT NULL,
-                            auxiliary_index DECIMAL NOT NULL,
+                            auxiliary_index INT NOT NULL,
                                 CONSTRAINT fk_route
                                     FOREIGN KEY(route_id)
                                         REFERENCES route(id)

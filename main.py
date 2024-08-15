@@ -380,7 +380,7 @@ async def route_details(route_id: int):
 
 
 @app.get("/route/{route_id}", status_code=status.HTTP_200_OK)
-async def route(route_id: int):
+async def route(route_id: int, response: Response):
     """Get some information about a route and about the 
        vehicles currently on it
 
@@ -399,54 +399,15 @@ async def route(route_id: int):
                             detail={"error_code": "INVALID_ROUTE_ID",
                                     "details": "The given route id is invalid"})
     
-    route_data = app.state.routes[route_id]
-    route_needed_data = {"description": route_data["details"]["description"],
-                         "line": route_data["line"],
-                         "route_id": route_id,
-                         "route_name": route_data["details"]["route_name"],
-                         }
-    route_vehicles = await db.get_route_vehicles(route_id)
-    for vehicle in route_vehicles:
-        del vehicle["latitude"]
-        del vehicle["longitude"]
-    route_needed_data["vehicles"] = route_vehicles
-    return {"message" : f"Successfully collected the data of the route with id {route_id} and its vehicles",
-            "route_data": route_needed_data}
-
+    route_data = await helper.get_route_data(int(route_id), num='')
+    return {"message" : "All Good.", "route_data": route_data}
 
 
 @app.get("/all_vehicles_location", status_code=status.HTTP_200_OK)
-async def all_vehicles_location():
+async def get_all_vehicles_location():
     """Get the location and status of all vehicles"""
-    vehicle_info = await db.get_all_vehicles_info()
-    features = []
-    for vehicle in vehicle_info:
-        route_id = await db.get_vehicle_route_id(vehicle["id"])
-        route_coords = app.state.routes[route_id]["line"]["features"][0]["geometry"]["coordinates"]
-        if vehicle["status"] != "unknown":
-            vehicle_coords = route_coords[helper.project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route_coords)[0]]
-        else:
-            vehicle_coords = (vehicle["longitude"], vehicle["latitude"])
-        features.append({
-            "type": "Feature",
-            "properties": {
-                "status": vehicle["status"],
-                "id": vehicle["id"]
-            },
-            "geometry": {
-                "coordinates": vehicle_coords,
-                "type": "Point"
-            
-            }
-        })
-
-    return {"message": "All good.",
-            "content": {
-                "type": "FeatureCollection",
-                "features": features
-                    
-            }
-        }
+    res = await helper.all_vehicles_info()
+    return {"message": "All good.", "content": res}
 
 
 @app.get("/route_vehicles_eta/{route_id}", status_code=status.HTTP_200_OK)
@@ -476,28 +437,8 @@ async def route_vehicles_eta(route_id:int, response: Response,
 
                 "available_vehicle" : {}}
 
-    route = app.state.routes[route_id]["line"]["features"][0]["geometry"]["coordinates"]
-    vehicles, av_vehicles_last_i = helper.filter_vehicles__pick_up((pick_up_long, pick_up_lat), vehicles, route)
-    waypoints = await db.get_route_waypoints(route_id)
-    for i in range(av_vehicles_last_i):
-        vehicle = vehicles[i]
-
-        vehicle["expected_time"] =  await helper.get_vehicle_time_estimation(vehicle["id"], (pick_up_long, pick_up_lat), MAPBOX_TOKEN, waypoints)
-        vehicle["passed"] = False
-
-        del vehicle["longitude"]
-        del vehicle["latitude"]
-        del vehicle["projection_index"]
-
-    for i in range(av_vehicles_last_i, len(vehicles)):
-        vehicle = vehicles[i]
-        vehicle["passed"] = True
-
-        del vehicle["longitude"]
-        del vehicle["latitude"]
-        del vehicle["projection_index"]
-    vehicles = vehicles[:av_vehicles_last_i][::-1] + vehicles[av_vehicles_last_i:]
-    return {"message" : "All Good.", "vehicles" : vehicles}
+    vehicles_eta = await helper.get_route_vehicles_eta((pick_up_long, pick_up_lat), vehicles, route_id, MAPBOX_TOKEN)
+    return {"message" : "All Good.", "vehicles" : vehicles_eta}
     
 
 @app.get("/vehicle/{vehicle_id}", status_code=status.HTTP_200_OK)
@@ -517,14 +458,8 @@ async def get_vehicle(vehicle_id: int, response: Response, user_info: authentica
     else:
         vehicle_details["user_choice"] = None
 
-    vehicle_details["remaining_route"] = {
-        "type": "Feature",
-        "properties": {},
-        "geometry": {
-            "type": "LineString",
-            "coordinates": helper.get_remaining_route(vehicle_route["line"]["features"][0]["geometry"]["coordinates"], vehicle_details["coordinates"])
-        }
-    }
+    vehicle_details["remaining_route"] = helper.get_remaining_route(vehicle_details["route_id"], vehicle_details["coordinates"])
+
     return {"message": "All Good", "content": vehicle_details}
 
 
@@ -534,9 +469,8 @@ async def vehicle_time(route_id:int, long1:float, lat1:float, long2:float, lat2:
     if route_id not in app.state.routes:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"message": "Route not found."}
-    route = app.state.routes[route_id]["line"]["features"][0]["geometry"]["coordinates"]
     waypoints = await db.get_route_waypoints(route_id)
-    waypoints = helper.trim_waypoints_list(waypoints, (long1, lat1), (long2, lat2), route)
+    waypoints = helper.trim_waypoints_list(waypoints, (long1, lat1), (long2, lat2), route_id)
     return {"message": "All Good.", "time_estimation" : helper.get_time_estimation(waypoints, MAPBOX_TOKEN, "driving")}
 
 
@@ -546,30 +480,17 @@ async def vehicle_time(long1:float, lat1:float, long2:float, lat2:float, respons
 
 @app.get("/vehicle_eta/{vehicle_id}")
 async def vehicle_eta(vehicle_id: int, pick_up_long:float, pick_up_lat:float):
-    passed = await helper.check_vehicle_passed(vehicle_id, (pick_up_long, pick_up_lat))
-    if passed:
-        return {
-            "message": "All good.",
-            "content": {"passed": True}
-        }
-    else:
-        time_estimation = await helper.get_vehicle_time_estimation(vehicle_id, (pick_up_long, pick_up_lat), MAPBOX_TOKEN)
-        return {
-            "message": "All good.",
-            "content":{
-                "passed": False,
-                "expected_time": time_estimation
-                }
-        }
+    res = await helper.get_vehicle_time_estimation(vehicle_id, (pick_up_long, pick_up_lat), MAPBOX_TOKEN)
+    return { "message": "All good.", "content": res}
 
 
 @app.get("/nearby_routes", status_code=status.HTTP_200_OK)
 async def nearby_routes(long:float, lat:float, radius:float, 
                         long2: float | None=None, lat2: float|None = None, radius2: float|None=None):
     if long2 is not None and lat2 is not None and radius2 is not None:
-        close_routes = await helper.get_nearby_routes(long, lat, radius, long2, lat2, radius2, app.state.routes, MAPBOX_TOKEN)
+        close_routes = await helper.get_nearby_routes(long, lat, radius, long2, lat2, radius2, MAPBOX_TOKEN)
     else:
-        close_routes = await helper.get_nearby_routes_to_1_point(long, lat, radius, app.state.routes)
+        close_routes = await helper.get_nearby_routes_to_1_point(long, lat, radius)
     return {"message": "All Good.", "routes": close_routes}
 
 
