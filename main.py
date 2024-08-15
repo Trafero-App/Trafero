@@ -99,7 +99,7 @@ async def signup(account_data: Account_Info):
 @app.get("/check_email/{account_type}", status_code=status.HTTP_200_OK)
 async def check_email(account_type: Literal["passenger", "vehicle"], email: str):
     """Check if email has proper form and is unused"""
-    has_proper_form = is_valid_phone_number(email)
+    has_proper_form = is_valid_email(email)
     is_unused = await db.check_email_available(email, account_type)
     return {"message": "Validating email complete.", "is_valid": has_proper_form and is_unused}
 
@@ -114,7 +114,7 @@ async def check_phone_number(account_type: Literal["passenger", "vehicle"], phon
 async def check_password(password: str):
     """Check if password has proper form
     """
-    return {"message": "Validating email complete.", "is_valid": helper.is_valid_password(password)}
+    return {"message": "Validating email complete.", "is_valid": is_valid_password(password)}
 
 
 @app.post("/login/{account_type}", status_code=status.HTTP_200_OK)
@@ -135,7 +135,7 @@ async def login(account_type: Literal["passenger", "vehicle"], form_data: Annota
     """
     # Find login method
     identifier = form_data.username
-    if helper.is_valid_phone_number(identifier): login_method = "phone_number"
+    if is_valid_phone_number(identifier): login_method = "phone_number"
     else: login_method = "email"
 
     user = await authentication.check_user_credentials(form_data.username, form_data.password, account_type, login_method)
