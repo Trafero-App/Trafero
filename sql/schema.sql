@@ -12,13 +12,13 @@ DROP TABLE IF EXISTS passenger;
 DROP TABLE IF EXISTS vehicle_location;
 DROP TABLE IF EXISTS vehicle;
 DROP TABLE IF EXISTS waypoint;
-DROP TABLE IF EXISTS route;
+DROP TABLE IF EXISTS "route";
 
 CREATE TABLE passenger (id SERIAL PRIMARY KEY,
-                        username VARCHAR(255) NOT NULL UNIQUE,
                         password_hash TEXT NOT NULL,
                         first_name VARCHAR(255) NOT NULL,
                         last_name VARCHAR(255) NOT NULL,
+                        date_of_birth VARCHAR(10) NOT NULL,
                         phone_number VARCHAR(20) UNIQUE,
                         email VARCHAR(50) UNIQUE,
                         CONSTRAINT phone_or_email
@@ -41,25 +41,23 @@ CREATE TABLE route (id SERIAL PRIMARY KEY,
 
 
 CREATE TABLE vehicle   (id SERIAL PRIMARY KEY,
-                        username VARCHAR(255) NOT NULL UNIQUE,
                         password_hash TEXT NOT NULL,
                         first_name VARCHAR(255) NOT NULL,
                         last_name VARCHAR(255) NOT NULL,
-                        phone_number VARCHAR(20) UNIQUE,
+                        date_of_birth VARCHAR(10) NOT NULL,
+                        phone_number VARCHAR(20) UNIQUE NOT NULL,
                         email VARCHAR(50) UNIQUE,
                         cur_route_id INT NOT NULL,
-                        status VARCHAR(20) NOT NULL,
-                        type VARCHAR(30),
-                        brand VARCHAR(30),
-                        model VARCHAR(30),
+                        "status" VARCHAR(20) NOT NULL,
+                        "type" VARCHAR(30) NOT NULL,
+                        brand VARCHAR(30) NOT NULL,
+                        model VARCHAR(30) NOT NULL,
                         license_plate VARCHAR(30) NOT NULL,
-                        color VARCHAR(20),
+                        color VARCHAR(20) NOT NULL,
                         CONSTRAINT fk_route
                             FOREIGN KEY(cur_route_id) REFERENCES route(id),
                         CONSTRAINT legal_statuses
-                        CHECK (status IN ('active', 'waiting', 'unavailable', 'inactive', 'unknown')),
-                        CONSTRAINT phone_or_email
-                        CHECK ((phone_number IS NOT NULL) OR (email IS NOT NULL))
+                        CHECK (status IN ('active', 'waiting', 'unavailable', 'inactive', 'unknown'))
                         );
 
 CREATE TABLE vehicle_routes (
@@ -70,8 +68,8 @@ CREATE TABLE vehicle_routes (
                         CONSTRAINT vehicle_routes_pk PRIMARY KEY (vehicle_id, route_id)
                         );
 CREATE TABLE vehicle_location (id SERIAL PRIMARY KEY,
-                            longitude DECIMAL NOT NULL,
-                            latitude DECIMAL NOT NULL,
+                            longitude DECIMAL,
+                            latitude DECIMAL,
                             vehicle_id INT NOT NULL UNIQUE,
                             CONSTRAINT fk_vehicle
                                     FOREIGN KEY(vehicle_id) 
