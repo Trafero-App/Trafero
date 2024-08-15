@@ -12,13 +12,6 @@ async def get_eta(route_id, start_index, end_index, mapbox_token):
     eta = get_time_estimation(trimed_waypoints, mapbox_token, "driving")
     return eta
 
-#GOOD
-async def get_eta(route_id, start_index, end_index, mapbox_token):
-    waypoints = await db.get_route_waypoints(route_id)
-    trimed_waypoints = trim_waypoints_index(waypoints, route_id, start_index, end_index)
-    eta = get_time_estimation(trimed_waypoints, mapbox_token, "driving")
-    return eta
-
 
 #GOOD
 def trim_waypoints_index(waypoints, route_id, start_index, end_index):

@@ -475,8 +475,3 @@ async def get_stations(response: Response):
             "type": "FeatureCollection",
             "features": features 
         }}
-    
-@app.get("/Jtest/{route_id}", status_code=status.HTTP_200_OK)
-async def testt(route_id):
-    res = await helper.get_route_data(int(route_id), num='')
-    return res
