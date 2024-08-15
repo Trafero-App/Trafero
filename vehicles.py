@@ -10,8 +10,7 @@ from operations import project_point_on_route
 # VEHICLES
 #GOOD
 def off_track(vehicle_location, route_id, threshold):
-    route = db.routes[route_id]["line"]["features"][0]["geometry"]["coordinates"]
-    if project_point_on_route(vehicle_location, route)[1] >= threshold:
+    if project_point_on_route(vehicle_location, route_id)[1] >= threshold:
         return True
     return False
 
