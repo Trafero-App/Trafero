@@ -488,8 +488,13 @@ async def nearby_routes(long:float, lat:float, radius:float,
                         long2: float | None=None, lat2: float|None = None, radius2: float|None=None):
     if long2 is not None and lat2 is not None and radius2 is not None:
         close_routes = await helper.get_nearby_routes(long, lat, radius, long2, lat2, radius2, MAPBOX_TOKEN)
+        if close_routes is None:
+            close_routes = await helper.get_nearby_routes(long, lat, min(radius * 2, 1500), long2, lat2, min(radius2 * 2, 1500), MAPBOX_TOKEN)
     else:
         close_routes = await helper.get_nearby_routes_to_1_point(long, lat, radius)
+        if close_routes is None:
+            close_routes = await helper.get_nearby_routes_to_1_point(long, lat, min(radius * 2, 1500), long2, lat2, min(radius2 * 2, 1500), MAPBOX_TOKEN)
+        
     return {"message": "All Good.", "routes": close_routes}
 
 
