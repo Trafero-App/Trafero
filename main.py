@@ -248,7 +248,6 @@ async def put_vehicle_location(vehicle_location_data: Point, user_info : authent
       send a POST request to `/vehicle_location`
     """
     vehicle_id = user_info["id"]
-    print(vehicle_id, "COEJDE")
     latitude, longitude = vehicle_location_data.latitude, vehicle_location_data.longitude
     success = await db.update_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
     # False signifies that you tried to update the location of a vehicle whose location isn't in the db yet
@@ -258,8 +257,7 @@ async def put_vehicle_location(vehicle_location_data: Point, user_info : authent
                                     "msg": "Your location has not been added previously. Maybe you meant to send a POST request?"})
     else:   
         route_id = await db.get_vehicle_route_id(vehicle_id)
-        route = app.state.routes[route_id]["line"]["features"][0]["geometry"]["coordinates"]
-        if helper.off_track((longitude, latitude), route, VEHICLE_TO_ROUTE_THRESHOLD):
+        if helper.off_track((longitude, latitude), route_id, VEHICLE_TO_ROUTE_THRESHOLD):
             await db.update_status(vehicle_id, "unknown")
             return {"message": "Location succesfully updated. Status set to unknown: you are too far from your route."}
         else:
