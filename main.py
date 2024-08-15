@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Response, status, Depends, HTTPException
+from fastapi import FastAPI, Response, status, Depends, HTTPException, Body
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,7 +9,8 @@ from dotenv import load_dotenv, find_dotenv
 
 from typing import Annotated, Literal, List
 from validation import is_valid_password, is_valid_dob, is_valid_email, is_valid_name, \
-is_valid_phone_number, Account_Info, Point, Account_DB_Entry, Passenger_Review, Review_DB_Entry
+is_valid_phone_number, Account_Info, Point, Account_DB_Entry, Passenger_Review, Review_DB_Entry, \
+Saved_Location
 
 import helper
 import authentication
@@ -93,7 +94,8 @@ async def signup(account_data: Account_Info):
     token_data = {"sub": user_id, "type": account_data.account_type}
     access_token = authentication.create_access_token(token_data)
     if account_data.account_type == "driver":
-        await db.add_vehicle_location(user_id, None, None)
+        vehicle_id = await db.get_driver_vehicle_id(user_id)
+        await db.add_vehicle_location(vehicle_id, None, None)
     return {"message": "Account was signed up successfully.", "token": {"access_token": access_token, "token_type": "bearer"}}
     
 @app.get("/check_email/{account_type}", status_code=status.HTTP_200_OK)
@@ -112,8 +114,7 @@ async def check_phone_number(account_type: Literal["passenger", "driver"], phone
 
 @app.get("/check_password", status_code=status.HTTP_200_OK)
 async def check_password(password: str):
-    """Check if password has proper form
-    """
+    """Check if password has proper form"""
     return {"message": "Validating email complete.", "is_valid": is_valid_password(password)}
 
 
@@ -157,6 +158,34 @@ async def get_account_info(user_info: authentication.authorize_any_account):
                                     "line": db.routes[route_id]["line"]
                                     } for route_id in user_info["route_list"]]
     return user_info
+
+@app.get("/saved_routes")
+async def get_account_saved_routes(user_info: authentication.authorize_any_account):
+    return await db.get_user_saved_routes(user_info["id"], user_info["account_type"])
+
+@app.put("/saved_routes")
+async def set_account_saved_routes(saved_routes: Annotated[List[int], Body(embed=True)], user_info: authentication.authorize_any_account):
+    await db.set_user_saved_routes(user_info["id"], saved_routes, user_info["account_type"])
+    return {"message": "Successfully updated"}
+
+@app.get("/saved_vehicles")
+async def get_account_saved_vehicles(user_info: authentication.authorize_any_account):
+    return await db.get_user_saved_vehicles(user_info["id"], user_info["account_type"])
+
+@app.put("/saved_vehicles")
+async def set_account_saved_vehicles(saved_vehicles: Annotated[List[int], Body(embed=True)], user_info: authentication.authorize_any_account):
+    await db.set_user_saved_vehicles(user_info["id"], saved_vehicles, user_info["account_type"])
+    return {"message": "Successfully updated"}
+
+@app.get("/saved_locations")
+async def get_account_saved_locations(user_info: authentication.authorize_any_account):
+    return await db.get_user_saved_locations(user_info["id"], user_info["account_type"])
+
+@app.put("/saved_locations")
+async def set_account_saved_locations(saved_locations: Annotated[List[Saved_Location], Body(embed=True)], user_info: authentication.authorize_any_account):
+    print(saved_locations)
+    await db.set_user_saved_locations(user_info["id"], saved_locations, user_info["account_type"])
+    return {"message": "Successfully updated"}
 
 
 @app.get("/vehicle_location/{vehicle_id}", status_code=status.HTTP_200_OK)
@@ -327,7 +356,7 @@ async def change_active_route (new_active_route: int, user_info : authentication
     return {"message": f"Changed your active route to the route with id '{new_active_route}'"}
 
 @app.post("/vehicle_routes", status_code=status.HTTP_200_OK)
-async def add_vehicle_route(new_routes: List[int], user_info: authentication.authorize_driver):
+async def add_vehicle_route(new_routes_ids: Annotated[List[int], Body(embed=True)], user_info: authentication.authorize_driver):
     """Updates the routes of a vehicle
     
     Parameters:
@@ -346,12 +375,12 @@ async def add_vehicle_route(new_routes: List[int], user_info: authentication.aut
     """
     vehicle_id = await db.get_driver_vehicle_id(user_info["id"])
     try:
-        await db.set_route(vehicle_id, new_routes)
+        await db.set_route(vehicle_id, new_routes_ids)
     except asyncpg.exceptions.ForeignKeyViolationError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail={"error_code": "INVALID_ROUTE_ID",
                                     "msg": "One of the route ids given is invalid"})
-    return {"message": f"Successfully replaced your route_list with {new_routes}"}
+    return {"message": f"Successfully replaced your route_list with {new_routes_ids}"}
 
 
 @app.get("/route_details/{route_id}", status_code=status.HTTP_200_OK)

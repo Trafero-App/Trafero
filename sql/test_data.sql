@@ -25,7 +25,8 @@ INSERT INTO route (file_name, route_name, description, working_hours, active_day
 INSERT INTO vehicle (cur_route_id, "status", license_plate, "type", brand, model, color) VALUES
 (2, 'active', 'B 12345',  'bus', 'some_brand1', 'some_model1', 'red'),
 (2, 'active', 'A 12345',  'bus', 'some_brand2', 'some_model2', 'black'),
-(2, 'active', 'C 55555',  'van', 'some_brand3', 'some_model3', 'white');
+(2, 'active', 'C 55555',  'van', 'some_brand3', 'some_model3', 'white'),
+(2, 'active', 'D 56789',  'bus', 'some_brand4', 'some_model4', 'black');
 
 
 INSERT INTO driver (password_hash, first_name, last_name, date_of_birth, phone_number, email, vehicle_id) VALUES
@@ -316,3 +317,9 @@ INSERT INTO feedback_fixed_complaint (feedback_id, fixed_complaint_id) VALUES
 INSERT INTO other_complaint (feedback_id, complaint_details) VALUES 
 (3, 'other1'), (4, 'other2'), (5, 'other5');
 
+INSERT INTO passenger_saved_route (passenger_id, route_id) VALUES
+(1, 1), (1, 2), (1, 3), (1, 4);
+INSERT INTO passenger_saved_vehicle (passenger_id, vehicle_id) VALUES
+(1, 1), (1, 3);
+INSERT INTO passenger_saved_location (passenger_id, longitude, latitude, "name") VALUES
+(1, 1, 1, 'Z'), (1, 2, 1, 'A'), (1, 3, 1, 'B'), (1, 4, 1, 'C');

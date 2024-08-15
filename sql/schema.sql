@@ -1,3 +1,10 @@
+
+DROP TABLE IF EXISTS passenger_saved_route;
+DROP TABLE IF EXISTS driver_saved_route;
+DROP TABLE IF EXISTS passenger_saved_vehicle;
+DROP TABLE IF EXISTS driver_saved_vehicle;
+DROP TABLE IF EXISTS passenger_saved_location;
+DROP TABLE IF EXISTS driver_saved_location;
 DROP TABLE IF EXISTS driver;
 DROP TABLE IF EXISTS vehicle_status_history;
 DROP TABLE IF EXISTS vehicle_location_history;
@@ -135,8 +142,8 @@ CREATE TABLE station   (id SERIAL PRIMARY KEY,
 CREATE TABLE vehicle_location_history (id SERIAL PRIMARY KEY,
                                        time_stamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                        vehicle_id INT NOT NULL,
-                                       old_lat DECIMAL NOT NULL,
-                                       old_long DECIMAL NOT NULL,
+                                       old_lat DECIMAL,
+                                       old_long DECIMAL,
                                        new_lat DECIMAL NOT NULL,
                                        new_long DECIMAL NOT NULL,
                                        CONSTRAINT vehicle_fk FOREIGN KEY (vehicle_id) REFERENCES vehicle(id)
@@ -162,3 +169,29 @@ CREATE TABLE intersection (id SERIAL PRIMARY KEY,
                                     FOREIGN KEY(route_id)
                                         REFERENCES route(id)
                             );
+
+
+CREATE TABLE passenger_saved_route (passenger_id INT NOT NULL REFERENCES passenger(id),
+                                     route_id INt NOT NULL REFERENCES route(id));
+
+CREATE TABLE driver_saved_route (driver_id INt NOT NULL REFERENCES driver(id),
+                                     route_id INt NOT NULL REFERENCES route(id));
+
+CREATE TABLE passenger_saved_vehicle (passenger_id INt NOT NULL REFERENCES passenger(id),
+                                       vehicle_id INt NOT NULL REFERENCES vehicle(id));
+
+CREATE TABLE driver_saved_vehicle (driver_id INt NOT NULL REFERENCES driver(id),
+                                       vehicle_id INt NOT NULL REFERENCES vehicle(id));
+
+CREATE TABLE passenger_saved_location (passenger_id INt NOT NULL REFERENCES passenger(id),
+                                       longitude DECIMAL NOT NULL,
+                                       latitude DECIMAL NOT NULL,
+                                       "name" VARCHAR(20) NOT NULL);
+
+CREATE TABLE driver_saved_location (driver_id INt NOT NULL REFERENCES driver(id),
+                                       longitude DECIMAL NOT NULL,
+                                       latitude DECIMAL NOT NULL,
+                                       "name" VARCHAR(20) NOT NULL);
+
+
+                                       

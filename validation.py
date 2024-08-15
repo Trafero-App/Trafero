@@ -105,4 +105,6 @@ class Passenger_Review(BaseModel):
 
 class Review_DB_Entry(Passenger_Review):
     passenger_id: int
-
+    
+class Saved_Location(Point):
+    name: str
