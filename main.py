@@ -152,7 +152,7 @@ async def get_account_info(user_info: authentication.authorize_any_account):
     del user_info["password_hash"]
     if user_info["account_type"] == "vehicle": # user is a vehicle
         user_info["route_list"] = [{"route_id": route_id,
-                                    "name": db.routes[route_id]["details"]["route_name"],
+                                    "route_name": db.routes[route_id]["details"]["route_name"],
                                     "description": db.routes[route_id]["details"]["description"],
                                     "line": db.routes[route_id]["line"]
                                     } for route_id in user_info["route_list"]]
@@ -265,12 +265,12 @@ async def put_vehicle_location(vehicle_location_data: Point, user_info : authent
 
 
 @app.put("/vehicle_status", status_code=status.HTTP_200_OK)
-async def put_vehicle_status(vehicle_id: int, new_status: Literal["active", "waiting", "unavailable", "inactive", "unknown"]): # to be changed
+async def put_vehicle_status(new_status: Literal["active", "waiting", "unavailable", "inactive", "unknown"], user_info: authentication.authorize_vehicle): # to be changed
     """Update vehicle status
 
     Parameters:
-    - vehicle_id: id of the vehicle whose status is to be updated
     - new_status: the status the vehicle should take on
+    - user_info: user information extracted from the authentication token
 
     Returns:
     - Message indicating the status was successfully updated
@@ -279,6 +279,7 @@ async def put_vehicle_status(vehicle_id: int, new_status: Literal["active", "wai
     - HTTPException: If the input is not in the correct structure (status code: 422)
     - HTTPException: If no vehicle with the given id is found (status code: 404)
     """
+    vehicle_id = user_info["id"]
     success = await db.update_status(vehicle_id, new_status)
     if success:
         return {"message": "Status updated successfully."}
