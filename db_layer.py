@@ -91,10 +91,10 @@ class db:
                  "latitude": vehicle_info[0][2], "status": vehicle_info[0][3], "license_plate": vehicle_info[0][4]} for vehicle_info in res]
 
     @classmethod
-    async def get_all_vehicles_info(cls):
+    async def get_all_vehicles_info(cls): # to be changed (name get_all_active_vehicles_info)
         async with cls.db_pool.acquire() as con:
             res = await con.fetch("""SELECT (vehicle.id, vehicle_location.longitude, vehicle_location.latitude, vehicle.status)
-                                  FROM vehicle JOIN vehicle_location ON vehicle.id = vehicle_location.vehicle_id""")
+                                  FROM vehicle JOIN vehicle_location ON vehicle.id = vehicle_location.vehicle_id WHERE status != 'inactive'""")
         if res is None: return None
         return [{"id": vehicle_info[0][0], "longitude": vehicle_info[0][1], 
                  "latitude": vehicle_info[0][2], "status": vehicle_info[0][3]} for vehicle_info in res]
