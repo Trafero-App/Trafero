@@ -39,7 +39,7 @@ class Point(BaseModel):
     latitude: float
 
 class Account_Info(BaseModel):
-    account_type: Literal["passenger", "vehicle"]
+    account_type: Literal["passenger", "driver"]
     password: str
     first_name: str
     last_name: str
@@ -73,7 +73,7 @@ class Account_Info(BaseModel):
             if values.phone_number is None and values.email is None:
                 raise ValueError("Please provide either a phone_number or an email.")
             
-        if values.account_type == "vehicle":
+        if values.account_type == "driver":
             if values.phone_number is None: raise ValueError("Please provide a valid phone number")
             if values.cur_route_id is None: values.cur_route_id = values.routes[0]
             if values.status is None: values.status = "inactive"

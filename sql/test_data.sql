@@ -22,17 +22,22 @@ INSERT INTO route (file_name, route_name, description, working_hours, active_day
     ('bus_24_1.geojson', 'Bus 24 (Hamra - Badaro)', 'Hamra - Verdun - Corniche el Mazraa - Mathaf - Adliye - Badaro', '6:00 AM - 7:00 PM', 'Monday -> Sunday', 'Rabah Transport', '60.000 LL', '03 302355', 5.5, 30, 'Local commuter'), 
     ('bus_24_2.geojson', 'Bus 24 (Badaro - Hamra)', 'Badaro - Adliye - Mathaf - Corniche el Mazraa - Verdun - Hamra', '6:00 AM - 7:00 PM', 'Monday -> Sunday',  'Rabah Transport', '60.000 LL', '03 302355', 5.5, 30, 'Local commuter');
 
+INSERT INTO vehicle (cur_route_id, "status", license_plate, "type", brand, model, color) VALUES
+(2, 'active', 'B 12345',  'bus', 'some_brand1', 'some_model1', 'red'),
+(2, 'active', 'A 12345',  'bus', 'some_brand2', 'some_model2', 'black'),
+(2, 'active', 'C 55555',  'van', 'some_brand3', 'some_model3', 'white');
 
-INSERT INTO vehicle (password_hash, first_name, last_name, phone_number, email, cur_route_id, "status", license_plate, date_of_birth, "type", brand, model, color) VALUES 
-    ('$2b$12$ipMawf8bhVJSH2mvcFIx..PjeCbMrlZqwZAWWupp.qcKxwCfEfp0G', 'v1f', 'v1l', '12345678', NULL, 2, 'active', 'B 12345', '1111-11-22', 'bus', 'some_brand1', 'some_model1', 'red'),
-    ('$2b$12$DzT92dyevkLveACbcnJzz.6c4a.fwXoriW9Uhz0Wq99Kjbb7WKCMy', 'v2f', 'v2l', '12345096', NULL, 2, 'active', 'A 12345', '1111-22-33', 'bus', 'some_brand2', 'some_model2', 'black'),
-    ('$2b$12$XKoRYKz/UGvgff6Sg8JCIOwuR3FRebIP4F.WypDwj57j0v24r6wH6', 'v3f', 'v3l', '12045079', NULL, 2, 'active', 'C 55555', '1111-33-44', 'van', 'some_brand3', 'some_model3', 'white');
+
+INSERT INTO driver (password_hash, first_name, last_name, date_of_birth, phone_number, email, vehicle_id) VALUES
+    ('$2b$12$ipMawf8bhVJSH2mvcFIx..PjeCbMrlZqwZAWWupp.qcKxwCfEfp0G', 'v1f', 'v1l', '1111-11-22', '12345678', NULL, 1), 
+    ('$2b$12$DzT92dyevkLveACbcnJzz.6c4a.fwXoriW9Uhz0Wq99Kjbb7WKCMy', 'v2f', 'v2l', '1111-22-33', '12345096', NULL, 2), 
+    ('$2b$12$XKoRYKz/UGvgff6Sg8JCIOwuR3FRebIP4F.WypDwj57j0v24r6wH6', 'v3f', 'v3l', '1111-33-44', '12045079', NULL, 3);
 
 INSERT INTO vehicle_location (longitude, latitude, vehicle_id) VALUES
     (35.5149, 33.8966, 1),
     (35.5119, 33.8979, 3),
     (35.5295, 33.8987, 2);
-INSERT INTO vehicle_routes (vehicle_id, route_id) VALUES (1, 1), (1, 2), (1, 3);
+INSERT INTO vehicle_route (vehicle_id, route_id) VALUES (1, 1), (1, 2), (1, 3);
 INSERT INTO waypoint (longitude, latitude, route_id, projection_index) VALUES 
 (35.549782, 33.893595, 1, 0), (35.546651, 33.894754, 1, 72), (35.540836, 33.896257, 1, 132),
     (35.531785, 33.898479, 1, 223), (35.522762, 33.898484, 1, 317), (35.508671, 33.899558, 1, 487),

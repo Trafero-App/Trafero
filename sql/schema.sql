@@ -1,4 +1,4 @@
-
+DROP TABLE IF EXISTS driver;
 DROP TABLE IF EXISTS vehicle_status_history;
 DROP TABLE IF EXISTS vehicle_location_history;
 DROP TABLE IF EXISTS feedback_fixed_complaint;
@@ -7,7 +7,7 @@ DROP TABLE IF EXISTS fixed_complaint;
 DROP TABLE IF EXISTS feedback;
 DROP TABLE IF EXISTS station;
 DROP TABLE IF EXISTS intersection;
-DROP TABLE IF EXISTS vehicle_routes;
+DROP TABLE IF EXISTS vehicle_route;
 DROP TABLE IF EXISTS passenger;
 DROP TABLE IF EXISTS vehicle_location;
 DROP TABLE IF EXISTS vehicle;
@@ -41,12 +41,6 @@ CREATE TABLE route (id SERIAL PRIMARY KEY,
 
 
 CREATE TABLE vehicle   (id SERIAL PRIMARY KEY,
-                        password_hash TEXT NOT NULL,
-                        first_name VARCHAR(255) NOT NULL,
-                        last_name VARCHAR(255) NOT NULL,
-                        date_of_birth VARCHAR(10) NOT NULL,
-                        phone_number VARCHAR(20) UNIQUE NOT NULL,
-                        email VARCHAR(50) UNIQUE,
                         cur_route_id INT NOT NULL,
                         "status" VARCHAR(20) NOT NULL,
                         "type" VARCHAR(30) NOT NULL,
@@ -60,13 +54,23 @@ CREATE TABLE vehicle   (id SERIAL PRIMARY KEY,
                         CHECK (status IN ('active', 'waiting', 'unavailable', 'inactive', 'unknown'))
                         );
 
-CREATE TABLE vehicle_routes (
+CREATE TABLE driver (id SERIAL PRIMARY KEY,
+                    password_hash TEXT NOT NULL,
+                    first_name VARCHAR(255) NOT NULL,
+                    last_name VARCHAR(255) NOT NULL,
+                    date_of_birth VARCHAR(10) NOT NULL,
+                    phone_number VARCHAR(20) UNIQUE NOT NULL,
+                    email VARCHAR(50) UNIQUE,
+                    vehicle_id INT NOT NULL REFERENCES vehicle(id));
+
+CREATE TABLE vehicle_route (
                         vehicle_id INT NOT NULL,
                         route_id INT NOT NULL,
                         CONSTRAINT fk_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicle(id),
                         CONSTRAINT fk_route FOREIGN KEY (route_id) REFERENCES route(id),
                         CONSTRAINT vehicle_routes_pk PRIMARY KEY (vehicle_id, route_id)
                         );
+
 CREATE TABLE vehicle_location (id SERIAL PRIMARY KEY,
                             longitude DECIMAL,
                             latitude DECIMAL,

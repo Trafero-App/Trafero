@@ -92,19 +92,19 @@ async def signup(account_data: Account_Info):
     user_id = await db.add_account(Account_DB_Entry(**account_data.model_dump(exclude={"password"}), password_hash=password_hash))
     token_data = {"sub": user_id, "type": account_data.account_type}
     access_token = authentication.create_access_token(token_data)
-    if account_data.account_type == "vehicle":
+    if account_data.account_type == "driver":
         await db.add_vehicle_location(user_id, None, None)
     return {"message": "Account was signed up successfully.", "token": {"access_token": access_token, "token_type": "bearer"}}
     
 @app.get("/check_email/{account_type}", status_code=status.HTTP_200_OK)
-async def check_email(account_type: Literal["passenger", "vehicle"], email: str):
+async def check_email(account_type: Literal["passenger", "driver"], email: str):
     """Check if email has proper form and is unused"""
     has_proper_form = is_valid_email(email)
     is_unused = await db.check_email_available(email, account_type)
     return {"message": "Validating email complete.", "is_valid": has_proper_form and is_unused}
 
 @app.get("/check_phone_number/{account_type}", status_code=status.HTTP_200_OK)
-async def check_phone_number(account_type: Literal["passenger", "vehicle"], phone_number: str):
+async def check_phone_number(account_type: Literal["passenger", "driver"], phone_number: str):
     """Check if phone number has proper form and is unused"""
     has_proper_form = is_valid_phone_number(phone_number)
     is_unused = await db.check_phone_number_available(phone_number, account_type)
@@ -118,12 +118,12 @@ async def check_password(password: str):
 
 
 @app.post("/login/{account_type}", status_code=status.HTTP_200_OK)
-async def login(account_type: Literal["passenger", "vehicle"], form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+async def login(account_type: Literal["passenger", "driver"], form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     """Validate user credentials and provide authentication token
 
     Parameters:
     - account_type: specifies if the user is attempting to log in
-      as a passenger or as a vehicle
+      as a passenger or as a driver
     - form_data: data containing user credentials (username and password)
 
     Returns:
@@ -150,7 +150,7 @@ async def login(account_type: Literal["passenger", "vehicle"], form_data: Annota
 async def get_account_info(user_info: authentication.authorize_any_account):
     """Gives account info"""
     del user_info["password_hash"]
-    if user_info["account_type"] == "vehicle": # user is a vehicle
+    if user_info["account_type"] == "driver": # user is a driver
         user_info["route_list"] = [{"route_id": route_id,
                                     "route_name": db.routes[route_id]["details"]["route_name"],
                                     "description": db.routes[route_id]["details"]["description"],
@@ -183,7 +183,7 @@ async def get_vehicle_location(vehicle_id: int):
     return {"message": "Coordinates found successfully.", "coordinates":[entry["longitude"], entry["latitude"]]}
 
 @app.post("/vehicle_location", status_code=status.HTTP_200_OK)
-async def post_vehicle_location(vehicle_location_data: Point, user_info : authentication.authorize_vehicle):
+async def post_vehicle_location(vehicle_location_data: Point, user_info : authentication.authorize_driver):
     """Add the location of an existing vehicle to the database
 
     Parameters:
@@ -207,7 +207,7 @@ async def post_vehicle_location(vehicle_location_data: Point, user_info : authen
       its location hasn't been added already. To update the location
       of a vehicle, send a PUT request to `/vehicle_location`
     """
-    vehicle_id = user_info["id"]
+    vehicle_id = await db.get_driver_vehicle_id(user_info["id"])
     latitude, longitude = vehicle_location_data.latitude, vehicle_location_data.longitude
     try:
         await db.add_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
@@ -223,7 +223,7 @@ async def post_vehicle_location(vehicle_location_data: Point, user_info : authen
 
 
 @app.put("/vehicle_location", status_code=status.HTTP_200_OK)
-async def put_vehicle_location(vehicle_location_data: Point, user_info : authentication.authorize_vehicle):
+async def put_vehicle_location(vehicle_location_data: Point, user_info : authentication.authorize_driver):
     """Update the location of an existing vehicle in the database
 
     Parameters:
@@ -247,7 +247,7 @@ async def put_vehicle_location(vehicle_location_data: Point, user_info : authent
       its location has been added already. To add the location of a vehicle,
       send a POST request to `/vehicle_location`
     """
-    vehicle_id = user_info["id"]
+    vehicle_id = await db.get_driver_vehicle_id(user_info["id"])
     latitude, longitude = vehicle_location_data.latitude, vehicle_location_data.longitude
     success = await db.update_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
     # False signifies that you tried to update the location of a vehicle whose location isn't in the db yet
@@ -265,7 +265,7 @@ async def put_vehicle_location(vehicle_location_data: Point, user_info : authent
 
 
 @app.put("/vehicle_status", status_code=status.HTTP_200_OK)
-async def put_vehicle_status(new_status: Literal["active", "waiting", "unavailable", "inactive", "unknown"], user_info: authentication.authorize_vehicle): # to be changed
+async def put_vehicle_status(new_status: Literal["active", "waiting", "unavailable", "inactive", "unknown"], user_info: authentication.authorize_driver): # to be changed
     """Update vehicle status
 
     Parameters:
@@ -279,7 +279,8 @@ async def put_vehicle_status(new_status: Literal["active", "waiting", "unavailab
     - HTTPException: If the input is not in the correct structure (status code: 422)
     - HTTPException: If no vehicle with the given id is found (status code: 404)
     """
-    vehicle_id = user_info["id"]
+    
+    vehicle_id = await db.get_driver_vehicle_id(user_info["id"])
     success = await db.update_status(vehicle_id, new_status)
     if success:
         return {"message": "Status updated successfully."}
@@ -290,7 +291,7 @@ async def put_vehicle_status(new_status: Literal["active", "waiting", "unavailab
 
 
 @app.put("/active_route", status_code=status.HTTP_200_OK)
-async def change_active_route (new_active_route: int, user_info : authentication.authorize_vehicle):
+async def change_active_route (new_active_route: int, user_info : authentication.authorize_driver):
     """Update the active route of a certain vehicle
 
 
@@ -310,7 +311,7 @@ async def change_active_route (new_active_route: int, user_info : authentication
       routes (status code: 406)
     - HTTPException: If no vehicle with the given id is found (status code: 404)
     """
-    vehicle_id = user_info["id"]
+    vehicle_id = await db.get_driver_vehicle_id(user_info["id"])
     vehicle_routes = await db.get_vehicle_routes(vehicle_id)
     if new_active_route not in vehicle_routes:
         raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE,
@@ -326,7 +327,7 @@ async def change_active_route (new_active_route: int, user_info : authentication
     return {"message": f"Changed your active route to the route with id '{new_active_route}'"}
 
 @app.post("/vehicle_routes", status_code=status.HTTP_200_OK)
-async def add_vehicle_route(new_routes: List[int], user_info: authentication.authorize_vehicle):
+async def add_vehicle_route(new_routes: List[int], user_info: authentication.authorize_driver):
     """Updates the routes of a vehicle
     
     Parameters:
@@ -343,7 +344,7 @@ async def add_vehicle_route(new_routes: List[int], user_info: authentication.aut
     - HTTPException: If any of the given route ids is invalid (status code: 404)
 
     """
-    vehicle_id = user_info["id"]
+    vehicle_id = await db.get_driver_vehicle_id(user_info["id"])
     try:
         await db.set_route(vehicle_id, new_routes)
     except asyncpg.exceptions.ForeignKeyViolationError:
@@ -442,7 +443,7 @@ async def route_vehicles_eta(route_id:int, response: Response,
 
 @app.get("/vehicle/{vehicle_id}", status_code=status.HTTP_200_OK)
 async def get_vehicle(vehicle_id: int, response: Response, user_info: authentication.authorize_anyone):
-    if user_info is not None and user_info["type"] == "passenger":
+    if user_info is not None and user_info["account_type"] == "passenger":
         passenger_id = user_info.get("id")
     else: passenger_id = None
     vehicle_details = await db.get_vehicle_details(vehicle_id)
