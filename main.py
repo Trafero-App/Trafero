@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Response, status, Depends, HTTPException, Body
+from fastapi import FastAPI, Response, status, Depends, HTTPException, Body, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -151,12 +151,16 @@ async def login(account_type: Literal["passenger", "driver"], form_data: Annotat
 async def get_account_info(user_info: authentication.authorize_any_account):
     """Gives account info"""
     del user_info["password_hash"]
+    print("JDOE")
     if user_info["account_type"] == "driver": # user is a driver
         user_info["route_list"] = [{"route_id": route_id,
                                     "route_name": db.routes[route_id]["details"]["route_name"],
                                     "description": db.routes[route_id]["details"]["description"],
                                     "line": db.routes[route_id]["line"]
                                     } for route_id in user_info["route_list"]]
+    user_info["saved_routes"] = await db.get_user_saved_routes(user_info["id"], user_info["account_type"])
+    user_info["saved_vehicles"] = await db.get_user_saved_vehicles(user_info["id"], user_info["account_type"])
+    user_info["saved_locations"] = await db.get_user_saved_locations(user_info["id"], user_info["account_type"])
     return user_info
 
 @app.get("/saved_routes")
