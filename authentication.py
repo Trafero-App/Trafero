@@ -12,7 +12,7 @@ from passlib.context import CryptContext
 from dotenv import find_dotenv, load_dotenv
 import os
 
-from db_layer import db
+from database import db
 
 load_dotenv(find_dotenv())
 JWT_ALGORITHM = os.getenv("jwt_algorithm")

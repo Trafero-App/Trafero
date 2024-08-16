@@ -1,5 +1,5 @@
-from db_layer import db
-from operations import project_point_on_route
+from database import db
+from .operations import project_point_on_route
 
 #GOOD
 def get_remaining_route(route_id, start):

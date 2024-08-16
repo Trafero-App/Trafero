@@ -14,7 +14,7 @@ Saved_Location
 
 import helper
 import authentication
-from db_layer import db
+from database import db
 
 load_dotenv(find_dotenv())
 DB_URL = os.getenv("db_url")
