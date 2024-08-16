@@ -77,3 +77,8 @@ class Review_DB_Entry(Passenger_Review):
     
 class Saved_Location(Point):
     name: str
+    icon: str
+
+class Saved_Vehicle(BaseModel):
+    vehicle_id: int
+    nickname: str

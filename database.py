@@ -1,6 +1,6 @@
 import asyncpg
 import geojson
-from validation import Account_DB_Entry, Review_DB_Entry, Saved_Location
+from validation import Account_DB_Entry, Review_DB_Entry, Saved_Location, Saved_Vehicle
 from typing import Literal, List
 
 class db:
@@ -458,11 +458,10 @@ class db:
                 saved_locations = await con.fetch("""SELECT ("name", icon, longitude, latitude)
                                                 FROM driver_saved_location WHERE driver_id=$1""", user_id)
             if saved_locations is None: return None
-            print(saved_locations[0][0])
-            saved_locations = [{"location_name": saved_location[0][0], 
-                                "longitude": saved_location[0][1],
-                                "latitude": saved_location[0][2],
-                                "icon": saved_location[0][3]} for saved_location in saved_locations]
+            saved_locations = [{"name": saved_location[0][0],
+                                "icon": saved_location[0][1],
+                                "longitude": saved_location[0][2],
+                                "latitude": saved_location[0][3]} for saved_location in saved_locations]
             return saved_locations
 
     @classmethod
@@ -482,18 +481,18 @@ class db:
         
         
     @classmethod
-    async def set_user_saved_vehicles(cls, user_id: int, saved_vehicles_ids: List[int], account_type: Literal["driver", "passenger"]):
+    async def set_user_saved_vehicles(cls, user_id: int, saved_vehicles: List[Saved_Vehicle], account_type: Literal["driver", "passenger"]):
         async with cls.db_pool.acquire() as con:
             if account_type == "passenger":
                 await con.execute("DELETE FROM passenger_saved_vehicle WHERE passenger_id=$1", user_id)
-                for saved_vehicle_id in saved_vehicles_ids:
-                    await con.execute("INSERT INTO passenger_saved_vehicle (passenger_id, vehicle_id) VALUES ($1, $2)",
-                                user_id, saved_vehicle_id)
+                for saved_vehicle in saved_vehicles:
+                    await con.execute("INSERT INTO passenger_saved_vehicle (passenger_id, vehicle_id, nickname) VALUES ($1, $2, $3)",
+                                user_id, saved_vehicle.vehicle_id, saved_vehicle.nickname)
             else:
                 await con.execute("DELETE FROM driver_saved_vehicle WHERE driver_id=$1", user_id)
-                for saved_vehicle_id in saved_vehicles_ids:
-                    await con.execute("INSERT INTO driver_saved_vehicle (driver_id, vehicle_id) VALUES ($1, $2)",
-                                user_id, saved_vehicle_id)
+                for saved_vehicle in saved_vehicles:
+                    await con.execute("INSERT INTO driver_saved_vehicle (driver_id, vehicle_id, nickname) VALUES ($1, $2, $3)",
+                                user_id, saved_vehicle.vehicle_id, saved_vehicle.nickname)
             
     @classmethod
     async def set_user_saved_locations(cls, user_id: int, saved_locations: List[Saved_Location], account_type: Literal["driver", "passenger"]):
@@ -501,13 +500,13 @@ class db:
             if account_type == "passenger":
                 await con.execute("DELETE FROM passenger_saved_location WHERE passenger_id=$1", user_id)
                 for saved_location in saved_locations:
-                    await con.execute("""INSERT INTO passenger_saved_location (passenger_id, longitude, latitude, "name") VALUES ($1, $2, $3, $4)""",
-                                user_id, saved_location.longitude, saved_location.latitude, saved_location.name)
+                    await con.execute("""INSERT INTO passenger_saved_location (passenger_id, longitude, latitude, "name", icon) VALUES ($1, $2, $3, $4, $5)""",
+                                user_id, saved_location.longitude, saved_location.latitude, saved_location.name, saved_location.icon)
             else:
                 await con.execute("DELETE FROM driver_saved_location WHERE driver_id=$1", user_id)
                 for saved_location in saved_locations:
-                    await con.execute("""INSERT INTO driver_saved_location (driver_id, longitude, latitude, "name") VALUES ($1, $2, $3, $4)""",
-                                user_id, saved_location.longitude, saved_location.latitude, saved_location.name)
+                    await con.execute("""INSERT INTO driver_saved_location (driver_id, longitude, latitude, "name", icon) VALUES ($1, $2, $3, $4, $5)""",
+                                user_id, saved_location.longitude, saved_location.latitude, saved_location.name, saved_location.icon)
             
         
         

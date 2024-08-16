@@ -10,7 +10,7 @@ from dotenv import load_dotenv, find_dotenv
 from typing import Annotated, Literal, List
 from validation import is_valid_password, is_valid_dob, is_valid_email, is_valid_name, \
 is_valid_phone_number, Account_Info, Point, Account_DB_Entry, Passenger_Review, Review_DB_Entry, \
-Saved_Location
+Saved_Location, Saved_Vehicle
 
 import helper
 import authentication
@@ -177,7 +177,7 @@ async def get_account_saved_vehicles(user_info: authentication.authorize_any_acc
     return await db.get_user_saved_vehicles(user_info["id"], user_info["account_type"])
 
 @app.put("/saved_vehicles")
-async def set_account_saved_vehicles(saved_vehicles: Annotated[List[int], Body(embed=True)], user_info: authentication.authorize_any_account):
+async def set_account_saved_vehicles(saved_vehicles: Annotated[List[Saved_Vehicle], Body(embed=True)], user_info: authentication.authorize_any_account):
     await db.set_user_saved_vehicles(user_info["id"], saved_vehicles, user_info["account_type"])
     return {"message": "Successfully updated"}
 
