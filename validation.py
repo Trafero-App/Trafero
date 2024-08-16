@@ -1,3 +1,9 @@
+"""
+validation.py
+
+This module defines various classes and validation functions used throughout the application.
+
+"""
 from pydantic import BaseModel, model_validator
 from typing import Literal, List
 import regex as re

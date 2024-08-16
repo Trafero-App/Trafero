@@ -34,7 +34,7 @@ CREATE TABLE route (id SERIAL PRIMARY KEY,
                     company_name VARCHAR(50),
                     expected_price VARCHAR(50),
                     company_phone_number VARCHAR(30) DEFAULT 'company phone marc',
-                    distance DECIMAL DEFAULT 10.0,
+                    distance VARCHAR(10),
                     estimated_travel_time INT DEFAULT 100.0,
                     route_type VARCHAR(20) DEFAULT 'intercity marc'
                     );
