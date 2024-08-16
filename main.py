@@ -1,7 +1,6 @@
 from fastapi import FastAPI, Response, status, Depends, HTTPException, Body, Request, UploadFile
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
-from time import sleep
 from contextlib import asynccontextmanager
 import asyncpg
 import os
@@ -68,7 +67,6 @@ async def signup(request: Request):
     - HTTPException: If phone number is already in use. (status code: 409)
     - HTTPException: If email is already in use. (status code: 409)
     """
-    print(request.headers)
     form_data = dict(await request.form())
     account_data: Account_Info = helper.get_account_info_from_form(form_data)
     account_type = account_data.account_type
@@ -672,3 +670,8 @@ async def get_stations(response: Response):
             "type": "FeatureCollection",
             "features": features 
         }}
+    
+
+@app.post("/app_feedback")
+async def app_feedback(feedback: Annotated[str, Body(embed=True)]):
+    await db.add_app_feedback(feedback)

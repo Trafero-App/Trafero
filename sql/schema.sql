@@ -1,4 +1,4 @@
-
+DROP TABLE IF EXISTS app_feedback;
 DROP TABLE IF EXISTS passenger_saved_route;
 DROP TABLE IF EXISTS driver_saved_route;
 DROP TABLE IF EXISTS passenger_saved_vehicle;
@@ -198,4 +198,5 @@ CREATE TABLE driver_saved_location (driver_id INt NOT NULL REFERENCES driver(id)
                                        icon VARCHAR(10) NOT NULL);
 
 
-                                       
+CREATE TABLE app_feedback (id SERIAL PRIMARY KEY,
+                            feedback VARCHAR(1000) NOT NULL)

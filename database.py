@@ -260,11 +260,11 @@ class db:
     async def add_account(cls, account_info: Account_DB_Entry):
         async with cls.db_pool.acquire() as con:
             if account_info.account_type == "passenger":
-                await (con.execute("""INSERT INTO passenger (password_hash, first_name,
+                account_id =  (await con.fetchrow("""INSERT INTO passenger (password_hash, first_name,
                             last_name, date_of_birth, phone_number, email)
                             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id""", account_info.password_hash,
                             account_info.first_name, account_info.last_name, account_info.date_of_birth,
-                            account_info.phone_number, account_info.email))[0][0]
+                            account_info.phone_number, account_info.email))[0]
             else:
                 vehicle_id = (await con.fetchrow("""INSERT INTO vehicle (cur_route_id, "status",
                             "type", brand, model, license_plate, color)
@@ -508,5 +508,8 @@ class db:
                     await con.execute("""INSERT INTO driver_saved_location (driver_id, longitude, latitude, "name", icon) VALUES ($1, $2, $3, $4, $5)""",
                                 user_id, saved_location.longitude, saved_location.latitude, saved_location.name, saved_location.icon)
             
-        
+    @classmethod
+    async def add_app_feedback(cls, feedback: str):
+        async with cls.db_pool.acquire() as con:
+            await con.execute("INSERT INTO app_feedback (feedback) VALUES ($1)", feedback)
         
