@@ -319,7 +319,7 @@ INSERT INTO other_complaint (feedback_id, complaint_details) VALUES
 
 INSERT INTO passenger_saved_route (passenger_id, route_id) VALUES
 (1, 1), (1, 2), (1, 3), (1, 4);
-INSERT INTO passenger_saved_vehicle (passenger_id, vehicle_id) VALUES
-(1, 1), (1, 3);
-INSERT INTO passenger_saved_location (passenger_id, longitude, latitude, "name") VALUES
-(1, 1, 1, 'Z'), (1, 2, 1, 'A'), (1, 3, 1, 'B'), (1, 4, 1, 'C');
+INSERT INTO passenger_saved_vehicle (passenger_id, vehicle_id, nickname) VALUES
+(1, 1, 'HI'), (1, 3, 'BYE');
+INSERT INTO passenger_saved_location (passenger_id, longitude, latitude, "name", icon) VALUES
+(1, 1, 1, 'Z', 'home'), (1, 2, 1, 'A', 'marker'), (1, 3, 1, 'B', 'home'), (1, 4, 1, 'C', 'school');

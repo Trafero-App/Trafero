@@ -178,20 +178,24 @@ CREATE TABLE driver_saved_route (driver_id INt NOT NULL REFERENCES driver(id),
                                      route_id INt NOT NULL REFERENCES route(id));
 
 CREATE TABLE passenger_saved_vehicle (passenger_id INt NOT NULL REFERENCES passenger(id),
-                                       vehicle_id INt NOT NULL REFERENCES vehicle(id));
+                                       vehicle_id INt NOT NULL REFERENCES vehicle(id),
+                                       nickname VARCHAR(50) NOT NULL);
 
 CREATE TABLE driver_saved_vehicle (driver_id INt NOT NULL REFERENCES driver(id),
-                                       vehicle_id INt NOT NULL REFERENCES vehicle(id));
+                                       vehicle_id INt NOT NULL REFERENCES vehicle(id),
+                                       nickname VARCHAR(50) NOT NULL);
 
 CREATE TABLE passenger_saved_location (passenger_id INt NOT NULL REFERENCES passenger(id),
                                        longitude DECIMAL NOT NULL,
                                        latitude DECIMAL NOT NULL,
-                                       "name" VARCHAR(20) NOT NULL);
+                                       "name" VARCHAR(20) NOT NULL,
+                                       icon VARCHAR(10) NOT NULL);
 
 CREATE TABLE driver_saved_location (driver_id INt NOT NULL REFERENCES driver(id),
                                        longitude DECIMAL NOT NULL,
                                        latitude DECIMAL NOT NULL,
-                                       "name" VARCHAR(20) NOT NULL);
+                                       "name" VARCHAR(20) NOT NULL,
+                                       icon VARCHAR(10) NOT NULL);
 
 
                                        

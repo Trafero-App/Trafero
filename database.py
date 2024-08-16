@@ -423,8 +423,7 @@ class db:
             route_ids = [record[0] for record in route_ids]
             routes_data = [{"route_id": route_id,
                             "route_name": cls.routes[route_id]["details"]["route_name"],
-                            "description": cls.routes[route_id]["details"]["description"],
-                            "line": cls.routes[route_id]["line"]
+                            "description": cls.routes[route_id]["details"]["description"]
                             } for route_id in route_ids]
             return routes_data
             
@@ -432,34 +431,38 @@ class db:
     async def get_user_saved_vehicles(cls, user_id: int, account_type: Literal["driver", "passenger"]):
         async with cls.db_pool.acquire() as con:
             if account_type == "passenger":
-                vehicle_ids = await con.fetch("SELECT vehicle_id FROM passenger_saved_vehicle WHERE passenger_id=$1", user_id)
+                saved_vehicles = await con.fetch("SELECT vehicle_id, nickname FROM passenger_saved_vehicle WHERE passenger_id=$1", user_id)
             else:
-                vehicle_ids = await con.fetch("SELECT vehicle_id FROM driver_saved_vehicle WHERE driver_id=$1", user_id)
+                saved_vehicles = await con.fetch("SELECT vehicle_id, nickname FROM driver_saved_vehicle WHERE driver_id=$1", user_id)
 
-            if vehicle_ids is None: return None
-            vehicle_ids = [vehicle_id[0] for vehicle_id in vehicle_ids]
+            if saved_vehicles is None: return None
+
+            vehicles_info = [tuple(vehicle_info) for vehicle_info in saved_vehicles]
             
             vehicles_data = []
-            for vehicle_id in vehicle_ids:
-                vehicle_info = await cls.get_vehicle_details(vehicle_id)
-                print(vehicle_info)
-                vehicles_data.append({"id": vehicle_info["id"], "license_plate": vehicle_info["vehicle"]["license_plate"]})
+            for vehicle_id, nickname in vehicles_info:
+                vehicle_license_plate = (await cls.get_vehicle_details(vehicle_id))["vehicle"]["license_plate"]
+
+                vehicles_data.append({"id": vehicle_id,
+                                      "license_plate": vehicle_license_plate,
+                                      "nickname": nickname})
             return vehicles_data
     
     @classmethod
     async def get_user_saved_locations(cls, user_id: int, account_type:Literal["driver", "passenger"]):
         async with cls.db_pool.acquire() as con:
             if account_type == "passenger":
-                saved_locations = await con.fetch("""SELECT ("name", longitude, latitude)
+                saved_locations = await con.fetch("""SELECT ("name", icon, longitude, latitude)
                                                 FROM passenger_saved_location WHERE passenger_id=$1""", user_id)
             else:
-                saved_locations = await con.fetch("""SELECT ("name", longitude, latitude)
+                saved_locations = await con.fetch("""SELECT ("name", icon, longitude, latitude)
                                                 FROM driver_saved_location WHERE driver_id=$1""", user_id)
             if saved_locations is None: return None
+            print(saved_locations[0][0])
             saved_locations = [{"location_name": saved_location[0][0], 
                                 "longitude": saved_location[0][1],
-                                "latitude": saved_location[0][2]} for saved_location in saved_locations]
-            print(saved_locations)
+                                "latitude": saved_location[0][2],
+                                "icon": saved_location[0][3]} for saved_location in saved_locations]
             return saved_locations
 
     @classmethod
