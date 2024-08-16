@@ -4,19 +4,16 @@ nearby_routes.py
 This module handles all functions and operations related to nearby routes.
 
 """
-from db_layer import db
+
+from database import db
 from copy import deepcopy
 from collections import namedtuple
 from typing import List
+from .operations import project_point_on_route
 from way_eta import get_time_estimation
-from operations import project_point_on_route
-from routes import get_route_data
+from .routes import get_route_data
 
 Chain = namedtuple("Chain", ["route1_id", "route1_intersection", "route2_id", "route2_intersection", "pickup_index", "dest_index"])
-
-
-
-
 
 
 def nearby_routes(long, lat, radius, turn_to_dict=False):

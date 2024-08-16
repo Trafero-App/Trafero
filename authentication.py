@@ -12,8 +12,9 @@ from passlib.context import CryptContext
 from dotenv import find_dotenv, load_dotenv
 import os
 
-from db_layer import db
+from database import db
 
+from validation import Account_Info
 load_dotenv(find_dotenv())
 JWT_ALGORITHM = os.getenv("jwt_algorithm")
 AUTHENTICATION_SECRET_KEY = os.getenv("auth_secret_key")
@@ -45,7 +46,7 @@ async def decode_token(token):
 async def check_role(token, role):
     payload = await decode_token(token)
     user_id: str | None = payload.get("sub")
-    account_type: Literal["passenger", "vehicle"] | None = payload.get("type")
+    account_type: Literal["passenger", "driver"] | None = payload.get("type")
     if user_id is None or account_type is None: return None
     user_info = await db.get_account_info_by_id(user_id, account_type)
     if user_info is None:
@@ -55,7 +56,7 @@ async def check_role(token, role):
     return user_info
 
 async def check_authorization_passenger(token: Annotated[str, Depends(oauth2_scheme)]): return await check_role(token, "passenger")
-async def check_authorization_vehicle(token: Annotated[str, Depends(oauth2_scheme)]): return await check_role(token, "vehicle")
+async def check_authorization_driver(token: Annotated[str, Depends(oauth2_scheme)]): return await check_role(token, "driver")
 async def check_authorization_any_account(token: Annotated[str, Depends(oauth2_scheme)]): return await check_role(token, "*")
 
 async def check_authorization_anyone(token: Annotated[str | None, Depends(oauth2_scheme_optional_token)]= None): 
@@ -68,7 +69,7 @@ async def check_authorization_anyone(token: Annotated[str | None, Depends(oauth2
     return user
 
 authorize_passenger = Annotated[dict, Depends(check_authorization_passenger)]
-authorize_vehicle = Annotated[dict, Depends(check_authorization_vehicle)]
+authorize_driver = Annotated[dict, Depends(check_authorization_driver)]
 authorize_any_account = Annotated[dict, Depends(check_authorization_any_account)]
 authorize_anyone = Annotated[dict | None, Depends(check_authorization_anyone)]
 
@@ -82,7 +83,7 @@ def hash_password(plain_password):
 def verify_password(plain_password, password_hash):
     return pwd_context.verify(plain_password, password_hash)
 
-async def check_user_credentials(username: str, password: str, account_type: Literal["passenger", "vehicle"],
+async def check_user_credentials(username: str, password: str, account_type: Literal["passenger", "driver"],
                                  login_method: Literal["email", "phone_number"]):
     if login_method == "email":
         user = await db.get_account_info_by_email(username, account_type)
@@ -95,7 +96,11 @@ async def check_user_credentials(username: str, password: str, account_type: Lit
         return None
     return user
 
-def create_access_token(token_data: dict):
-    token_data["exp"] = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_VALIDITY_TIME_IN_MINUTES)
+def create_access_token(user_id, account_type):
+    token_data = {
+        "sub": user_id,
+        "type": account_type,
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_VALIDITY_TIME_IN_MINUTES)
+    }
     encoded_jwt = jwt.encode(token_data, AUTHENTICATION_SECRET_KEY, algorithm=JWT_ALGORITHM)
     return encoded_jwt

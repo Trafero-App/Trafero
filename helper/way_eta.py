@@ -6,8 +6,8 @@ This module handles all functionalities related to waypoint and time estimation
 """
 
 import requests
-from db_layer import db
-from operations import project_point_on_route 
+from database import db
+from .operations import project_point_on_route 
 
 
 

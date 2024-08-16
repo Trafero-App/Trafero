@@ -5,9 +5,9 @@ This module handles all functions related to vehicles information, location and 
 
 """
 
-from db_layer import db
+from database import db
 from way_eta import get_time_estimation
-from operations import project_point_on_route
+from .operations import project_point_on_route
 
 
 
@@ -103,7 +103,7 @@ async def all_vehicles_info():
     for vehicle in vehicle_info:
         route_id = await db.get_vehicle_route_id(vehicle["id"])
         route_coords = db.routes[route_id]["line"]["features"][0]["geometry"]["coordinates"]
-        if vehicle["status"] != "unknown":
+        if vehicle["status"] != "inactive":
             vehicle_coords = route_coords[project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route_id)[0]]
         else:
             vehicle_coords = (vehicle["longitude"], vehicle["latitude"])

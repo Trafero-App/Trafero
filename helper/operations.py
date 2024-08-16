@@ -5,7 +5,7 @@ This module handles fundamental functions related to basic coordinaates operatio
 
 """
 import math
-from db_layer import db
+from database import db
 
 #GOOD
 def haversine(pointA, pointB):

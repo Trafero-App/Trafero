@@ -6,33 +6,34 @@ and provides results based on imported functions from helper files.
 
 Functions:
 - Accounts-related functions
-- Routes and Sttions-related functions
+- Routes and Stations-related functions
 - Vehicles-related functions
 - Feedback-related functions
 - Search-related functions
 """
 
-from fastapi import FastAPI, Response, status, Depends, HTTPException
+from fastapi import FastAPI, Response, status, Depends, HTTPException, Body, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
-
 from contextlib import asynccontextmanager
 import asyncpg
 import os
 from dotenv import load_dotenv, find_dotenv
 
 from typing import Annotated, Literal, List
-from validation import is_valid_password, is_valid_dob, is_valid_email, is_valid_name, \
-is_valid_phone_number, Account_Info, Point, Account_DB_Entry, Passenger_Review, Review_DB_Entry
+from validation import is_valid_password, is_valid_email, is_valid_phone_number, Account_Info, \
+    Point, Account_DB_Entry, Passenger_Review, Review_DB_Entry, Saved_Location, Saved_Vehicle
 
 import helper
 import authentication
-from db_layer import db
+from database import db
 
 load_dotenv(find_dotenv())
 DB_URL = os.getenv("db_url")
 MAPBOX_TOKEN = os.getenv("mapbox_token")
 VEHICLE_TO_ROUTE_THRESHOLD = int(os.getenv("vehicle_to_route_threshold"))
+DRIVING_LICENSES_PATH = os.getenv("driving_licenses_path")
+VEHICLE_REGISTRATIONS_PATH = os.getenv("vehicle_registrations_path")
 
 
 @asynccontextmanager
@@ -57,17 +58,15 @@ origins = [
 ]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins, # allow requests from the specified origins
-    allow_credentials=True, # allow credentials to be sent
-    allow_methods=["*"], # allow POST, GET, PUT ... `*` is "all"
-    allow_headers=["*"]
-
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
-
 @app.post("/signup", status_code=status.HTTP_200_OK)
-async def signup(account_data: Account_Info):
+async def signup(request: Request):
     """Validate user data and add it to database.
 
     Parameters:
@@ -82,6 +81,8 @@ async def signup(account_data: Account_Info):
     - HTTPException: If phone number is already in use. (status code: 409)
     - HTTPException: If email is already in use. (status code: 409)
     """
+    form_data = dict(await request.form())
+    account_data: Account_Info = helper.get_account_info_from_form(form_data)
     account_type = account_data.account_type
 
     if account_data.phone_number is not None:
@@ -102,18 +103,31 @@ async def signup(account_data: Account_Info):
                                         }
                                 )
  
+    if account_data.account_type == "driver":
+        drivers_license_file, vehicle_registration_file = helper.get_files(form_data)
+        if drivers_license_file is None or vehicle_registration_file is None:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, 
+                                detail={"error_code": "MISSING_FILES",
+                                        "msg": "Please provide both a drivers license and a vehicle registration"})
+
     password_hash = authentication.hash_password(account_data.password)
-    user_id = await db.add_account(Account_DB_Entry(**account_data.model_dump(exclude={"password"}), password_hash=password_hash))
-    token_data = {"sub": user_id, "type": account_data.account_type}
-    access_token = authentication.create_access_token(token_data)
-    if account_data.account_type == "vehicle":
-        await db.add_vehicle_location(user_id, None, None)
+    user_id = await db.add_account(Account_DB_Entry(**account_data.model_dump(exclude={"password"}),
+                                                    password_hash=password_hash))
+    
+    if account_data.account_type == "driver":
+        vehicle_id = await db.get_driver_vehicle_id(user_id)
+        helper.save_files(form_data, f"{DRIVING_LICENSES_PATH}/{user_id}.pdf", f"{VEHICLE_REGISTRATIONS_PATH}/{vehicle_id}.pdf")
+
+    if account_data.account_type == "driver":
+        vehicle_id = await db.get_driver_vehicle_id(user_id)
+        await db.add_vehicle_location(vehicle_id, None, None)
+
+    access_token = authentication.create_access_token(user_id, account_data.account_type)
     return {"message": "Account was signed up successfully.", "token": {"access_token": access_token, "token_type": "bearer"}}
     
 
-
 @app.get("/check_email/{account_type}", status_code=status.HTTP_200_OK)
-async def check_email(account_type: Literal["passenger", "vehicle"], email: str):
+async def check_email(account_type: Literal["passenger", "driver"], email: str):
     """Check if email has proper form and is unused"""
     has_proper_form = is_valid_email(email)
     is_unused = await db.check_email_available(email, account_type)
@@ -122,7 +136,7 @@ async def check_email(account_type: Literal["passenger", "vehicle"], email: str)
 
 
 @app.get("/check_phone_number/{account_type}", status_code=status.HTTP_200_OK)
-async def check_phone_number(account_type: Literal["passenger", "vehicle"], phone_number: str):
+async def check_phone_number(account_type: Literal["passenger", "driver"], phone_number: str):
     """Check if phone number has proper form and is unused"""
     has_proper_form = is_valid_phone_number(phone_number)
     is_unused = await db.check_phone_number_available(phone_number, account_type)
@@ -132,19 +146,18 @@ async def check_phone_number(account_type: Literal["passenger", "vehicle"], phon
 
 @app.get("/check_password", status_code=status.HTTP_200_OK)
 async def check_password(password: str):
-    """Check if password has proper form
-    """
+    """Check if password has proper form"""
     return {"message": "Validating email complete.", "is_valid": is_valid_password(password)}
 
 
 
 @app.post("/login/{account_type}", status_code=status.HTTP_200_OK)
-async def login(account_type: Literal["passenger", "vehicle"], form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+async def login(account_type: Literal["passenger", "driver"], form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     """Validate user credentials and provide authentication token
 
     Parameters:
     - account_type: specifies if the user is attempting to log in
-      as a passenger or as a vehicle
+      as a passenger or as a driver
     - form_data: data containing user credentials (username and password)
 
     Returns:
@@ -163,8 +176,8 @@ async def login(account_type: Literal["passenger", "vehicle"], form_data: Annota
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"error_code": "INVALID_CREDENTIALS",
                                                                               "msg": "The entered credentials are invalid"})
-    token_data = {"sub": user["id"], "type": account_type}
-    access_token = authentication.create_access_token(token_data)
+
+    access_token = authentication.create_access_token(user["id"], account_type)
     return {"message": "Token generated successfully.", "token": {"access_token": access_token, "token_type": "bearer"}}
 
 
@@ -173,13 +186,45 @@ async def login(account_type: Literal["passenger", "vehicle"], form_data: Annota
 async def get_account_info(user_info: authentication.authorize_any_account):
     """Gives account info"""
     del user_info["password_hash"]
-    if user_info["account_type"] == "vehicle": # user is a vehicle
+    print("JDOE")
+    if user_info["account_type"] == "driver": # user is a driver
         user_info["route_list"] = [{"route_id": route_id,
                                     "route_name": db.routes[route_id]["details"]["route_name"],
                                     "description": db.routes[route_id]["details"]["description"],
                                     "line": db.routes[route_id]["line"]
                                     } for route_id in user_info["route_list"]]
+    user_info["saved_routes"] = await db.get_user_saved_routes(user_info["id"], user_info["account_type"])
+    user_info["saved_vehicles"] = await db.get_user_saved_vehicles(user_info["id"], user_info["account_type"])
+    user_info["saved_locations"] = await db.get_user_saved_locations(user_info["id"], user_info["account_type"])
     return user_info
+
+@app.get("/saved_routes")
+async def get_account_saved_routes(user_info: authentication.authorize_any_account):
+    return await db.get_user_saved_routes(user_info["id"], user_info["account_type"])
+
+@app.put("/saved_routes")
+async def set_account_saved_routes(saved_routes: Annotated[List[int], Body(embed=True)], user_info: authentication.authorize_any_account):
+    await db.set_user_saved_routes(user_info["id"], saved_routes, user_info["account_type"])
+    return {"message": "Successfully updated"}
+
+@app.get("/saved_vehicles")
+async def get_account_saved_vehicles(user_info: authentication.authorize_any_account):
+    return await db.get_user_saved_vehicles(user_info["id"], user_info["account_type"])
+
+@app.put("/saved_vehicles")
+async def set_account_saved_vehicles(saved_vehicles: Annotated[List[Saved_Vehicle], Body(embed=True)], user_info: authentication.authorize_any_account):
+    await db.set_user_saved_vehicles(user_info["id"], saved_vehicles, user_info["account_type"])
+    return {"message": "Successfully updated"}
+
+@app.get("/saved_locations")
+async def get_account_saved_locations(user_info: authentication.authorize_any_account):
+    return await db.get_user_saved_locations(user_info["id"], user_info["account_type"])
+
+@app.put("/saved_locations")
+async def set_account_saved_locations(saved_locations: Annotated[List[Saved_Location], Body(embed=True)], user_info: authentication.authorize_any_account):
+    print(saved_locations)
+    await db.set_user_saved_locations(user_info["id"], saved_locations, user_info["account_type"])
+    return {"message": "Successfully updated"}
 
 
 
@@ -209,7 +254,7 @@ async def get_vehicle_location(vehicle_id: int):
 
 
 @app.post("/vehicle_location", status_code=status.HTTP_200_OK)
-async def post_vehicle_location(vehicle_location_data: Point, user_info : authentication.authorize_vehicle):
+async def post_vehicle_location(vehicle_location_data: Point, user_info : authentication.authorize_driver):
     """Add the location of an existing vehicle to the database
 
     Parameters:
@@ -233,7 +278,7 @@ async def post_vehicle_location(vehicle_location_data: Point, user_info : authen
       its location hasn't been added already. To update the location
       of a vehicle, send a PUT request to `/vehicle_location`
     """
-    vehicle_id = user_info["id"]
+    vehicle_id = await db.get_driver_vehicle_id(user_info["id"])
     latitude, longitude = vehicle_location_data.latitude, vehicle_location_data.longitude
     try:
         await db.add_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
@@ -250,7 +295,7 @@ async def post_vehicle_location(vehicle_location_data: Point, user_info : authen
 
 
 @app.put("/vehicle_location", status_code=status.HTTP_200_OK)
-async def put_vehicle_location(vehicle_location_data: Point, user_info : authentication.authorize_vehicle):
+async def put_vehicle_location(vehicle_location_data: Point, user_info : authentication.authorize_driver):
     """Update the location of an existing vehicle in the database
 
     Parameters:
@@ -274,7 +319,7 @@ async def put_vehicle_location(vehicle_location_data: Point, user_info : authent
       its location has been added already. To add the location of a vehicle,
       send a POST request to `/vehicle_location`
     """
-    vehicle_id = user_info["id"]
+    vehicle_id = await db.get_driver_vehicle_id(user_info["id"])
     latitude, longitude = vehicle_location_data.latitude, vehicle_location_data.longitude
     success = await db.update_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
     # False signifies that you tried to update the location of a vehicle whose location isn't in the db yet
@@ -293,7 +338,7 @@ async def put_vehicle_location(vehicle_location_data: Point, user_info : authent
 
 
 @app.put("/vehicle_status", status_code=status.HTTP_200_OK)
-async def put_vehicle_status(new_status: Literal["active", "waiting", "unavailable", "inactive", "unknown"], user_info: authentication.authorize_vehicle): # to be changed
+async def put_vehicle_status(new_status: Literal["active", "waiting", "unavailable", "inactive", "unknown"], user_info: authentication.authorize_driver): # to be changed
     """Update vehicle status
 
     Parameters:
@@ -307,7 +352,8 @@ async def put_vehicle_status(new_status: Literal["active", "waiting", "unavailab
     - HTTPException: If the input is not in the correct structure (status code: 422)
     - HTTPException: If no vehicle with the given id is found (status code: 404)
     """
-    vehicle_id = user_info["id"]
+    
+    vehicle_id = await db.get_driver_vehicle_id(user_info["id"])
     success = await db.update_status(vehicle_id, new_status)
     if success:
         return {"message": "Status updated successfully."}
@@ -319,7 +365,7 @@ async def put_vehicle_status(new_status: Literal["active", "waiting", "unavailab
 
 
 @app.put("/active_route", status_code=status.HTTP_200_OK)
-async def change_active_route (new_active_route: int, user_info : authentication.authorize_vehicle):
+async def change_active_route (new_active_route: int, user_info : authentication.authorize_driver):
     """Update the active route of a certain vehicle
 
 
@@ -339,7 +385,7 @@ async def change_active_route (new_active_route: int, user_info : authentication
       routes (status code: 406)
     - HTTPException: If no vehicle with the given id is found (status code: 404)
     """
-    vehicle_id = user_info["id"]
+    vehicle_id = await db.get_driver_vehicle_id(user_info["id"])
     vehicle_routes = await db.get_vehicle_routes(vehicle_id)
     if new_active_route not in vehicle_routes:
         raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE,
@@ -357,7 +403,7 @@ async def change_active_route (new_active_route: int, user_info : authentication
 
 
 @app.post("/vehicle_routes", status_code=status.HTTP_200_OK)
-async def add_vehicle_route(new_routes: List[int], user_info: authentication.authorize_vehicle):
+async def add_vehicle_route(new_routes_ids: Annotated[List[int], Body(embed=True)], user_info: authentication.authorize_driver):
     """Updates the routes of a vehicle
     
     Parameters:
@@ -374,14 +420,14 @@ async def add_vehicle_route(new_routes: List[int], user_info: authentication.aut
     - HTTPException: If any of the given route ids is invalid (status code: 404)
 
     """
-    vehicle_id = user_info["id"]
+    vehicle_id = await db.get_driver_vehicle_id(user_info["id"])
     try:
-        await db.set_route(vehicle_id, new_routes)
+        await db.set_route(vehicle_id, new_routes_ids)
     except asyncpg.exceptions.ForeignKeyViolationError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail={"error_code": "INVALID_ROUTE_ID",
                                     "msg": "One of the route ids given is invalid"})
-    return {"message": f"Successfully replaced your route_list with {new_routes}"}
+    return {"message": f"Successfully replaced your route_list with {new_routes_ids}"}
 
 
 
@@ -569,13 +615,13 @@ async def nearby_routes(long:float, lat:float, radius:float,
       already
     """
     if long2 is not None and lat2 is not None and radius2 is not None:
-        close_routes = await helper.get_nearby_routes(long, lat, radius, long2, lat2, radius2, MAPBOX_TOKEN)
-        if close_routes is None:
+        close_routes = await helper.get_nearby_routes(long, lat, min(radius, 1500), long2, lat2, min(radius2, 1500), MAPBOX_TOKEN)
+        if close_routes == []:
             close_routes = await helper.get_nearby_routes(long, lat, min(radius * 2, 1500), long2, lat2, min(radius2 * 2, 1500), MAPBOX_TOKEN)
     else:
-        close_routes = await helper.get_nearby_routes_to_1_point(long, lat, radius)
-        if close_routes is None:
-            close_routes = await helper.get_nearby_routes_to_1_point(long, lat, min(radius * 2, 1500), long2, lat2, min(radius2 * 2, 1500), MAPBOX_TOKEN)
+        close_routes = await helper.get_nearby_routes_to_1_point(long, lat, min(radius, 1500))
+        if close_routes == []:
+            close_routes = await helper.get_nearby_routes_to_1_point(long, lat, min(radius * 2, 1500))
         
     return {"message": "All Good.", "routes": close_routes}
 
@@ -807,3 +853,8 @@ async def get_stations(response: Response):
             "type": "FeatureCollection",
             "features": features 
         }}
+    
+
+@app.post("/app_feedback")
+async def app_feedback(feedback: Annotated[str, Body(embed=True)]):
+    await db.add_app_feedback(feedback)
