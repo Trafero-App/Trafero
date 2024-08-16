@@ -1,8 +1,24 @@
+"""
+main.py
+
+This module handles fundamental functions related to basic coordinaates operations.
+
+"""
 import math
 from database import db
 
 #GOOD
 def haversine(pointA, pointB):
+    """
+    Calculate distance between two geographical points.
+
+    Parameters:
+    -pointA (long, lat) 
+    -pointB (long, lat)
+
+    Returns:
+    -Distance between points in meters
+    """
     lon1 = pointA[0]
     lat1 = pointA[1]
     lon2 = pointB[0]
@@ -21,7 +37,16 @@ def haversine(pointA, pointB):
 
 #GOOD
 def project_point_on_route(point, route_id):
+    """
+    Calculate the projection of a point on a certain route.
 
+    Parameters:
+    -point (long, lat) 
+    -route_id
+
+    Returns:
+    -Coordinates of the projected point
+    """
     route_coords = db.routes[route_id]["line"]["features"][0]["geometry"]["coordinates"]
     minimum_distance = float('inf')
     for i,route_point in enumerate(route_coords):

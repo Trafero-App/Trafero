@@ -1,20 +1,46 @@
+"""
+waypoints_eta.py
+
+This module handles all functionalities related to waypoint and time estimation
+
+"""
+
 import requests
 from database import db
 from .operations import project_point_on_route 
 
 
-#WAYPOINTS AND ETA
 
-#GOOD
-async def get_eta(route_id, start_index, end_index, mapbox_token):
+async def get_time_estimation(route_id, start_index, end_index, mapbox_token):
+    """
+    Get estimated time of arrival (ETA) for a specific route segment.
+
+    Parameters:
+    -route_id 
+    -start_index 
+    -end_index 
+    -mapbox_token: The Mapbox API token used for calculating ETA.
+
+    """
     waypoints = await db.get_route_waypoints(route_id)
-    trimed_waypoints = trim_waypoints_index(waypoints, route_id, start_index, end_index)
-    eta = get_time_estimation(trimed_waypoints, mapbox_token, "driving")
+    trimed_waypoints = trim_waypoints(waypoints, route_id, start_index, end_index)
+    eta = eta(trimed_waypoints, mapbox_token, "driving")
     return eta
 
 
-#GOOD
-def trim_waypoints_index(waypoints, route_id, start_index, end_index):
+def trim_waypoints(waypoints, route_id, start_index, end_index):
+    """
+    Extract a subset of waypoints from the route based on the provided start and end indices.
+    
+    Parameters:
+    -waypoints 
+    -route_id 
+    -start_index 
+    -end_index 
+
+    Returns:
+    -Trimmed waypoints of the route, if waypoints not available returns None.
+    """
     route_coords = db.routes[route_id]["line"]["features"][0]["geometry"]["coordinates"]
 
     if start_index == end_index:
@@ -43,17 +69,20 @@ def trim_waypoints_index(waypoints, route_id, start_index, end_index):
     
     return new_waypoints
 
-#GOOD
-def trim_waypoints_list(waypoints, start, end, route_id):
-    # print(start)
-    start_index = project_point_on_route(start, route_id)[0]
-    end_index = project_point_on_route(end, route_id)[0]
 
-    return trim_waypoints_index(waypoints, route_id, start_index, end_index)
 
-         
-#GOOD
-def get_time_estimation(waypoints, token, mode):
+def eta(waypoints, token, mode):
+    """
+    Direct request to get estimated time of arrival (ETA) from MapBox api.
+    
+    Parameters:
+    -waypoints 
+    -MapBox token
+    -mode of transportation
+
+    Returns:
+    -Estimated time of arrival (ETA).
+    """
     if waypoints == None:
         return 0
     if mode == "driving": mapbox_mode = "driving-traffic"

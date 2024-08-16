@@ -1,3 +1,14 @@
+"""
+database.py
+
+This module handles all functions for interacting with the database, including both inserting data and retrieving information.
+
+Functions:
+- insert_data: Inserts new data into the database.
+- get_data: Retrieves specific data from the database based on given criteria.
+- update_data: Updates existing data in the database.
+- delete_data: Deletes data from the database.
+"""
 import asyncpg
 import geojson
 from validation import Account_DB_Entry, Review_DB_Entry, Saved_Location, Saved_Vehicle
@@ -60,7 +71,7 @@ class db:
             route_data["line"] = route_geojson
             routes[route_data["details"]["route_id"]] = route_data
 
-            routes_search_data.append(((route_data["details"]["route_id"],) + tuple(route_data["details"]["description"].split(' - '))))
+            routes_search_data.append(((route_data["details"]["route_id"],) + tuple(route_data["details"]["description"].split(' - ')) + tuple(route_data["details"]["route_name"].split())))
         cls.routes = routes
         cls.routes_search_data = routes_search_data
 

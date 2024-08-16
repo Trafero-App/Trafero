@@ -1,7 +1,22 @@
+"""
+search.py
+
+This module handles all functions related to searching.
+
+"""
 from fuzzywuzzy import fuzz, process
 #SEARCH
 
 def search_routes(query: str, routes_info):
+    """Get routes based on a query
+
+    Parameters:
+    - Query: the word the user is searching for
+    - All routes information
+
+    Returns:
+    - All routes related to the query
+    """
     routes_result = [] 
     filtered_routes_result = []
     for i, element in enumerate(routes_info):
@@ -37,6 +52,14 @@ def search_routes(query: str, routes_info):
 
 
 def search_vehicles(query: str, vehicles_info):
+    """Get vehicles based on a search query
+
+    Parameters:
+    - Query: license plate 
+    - All vehicles info
+    Returns:
+    - Vehicle that holds the license plate
+    """
     result = []
     for i, element in enumerate(vehicles_info):
         x = fuzz.partial_ratio(query, element[1])

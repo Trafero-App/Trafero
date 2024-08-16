@@ -1,3 +1,9 @@
+"""
+validation.py
+
+This module defines various classes and validation functions used throughout the application.
+
+"""
 from pydantic import BaseModel, model_validator
 from typing import Literal, List
 from .validation_functions import is_valid_dob, is_valid_name, is_valid_password, is_valid_email, is_valid_phone_number
