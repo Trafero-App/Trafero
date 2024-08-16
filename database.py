@@ -93,7 +93,7 @@ class db:
             res = await con.fetch("""SELECT
                                      (vehicle.id, vehicle_location.longitude, vehicle_location.latitude, vehicle.status, vehicle.license_plate)
                                      FROM vehicle JOIN vehicle_location ON vehicle.id = vehicle_location.vehicle_id
-                                     WHERE vehicle.cur_route_id=$1""", route_id)
+                                     WHERE vehicle.cur_route_id=$1 AND vehicle.status NOT IN ('unknown', 'inactive')""", route_id)
         if res is None: return None
         return [{"id": vehicle_info[0][0], "longitude": vehicle_info[0][1], 
                  "latitude": vehicle_info[0][2], "status": vehicle_info[0][3], "license_plate": vehicle_info[0][4]} for vehicle_info in res]
