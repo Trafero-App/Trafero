@@ -14,6 +14,7 @@ import os
 
 from database import db
 
+from validation import Account_Info
 load_dotenv(find_dotenv())
 JWT_ALGORITHM = os.getenv("jwt_algorithm")
 AUTHENTICATION_SECRET_KEY = os.getenv("auth_secret_key")
@@ -95,7 +96,11 @@ async def check_user_credentials(username: str, password: str, account_type: Lit
         return None
     return user
 
-def create_access_token(token_data: dict):
-    token_data["exp"] = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_VALIDITY_TIME_IN_MINUTES)
+def create_access_token(user_id, account_type):
+    token_data = {
+        "sub": user_id,
+        "type": account_type,
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_VALIDITY_TIME_IN_MINUTES)
+    }
     encoded_jwt = jwt.encode(token_data, AUTHENTICATION_SECRET_KEY, algorithm=JWT_ALGORITHM)
     return encoded_jwt

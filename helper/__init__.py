@@ -3,3 +3,4 @@ from .routes import get_remaining_route, flatten_route_data, get_route_data
 from .search import search_routes, search_vehicles
 from .vehicles import off_track, get_vehicle_time_estimation, get_route_vehicles_eta, all_vehicles_info
 from .way_eta import get_time_estimation, trim_waypoints_list
+from .signup import save_files, get_files, get_account_info_from_form

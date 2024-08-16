@@ -1,6 +1,5 @@
 from pydantic import BaseModel, model_validator
 from typing import Literal, List
-
 from .validation_functions import is_valid_dob, is_valid_name, is_valid_password, is_valid_email, is_valid_phone_number
 
 class Point(BaseModel):
@@ -16,7 +15,7 @@ class Account_Info(BaseModel):
     phone_number: str | None = None
     email: str | None = None
     cur_route_id: int | None = None
-    status: Literal["active", "unknown", "inactive", "unavailable", "waiting"] | None= None
+    status: Literal["active", "unknown", "inactive", "unavailable", "waiting"] | None = None
     vehicle_type: Literal["van", "bus"] | None = None
     brand: str | None = None
     model: str | None = None
@@ -25,7 +24,7 @@ class Account_Info(BaseModel):
     routes: List[int] | None = None
 
     @model_validator(mode="after")
-    def phone_or_email(cls, values):
+    def validate_account_info(cls, values):
         if not is_valid_dob(values.date_of_birth):
             raise ValueError("Date of birth must be in YYYY-MM-DD format")
         if not is_valid_name(values.first_name) or not is_valid_name(values.last_name):

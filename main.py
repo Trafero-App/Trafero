@@ -1,16 +1,15 @@
-from fastapi import FastAPI, Response, status, Depends, HTTPException, Body, Request
+from fastapi import FastAPI, Response, status, Depends, HTTPException, Body, Request, UploadFile
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
-
+from time import sleep
 from contextlib import asynccontextmanager
 import asyncpg
 import os
 from dotenv import load_dotenv, find_dotenv
 
 from typing import Annotated, Literal, List
-from validation import is_valid_password, is_valid_dob, is_valid_email, is_valid_name, \
-is_valid_phone_number, Account_Info, Point, Account_DB_Entry, Passenger_Review, Review_DB_Entry, \
-Saved_Location, Saved_Vehicle
+from validation import is_valid_password, is_valid_email, is_valid_phone_number, Account_Info, \
+    Point, Account_DB_Entry, Passenger_Review, Review_DB_Entry, Saved_Location, Saved_Vehicle
 
 import helper
 import authentication
@@ -20,6 +19,8 @@ load_dotenv(find_dotenv())
 DB_URL = os.getenv("db_url")
 MAPBOX_TOKEN = os.getenv("mapbox_token")
 VEHICLE_TO_ROUTE_THRESHOLD = int(os.getenv("vehicle_to_route_threshold"))
+DRIVING_LICENSES_PATH = os.getenv("driving_licenses_path")
+VEHICLE_REGISTRATIONS_PATH = os.getenv("vehicle_registrations_path")
 
 
 @asynccontextmanager
@@ -44,17 +45,15 @@ origins = [
 ]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins, # allow requests from the specified origins
-    allow_credentials=True, # allow credentials to be sent
-    allow_methods=["*"], # allow POST, GET, PUT ... `*` is "all"
-    allow_headers=["*"]
-
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
-
 @app.post("/signup", status_code=status.HTTP_200_OK)
-async def signup(account_data: Account_Info):
+async def signup(request: Request):
     """Validate user data and add it to database.
 
     Parameters:
@@ -69,6 +68,9 @@ async def signup(account_data: Account_Info):
     - HTTPException: If phone number is already in use. (status code: 409)
     - HTTPException: If email is already in use. (status code: 409)
     """
+    print(request.headers)
+    form_data = dict(await request.form())
+    account_data: Account_Info = helper.get_account_info_from_form(form_data)
     account_type = account_data.account_type
 
     if account_data.phone_number is not None:
@@ -89,14 +91,28 @@ async def signup(account_data: Account_Info):
                                         }
                                 )
  
+    if account_data.account_type == "driver":
+        drivers_license_file, vehicle_registration_file = helper.get_files(form_data)
+        if drivers_license_file is None or vehicle_registration_file is None:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, 
+                                detail={"error_code": "MISSING_FILES",
+                                        "msg": "Please provide both a drivers license and a vehicle registration"})
+
     password_hash = authentication.hash_password(account_data.password)
-    user_id = await db.add_account(Account_DB_Entry(**account_data.model_dump(exclude={"password"}), password_hash=password_hash))
-    token_data = {"sub": user_id, "type": account_data.account_type}
-    access_token = authentication.create_access_token(token_data)
+    user_id = await db.add_account(Account_DB_Entry(**account_data.model_dump(exclude={"password"}),
+                                                    password_hash=password_hash))
+    
+    if account_data.account_type == "driver":
+        vehicle_id = await db.get_driver_vehicle_id(user_id)
+        helper.save_files(form_data, f"{DRIVING_LICENSES_PATH}/{user_id}.pdf", f"{VEHICLE_REGISTRATIONS_PATH}/{vehicle_id}.pdf")
+
     if account_data.account_type == "driver":
         vehicle_id = await db.get_driver_vehicle_id(user_id)
         await db.add_vehicle_location(vehicle_id, None, None)
+
+    access_token = authentication.create_access_token(user_id, account_data.account_type)
     return {"message": "Account was signed up successfully.", "token": {"access_token": access_token, "token_type": "bearer"}}
+    
     
 @app.get("/check_email/{account_type}", status_code=status.HTTP_200_OK)
 async def check_email(account_type: Literal["passenger", "driver"], email: str):
@@ -143,8 +159,8 @@ async def login(account_type: Literal["passenger", "driver"], form_data: Annotat
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"error_code": "INVALID_CREDENTIALS",
                                                                               "msg": "The entered credentials are invalid"})
-    token_data = {"sub": user["id"], "type": account_type}
-    access_token = authentication.create_access_token(token_data)
+
+    access_token = authentication.create_access_token(user["id"], account_type)
     return {"message": "Token generated successfully.", "token": {"access_token": access_token, "token_type": "bearer"}}
 
 @app.get("/account_info")

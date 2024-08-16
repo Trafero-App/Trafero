@@ -59,7 +59,7 @@ async def all_vehicles_info():
     for vehicle in vehicle_info:
         route_id = await db.get_vehicle_route_id(vehicle["id"])
         route_coords = db.routes[route_id]["line"]["features"][0]["geometry"]["coordinates"]
-        if vehicle["status"] != "unknown":
+        if vehicle["status"] != "inactive":
             vehicle_coords = route_coords[project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route_id)[0]]
         else:
             vehicle_coords = (vehicle["longitude"], vehicle["latitude"])

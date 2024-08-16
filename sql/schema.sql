@@ -49,7 +49,7 @@ CREATE TABLE route (id SERIAL PRIMARY KEY,
 
 CREATE TABLE vehicle   (id SERIAL PRIMARY KEY,
                         cur_route_id INT NOT NULL,
-                        "status" VARCHAR(20) NOT NULL,
+                        "status" VARCHAR(20) NOT NULL DEFAULT 'inactive',
                         "type" VARCHAR(30) NOT NULL,
                         brand VARCHAR(30) NOT NULL,
                         model VARCHAR(30) NOT NULL,
