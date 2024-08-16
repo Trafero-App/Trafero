@@ -70,16 +70,14 @@ async def signup(request: Request):
     """Validate user data and add it to database.
 
     Parameters:
-    - account_data: Account data of user signing up
+    - request: data of the received request
 
     Returns:
     - Message indicating the sign-up process went smoothly
 
     Raises:
     - HTTPException: If the input is not in the correct structure (status code: 422)
-    - HTTPException: If username is already in use. (status code: 409)
-    - HTTPException: If phone number is already in use. (status code: 409)
-    - HTTPException: If email is already in use. (status code: 409)
+    - HTTPException: If email or phone number is already in use. (status code: 409)
     """
     form_data = dict(await request.form())
     account_data: Account_Info = helper.get_account_info_from_form(form_data)
@@ -95,7 +93,7 @@ async def signup(request: Request):
                                 )
     
     if account_data.email is not None:
-        is_available_email = await db.check_email_available(account_data.email, account_data.account_type)
+        is_available_email = await db.check_email_available(account_data.email, account_type)
         if not is_available_email:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                                 detail={"error_code": "EMAIL_UNAVAILABLE",
@@ -103,7 +101,7 @@ async def signup(request: Request):
                                         }
                                 )
  
-    if account_data.account_type == "driver":
+    if account_type == "driver":
         drivers_license_file, vehicle_registration_file = helper.get_files(form_data)
         if drivers_license_file is None or vehicle_registration_file is None:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, 
@@ -114,15 +112,15 @@ async def signup(request: Request):
     user_id = await db.add_account(Account_DB_Entry(**account_data.model_dump(exclude={"password"}),
                                                     password_hash=password_hash))
     
-    if account_data.account_type == "driver":
+    if account_type == "driver":
         vehicle_id = await db.get_driver_vehicle_id(user_id)
         helper.save_files(form_data, f"{DRIVING_LICENSES_PATH}/{user_id}.pdf", f"{VEHICLE_REGISTRATIONS_PATH}/{vehicle_id}.pdf")
 
-    if account_data.account_type == "driver":
+    if account_type == "driver":
         vehicle_id = await db.get_driver_vehicle_id(user_id)
         await db.add_vehicle_location(vehicle_id, None, None)
-
-    access_token = authentication.create_access_token(user_id, account_data.account_type)
+    
+    access_token = authentication.create_access_token(user_id, account_type)
     return {"message": "Account was signed up successfully.", "token": {"access_token": access_token, "token_type": "bearer"}}
     
 
@@ -167,7 +165,6 @@ async def login(account_type: Literal["passenger", "driver"], form_data: Annotat
     - HTTPException: If the input is not in the correct structure (status code: 422)
     - HTTPException: If credentials are invalid (status code: 401)
     """
-    # Find login method
     identifier = form_data.username
     if is_valid_phone_number(identifier): login_method = "phone_number"
     else: login_method = "email"
@@ -184,7 +181,7 @@ async def login(account_type: Literal["passenger", "driver"], form_data: Annotat
 
 @app.get("/account_info")
 async def get_account_info(user_info: authentication.authorize_any_account):
-    """Gives account info"""
+    """Give account info"""
     del user_info["password_hash"]
     print("JDOE")
     if user_info["account_type"] == "driver": # user is a driver
@@ -193,36 +190,27 @@ async def get_account_info(user_info: authentication.authorize_any_account):
                                     "description": db.routes[route_id]["details"]["description"],
                                     "line": db.routes[route_id]["line"]
                                     } for route_id in user_info["route_list"]]
+        
     user_info["saved_routes"] = await db.get_user_saved_routes(user_info["id"], user_info["account_type"])
     user_info["saved_vehicles"] = await db.get_user_saved_vehicles(user_info["id"], user_info["account_type"])
     user_info["saved_locations"] = await db.get_user_saved_locations(user_info["id"], user_info["account_type"])
     return user_info
 
-@app.get("/saved_routes")
-async def get_account_saved_routes(user_info: authentication.authorize_any_account):
-    return await db.get_user_saved_routes(user_info["id"], user_info["account_type"])
-
 @app.put("/saved_routes")
 async def set_account_saved_routes(saved_routes: Annotated[List[int], Body(embed=True)], user_info: authentication.authorize_any_account):
+    """Set user's saved routes"""
     await db.set_user_saved_routes(user_info["id"], saved_routes, user_info["account_type"])
     return {"message": "Successfully updated"}
 
-@app.get("/saved_vehicles")
-async def get_account_saved_vehicles(user_info: authentication.authorize_any_account):
-    return await db.get_user_saved_vehicles(user_info["id"], user_info["account_type"])
-
 @app.put("/saved_vehicles")
 async def set_account_saved_vehicles(saved_vehicles: Annotated[List[Saved_Vehicle], Body(embed=True)], user_info: authentication.authorize_any_account):
+    """Set user's saved vehicles"""
     await db.set_user_saved_vehicles(user_info["id"], saved_vehicles, user_info["account_type"])
     return {"message": "Successfully updated"}
 
-@app.get("/saved_locations")
-async def get_account_saved_locations(user_info: authentication.authorize_any_account):
-    return await db.get_user_saved_locations(user_info["id"], user_info["account_type"])
-
 @app.put("/saved_locations")
 async def set_account_saved_locations(saved_locations: Annotated[List[Saved_Location], Body(embed=True)], user_info: authentication.authorize_any_account):
-    print(saved_locations)
+    """Set user's saved locations"""
     await db.set_user_saved_locations(user_info["id"], saved_locations, user_info["account_type"])
     return {"message": "Successfully updated"}
 
@@ -451,13 +439,13 @@ async def route_details(route_id: int):
     
     route_data = helper.flatten_route_data(app.state.routes[route_id])
 
-    return {"message" : f"Successfully collected the route data of the route with id {route_id}",
+    return {"message" : f"Successfully collected route details",
             "route_data": route_data}
 
 
 
 @app.get("/route/{route_id}", status_code=status.HTTP_200_OK)
-async def route(route_id: int, response: Response):
+async def route(route_id: int):
     """Get some information and current vehicles of a specific route 
 
     Parameters:
@@ -473,10 +461,10 @@ async def route(route_id: int, response: Response):
     if route_id not in app.state.routes:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail={"error_code": "INVALID_ROUTE_ID",
-                                    "details": "The given route id is invalid"})
+                                    "msg": "The given route id is invalid"})
     
     route_data = await helper.get_route_data(int(route_id), num='')
-    return {"message" : "All Good.", "route_data": route_data}
+    return {"message" : "Successfully collected route data", "route_data": route_data}
 
 
 
@@ -504,16 +492,13 @@ async def route_vehicles_eta(route_id:int, response: Response,
     """
     # Load route
     if route_id not in app.state.routes:
-        response.status_code = status.HTTP_404_NOT_FOUND
-        return {"message": "Route not found."}
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail={"error_code": "INVALID_ROUTE_ID",
+                                    "msg": "The given route id is invalid"})
     
     # Get route vehicles
     vehicles = await db.get_route_vehicles(route_id)
-    if vehicles is None:
-        response.status_code = status.HTTP_404_NOT_FOUND
-        return {"message": "No vehicles available on the route with id '" + route_id  + "'.", 
-
-                "available_vehicle" : {}}
+    if vehicles is None: vehicles = []
 
     vehicles_eta = await helper.get_route_vehicles_eta((pick_up_long, pick_up_lat), vehicles, route_id, MAPBOX_TOKEN)
     return {"message" : "All Good.", "vehicles" : vehicles_eta}
@@ -528,7 +513,7 @@ async def get_vehicle(vehicle_id: int, response: Response, user_info: authentica
     - vehicle_id
 
     Returns:
-    - Requested info
+    - Details of the vehicle with id `vehicle_id`
 
     Raises:
     - HTTPException: if the given route_id is invalid (status_code: 404)
@@ -540,7 +525,7 @@ async def get_vehicle(vehicle_id: int, response: Response, user_info: authentica
     if vehicle_details is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                       detail={"error_code": "INVALID_VEHICLE_ID",
-                              "details": "The given vehicle id is invalid"})
+                              "msg": "The given vehicle id is invalid"})
     vehicle_route = app.state.routes[vehicle_details["route_id"]]
     vehicle_details["route_name"] = vehicle_route["details"]["route_name"]
     if passenger_id is not None:
@@ -560,17 +545,18 @@ async def vehicle_time(route_id:int, long1:float, lat1:float, long2:float, lat2:
     following a specific route
 
     Parameters:
-    - route_id: the id of the route chosen
+    - route_id: the id of the chosen route
     - [long1, lat1]: coordinates of the departure
     - [long2, lat2]: coordinates of the destination
 
     Returns:
-    - Eta of the drive
+    - Eta of the driver
     """
     # Load route
     if route_id not in app.state.routes:
-        response.status_code = status.HTTP_404_NOT_FOUND
-        return {"message": "Route not found."}
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail={"error_code": "INVALID_ROUTE_ID",
+                                    "msg": "The given route id is invalid"})
     point1 = helper.project_point_on_route((long1, lat1), route_id)
     point2 = helper.project_point_on_route((long2, lat2), route_id)
     eta = helper.get_time_estimation(route_id, point1, point2, MAPBOX_TOKEN)
