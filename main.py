@@ -477,8 +477,7 @@ async def get_all_vehicles_location():
 
 
 @app.get("/route_vehicles_eta/{route_id}", status_code=status.HTTP_200_OK)
-async def route_vehicles_eta(route_id:int, response: Response,
-                             pick_up_long:float, pick_up_lat:float):
+async def route_vehicles_eta(route_id:int, pick_up_long:float, pick_up_lat:float):
     """Get the etas of all vehicles on a specific route to
     a specific destination
 
@@ -500,7 +499,9 @@ async def route_vehicles_eta(route_id:int, response: Response,
     vehicles = await db.get_route_vehicles(route_id)
     if vehicles is None: vehicles = []
 
-    vehicles_eta = await helper.get_route_vehicles_eta((pick_up_long, pick_up_lat), vehicles, route_id, MAPBOX_TOKEN)
+    # vehicles_eta = await helper.get_route_vehicles_eta((pick_up_long, pick_up_lat), vehicles, route_id, MAPBOX_TOKEN)
+    pickup = (pick_up_long, pick_up_lat)
+    vehicles_eta = await helper.get_all_vehicles_eta_termos(pickup, vehicles, route_id, MAPBOX_TOKEN)
     return {"message" : "All Good.", "vehicles" : vehicles_eta}
     
 

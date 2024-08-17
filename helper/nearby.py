@@ -209,7 +209,7 @@ async def chained_routes(intersections, nearby_A, nearby_B, mapbox_token):
             }
         }
 
-        formated_output = {**route1_data, **route2_data, **common}
+        formated_output = {**route1_data, **route2_data, **common, "TERMOS": db.routes[route1_id]}
         
         chained_output.append(formated_output)    
 

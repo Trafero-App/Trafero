@@ -88,6 +88,7 @@ INSERT INTO vehicle_location (longitude, latitude, vehicle_id) VALUES
           33.878257143568774, 19),
     (35.516198471978555,
           33.87866235068171, 20);
+          
 INSERT INTO vehicle_route (vehicle_id, route_id) VALUES (1, 1), (1, 2), (1, 3);
 INSERT INTO waypoint (longitude, latitude, route_id, projection_index) VALUES 
 (35.549782, 33.893595, 1, 0), (35.546651, 33.894754, 1, 72), (35.540836, 33.896257, 1, 132),

@@ -8,6 +8,8 @@ This module handles all functionalities related to waypoint and time estimation
 import requests
 from database import db
 from .operations import project_point_on_route 
+import asyncio
+import aiohttp
 
 
 
@@ -85,6 +87,12 @@ def get_eta(waypoints, token, mode):
     """
     if waypoints == None:
         return 0
+    url, params = get_api_call_url_and_params(waypoints, mode, token)
+    response = requests.get(url, params=params)
+    # print(response.json())
+    return round(response.json()["routes"][0]["duration"] / 60)
+
+def get_api_call_url_and_params(waypoints, mode, token):
     if mode == "driving": mapbox_mode = "driving-traffic"
     elif mode == "walking": mapbox_mode = "walking"
     url = f"https://api.mapbox.com/directions/v5/mapbox/{mapbox_mode}/" + \
@@ -93,9 +101,51 @@ def get_eta(waypoints, token, mode):
     url += "&continue_straight=true" # Tend to continue in the same direction
     url += "&steps=false" # Don't include turn-by-turn instrutions
     params = {'access_token': token,
-              'geometries': 'geojson',
-              'overview': 'full'
-              }
-    response = requests.get(url, params=params)
-    # print(response.json())
-    return round(response.json()["routes"][0]["duration"] / 60)
+            'geometries': 'geojson',
+            'overview': 'full'
+            }
+    return url, params
+
+def get_tasks(session, waypoints_lists, mode, token):
+    tasks = []
+    for waypoint_list in waypoints_lists:
+        if waypoint_list == None:
+            return 0
+        url, params = get_api_call_url_and_params(waypoint_list, mode, token)
+        tasks.append(asyncio.create_task(session.get(url, params=params)))
+    return tasks
+            
+        
+async def get_all_etas(waypoints_lists, token, mode):
+    etas = []
+    async with aiohttp.ClientSession() as session:
+        tasks = get_tasks(session, waypoints_lists, mode, token)
+        responses = await asyncio.gather(*tasks)
+        for response in responses:
+            etas.append(int((await response.json())["routes"][0]["duration"] / 60))
+
+    return etas
+
+
+async def get_all_vehicles_eta_termos(pick_up, vehicles, route_id, token):
+    waypoints = await db.get_route_waypoints(route_id)
+    waypoints_lists = {}
+    passed = []
+    available = []
+    id_to_vehicles = {vehicle["id"]:vehicle for vehicle in vehicles}
+    for vehicle in vehicles:
+        vehicle_projection = project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route_id)[0]
+        pick_up_projection = project_point_on_route(pick_up, route_id)[0]
+        if pick_up_projection < vehicle_projection:
+            vehicle["passed"] = True
+            passed.append(vehicle)
+        else:
+            vehicle["passed"] = False
+            waypoints_lists[vehicle["id"]] = trim_waypoints(waypoints, route_id, start_index=vehicle_projection, end_index=pick_up_projection)
+            available.append(vehicle)
+        
+    etas = await get_all_etas(list(waypoints_lists.values()), token, "driving")
+    for i, vehicle_id in enumerate(waypoints_lists.keys()):
+        id_to_vehicles[vehicle_id]["expected_time"] = etas[i]
+    available.sort(key=lambda x: x["expected_time"])
+    return available + passed

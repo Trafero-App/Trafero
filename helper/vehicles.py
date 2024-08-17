@@ -59,40 +59,6 @@ async def get_vehicle_time_estimation(vehicle_id, dest, token, location = None, 
     time_estimation = await get_time_estimation(route_id, vehicle_index, pick_up, token)
     return {"passed": False, "expected_time": time_estimation}
 
-#GOOD
-async def get_route_vehicles_eta(pick_up, vehicles, route_id, token):
-    """
-    Get estimated time of arrival (ETA) of all vehicles on a route to a destination.
-
-    Parameters:
-    -pick up location (long, lat)  
-    -list of vehicles available
-    -route id
-    -MapBox token
-
-    Returns:
-    -For each vehicle, boolean indicating if the vehicle already passed the location, if not, estimated time of arrival (ETA)
-    """
-    available = []
-    passed = []
-    for vehicle in vehicles:
-        id = vehicle["id"]
-        location = (vehicle["longitude"], vehicle["latitude"])
-        del vehicle["longitude"]
-        del vehicle["latitude"]
-        v_eta = await get_vehicle_time_estimation(id, pick_up, token, location, route_id)
-        if v_eta["passed"] == True:
-            vehicle["passed"] = True
-            passed.append(vehicle)
-        else:
-            vehicle["passed"] = False
-            vehicle["expected_time"] = v_eta["expected_time"]
-            available.append(vehicle)
-    
-    available.sort(key=lambda x: x["expected_time"])
-    return available + passed
-           
-
 async def all_vehicles_info():
     """
     Get information for all vehicles.
@@ -120,7 +86,7 @@ async def all_vehicles_info():
             
             }
         })
-
+    print(len(vehicle_info))
     return {
                 "type": "FeatureCollection",
                 "features": features
