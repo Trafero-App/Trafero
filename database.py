@@ -248,23 +248,19 @@ class db:
         return res[0][0]
 
     @classmethod 
-    async def check_phone_number_available(cls, phone_number, account_type: Literal["passenger", "driver"]):
+    async def check_phone_number_available(cls, phone_number):
         async with cls.db_pool.acquire() as con:
-            if account_type == "passenger":
-                res = await con.fetchrow("SELECT * FROM passenger WHERE phone_number=$1", phone_number)
-            else:
-                res = await con.fetchrow("SELECT * FROM driver WHERE phone_number=$1", phone_number)
-        if res is None: return True
+            res1 = await con.fetchrow("SELECT * FROM passenger WHERE phone_number=$1", phone_number)
+            res2 = await con.fetchrow("SELECT * FROM driver WHERE phone_number=$1", phone_number)
+        if res1 is None and res2 is None: return True
         else: return False
     
     @classmethod 
-    async def check_email_available(cls, email, account_type: Literal["passenger", "driver"]):
+    async def check_email_available(cls, email):
         async with cls.db_pool.acquire() as con:
-            if account_type == "passenger":
-                res = await con.fetchrow("SELECT * FROM passenger WHERE email=$1", email)
-            else:
-                res = await con.fetchrow("SELECT * FROM driver WHERE email=$1", email)
-        if res is None: return True
+            res1 = await con.fetchrow("SELECT * FROM passenger WHERE email=$1", email)
+            res2 = await con.fetchrow("SELECT * FROM driver WHERE email=$1", email)
+        if res1 is None and res2 is None: return True
         else: return False
     
     @classmethod

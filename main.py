@@ -124,20 +124,20 @@ async def signup(request: Request):
     return {"message": "Account was signed up successfully.", "token": {"access_token": access_token, "token_type": "bearer"}}
     
 
-@app.get("/check_email/{account_type}", status_code=status.HTTP_200_OK)
-async def check_email(account_type: Literal["passenger", "driver"], email: str):
+@app.get("/check_email", status_code=status.HTTP_200_OK)
+async def check_email(email: str):
     """Check if email has proper form and is unused"""
     has_proper_form = is_valid_email(email)
-    is_unused = await db.check_email_available(email, account_type)
+    is_unused = await db.check_email_available(email)
     return {"message": "Validating email complete.", "is_valid": has_proper_form and is_unused}
 
 
 
-@app.get("/check_phone_number/{account_type}", status_code=status.HTTP_200_OK)
-async def check_phone_number(account_type: Literal["passenger", "driver"], phone_number: str):
+@app.get("/check_phone_number", status_code=status.HTTP_200_OK)
+async def check_phone_number(phone_number: str):
     """Check if phone number has proper form and is unused"""
     has_proper_form = is_valid_phone_number(phone_number)
-    is_unused = await db.check_phone_number_available(phone_number, account_type)
+    is_unused = await db.check_phone_number_available(phone_number)
     return {"message": "Validating email complete.", "is_valid": has_proper_form and is_unused}
 
 
@@ -430,6 +430,7 @@ async def route_details(route_id: int):
     - Details of the requested route
 
     Raises:
+    - HTTPException: If the input is not in the correct structure (status code: 422)
     - HTTPException: If the route id is invalid (status code: 404)
     """
     if route_id not in app.state.routes:
@@ -507,7 +508,7 @@ async def route_vehicles_eta(route_id:int, pick_up_long:float, pick_up_lat:float
 
 
 @app.get("/vehicle/{vehicle_id}", status_code=status.HTTP_200_OK)
-async def get_vehicle(vehicle_id: int, response: Response, user_info: authentication.authorize_anyone):
+async def get_vehicle(vehicle_id: int, user_info: authentication.authorize_anyone):
     """Get information about a specific vehicle
 
     Parameters:
@@ -517,6 +518,7 @@ async def get_vehicle(vehicle_id: int, response: Response, user_info: authentica
     - Details of the vehicle with id `vehicle_id`
 
     Raises:
+    - HTTPException: If the input is not in the correct structure (status code: 422)
     - HTTPException: if the given route_id is invalid (status_code: 404)
     """
     if user_info is not None and user_info["type"] == "passenger":
@@ -669,8 +671,11 @@ async def post_feedback(review: Passenger_Review, response: Response, user_info 
     - Message indicating the passenger's review was successfully added
 
     Raises:
-    - HTTPException: if the given passenger_id or vehicle_id doesn't exist (status_code: 400)
-    - HTTPException: if the passenger already added a previous feedback to this vehicle (status_code: 400)
+    - HTTPException: If the input is not in the correct structure (status code: 422)
+    - HTTPException: If the request doesn't include a valid passenger account
+      unexpired access token (status code: 401)
+    - HTTPException: if the given passenger_id or vehicle_id doesn't exist (status_code: 404)
+    - HTTPException: if the passenger already added a previous feedback to this vehicle (status_code: 409)
     """
     passenger_id = user_info["id"]
     review_entry = Review_DB_Entry(**review.model_dump(), passenger_id=passenger_id)
@@ -686,10 +691,10 @@ async def post_feedback(review: Passenger_Review, response: Response, user_info 
                 }
     except asyncpg.exceptions.ForeignKeyViolationError as e:
         if "fk_vehicle" in str(e):
-            response.status_code = status.HTTP_400_BAD_REQUEST
+            response.status_code = status.HTTP_404_BAD_REQUEST
             return {"message": "Error: You have attempted to add the feedback of a vehicle that doesn't exist."}
         elif "fk_passenger" in str(e):
-            response.status_code = status.HTTP_400_BAD_REQUEST
+            response.status_code = status.HTTP_409_BAD_REQUEST
             return {"message": "Error: You have attempted to add the feedback of a passenger that doesn't exist."}
 
 
@@ -801,45 +806,41 @@ async def delete_vehicle_feedback(vehicle_id: int, response: Response, user_info
 
 
 @app.get("/station", status_code=status.HTTP_200_OK)
-async def get_stations(response: Response):
+async def get_stations():
     """Get all stations
 
     Returns:
     - All stations coordinates and their corresponding routes
     """
     result = await db.get_stations()
-    if (result is None) or not result:
-        response.status_code = status.HTTP_404_NOT_FOUND
-        return {"message": "no stations."}
-    else:
-        features = []
-        for stop in result:
-            properties = helper.flatten_route_data(app.state.routes[stop["route_id"]])
-            del properties["route_name"]
-            del properties["description"]
-            del properties["company_name"]
-            del properties["phone_number"]
-            del properties["distance"]
-            del properties["estimated_travel_time"]
-            del properties["route_type"]
-            properties["stop_name"] = stop["station_name"]
-            feature = {
-                "type": "Feature",
-                "properties": properties,
-                "geometry": {
-                    "coordinates": [
-                        stop["longitude"],
-                        stop["latitude"]
-                    ],
-                    "type": "Point"
-                }
+    features = []
+    for stop in result:
+        properties = helper.flatten_route_data(app.state.routes[stop["route_id"]])
+        del properties["route_name"]
+        del properties["description"]
+        del properties["company_name"]
+        del properties["phone_number"]
+        del properties["distance"]
+        del properties["estimated_travel_time"]
+        del properties["route_type"]
+        properties["stop_name"] = stop["station_name"]
+        feature = {
+            "type": "Feature",
+            "properties": properties,
+            "geometry": {
+                "coordinates": [
+                    stop["longitude"],
+                    stop["latitude"]
+                ],
+                "type": "Point"
             }
-            features.append(feature)
+        }
+        features.append(feature)
              
-        return {"message": "All Good", "content":{
-            "type": "FeatureCollection",
-            "features": features 
-        }}
+    return {"message": "All Good", "content":{
+        "type": "FeatureCollection",
+        "features": features 
+    }}
     
 
 @app.post("/app_feedback")
