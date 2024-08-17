@@ -26,7 +26,6 @@ class db:
 
     @classmethod
     async def get_driver_vehicle_id(cls, driver_id):
-        print(driver_id)
         async with cls.db_pool.acquire() as con:
             res = await con.fetchrow("SELECT vehicle_id from driver WHERE id=$1", driver_id)
         return res[0]
@@ -47,7 +46,6 @@ class db:
         
     @classmethod
     async def update_vehicle_location(cls, vehicle_id, latitude, longitude):
-        print(vehicle_id, "LL")
         async with cls.db_pool.acquire() as con:
             old_location = await con.fetchrow("SELECT (longitude, latitude) FROM vehicle_location WHERE vehicle_id=$1", vehicle_id)
             if old_location is None: return False
@@ -110,7 +108,7 @@ class db:
                  "latitude": vehicle_info[0][2], "status": vehicle_info[0][3], "license_plate": vehicle_info[0][4]} for vehicle_info in res]
 
     @classmethod
-    async def get_all_vehicles_info(cls): # to be changed (name get_all_active_vehicles_info)
+    async def get_active_vehicles_arrival_info(cls): # to be changed (name get_all_active_vehicles_info)
         async with cls.db_pool.acquire() as con:
             res = await con.fetch("""SELECT (vehicle.id, vehicle_location.longitude, vehicle_location.latitude, vehicle.status)
                                   FROM vehicle JOIN vehicle_location ON vehicle.id = vehicle_location.vehicle_id WHERE status != 'inactive'""")
@@ -310,10 +308,9 @@ class db:
     @classmethod
     async def add_feedback(cls, review_data: Review_DB_Entry):
         async with cls.db_pool.acquire() as con:
-            print(review_data)
             feedback_id = await con.fetch("""INSERT INTO feedback (passenger_id, vehicle_id, reaction) VALUES ($1, $2, $3) RETURNING id""",
                                     review_data.passenger_id, review_data.vehicle_id, review_data.reaction)
-            print("y")
+            
             feedback_id = feedback_id[0][0]
             if review_data.reaction == "thumbs_down":
                 await cls.add_complaints(review_data, feedback_id)

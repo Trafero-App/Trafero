@@ -5,9 +5,9 @@ This module handles all functions related to searching.
 
 """
 from fuzzywuzzy import fuzz, process
-#SEARCH
+from database import db
 
-def search_routes(query: str, routes_info):
+def search_routes(query: str):
     """Get routes based on a query
 
     Parameters:
@@ -17,36 +17,25 @@ def search_routes(query: str, routes_info):
     Returns:
     - All routes related to the query
     """
-    routes_result = [] 
+    # Get all matching routes
+    route_scores = {}
+    routes_search_data = db.routes_search_data
+    for route_search_data in routes_search_data:
+        score1 = (process.extract(query, route_search_data[1:]))[0][-1]
+        score2 = max(fuzz.partial_ratio(query, route_search_data) for route_search_data in routes_search_data)
+
+        score = max(score1, score2)
+        if score >= 80:
+            route_scores[route_search_data[0]] = score
+
     filtered_routes_result = []
-    for i, element in enumerate(routes_info):
-        temp_result = [0, 0] # [score, id]
-        temp_score = (process.extract(query, element[1:]))[0][-1]
-
-        if temp_score >=80:
-            temp_result[0] = temp_score
-            temp_result[1] = routes_info[i][0]
-            routes_result.append(temp_result)
-
+    # If some routes have a high score, ignore ones with a low score
+    if route_scores != {}:
+        max_score = max(route_scores.values())
+        if max_score >= 90:
+            filtered_routes_result = list(filter(lambda route_id: route_scores[route_id] >= 90, route_scores.keys()))
         else:
-            for j in range (1, len(element)):
-                temp_score = fuzz.partial_ratio(query, element[j])
-                if temp_score >=80:
-                        temp_result[0] = temp_score
-                        temp_result[1] = routes_info[i][0]
-                        routes_result.append(temp_result)
-                        break             
-    # print("\n", routes_result, "\n")
-    if routes_result != []:
-        max_score = max(res[0] for res in routes_result)
-        if max_score >=90:
-            for res in routes_result:
-                if res[0]>=90:      
-                    filtered_routes_result.append(res[1])
-            
-        else:
-            for res in routes_result:
-                 filtered_routes_result.append(res[1])
+            filtered_routes_result = list(route_scores.keys())
 
     return filtered_routes_result
 
@@ -62,10 +51,9 @@ def search_vehicles(query: str, vehicles_info):
     """
     result = []
     for i, element in enumerate(vehicles_info):
-        x = fuzz.partial_ratio(query, element[1])
-        y = process.extract(query, (element[1],''))
-        # print(max(x,y[0][-1]), element)
-        if max(x,y[0][-1])>=90:
+        score1 = fuzz.partial_ratio(query, element[1])
+        score2 = process.extract(query, (element[1],''))[0][-1]
+        score = max(score1, score2)
+        if score >= 90:
             result.append(i)
-
     return result

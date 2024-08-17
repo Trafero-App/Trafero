@@ -1,5 +1,5 @@
 """
-main.py
+operations.py
 
 This module handles fundamental functions related to basic coordinaates operations.
 
@@ -7,7 +7,6 @@ This module handles fundamental functions related to basic coordinaates operatio
 import math
 from database import db
 
-#GOOD
 def haversine(pointA, pointB):
     """
     Calculate distance between two geographical points.
@@ -19,10 +18,9 @@ def haversine(pointA, pointB):
     Returns:
     -Distance between points in meters
     """
-    lon1 = pointA[0]
-    lat1 = pointA[1]
-    lon2 = pointB[0]
-    lat2 = pointB[1]
+    lon1, lat1 = pointA
+    lon2, lat2 = pointB
+
     R = 6371.0 
     lon1, lat1, lon2, lat2 = map(math.radians, [lon1, lat1, lon2, lat2])
     
@@ -35,8 +33,7 @@ def haversine(pointA, pointB):
     distance = R * c * 1000
     return distance
 
-#GOOD
-def project_point_on_route(point, route_id):
+def project_point_on_route(point, route_id, return_as_point=False):
     """
     Calculate the projection of a point on a certain route.
 
@@ -49,9 +46,14 @@ def project_point_on_route(point, route_id):
     """
     route_coords = db.routes[route_id]["line"]["features"][0]["geometry"]["coordinates"]
     minimum_distance = float('inf')
-    for i,route_point in enumerate(route_coords):
+    for i, route_point in enumerate(route_coords):
         temp_distance = haversine(point, route_point)
         if temp_distance <= minimum_distance :
             minimum_distance = temp_distance
             closest_point_index = i
-    return (closest_point_index, minimum_distance)
+            closest_point = route_point
+
+    if return_as_point:
+        return closest_point, minimum_distance
+    
+    return closest_point_index, minimum_distance

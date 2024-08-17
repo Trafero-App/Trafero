@@ -35,7 +35,7 @@ class Account_Info(BaseModel):
             raise ValueError("Date of birth must be in YYYY-MM-DD format")
         if not is_valid_name(values.first_name) or not is_valid_name(values.last_name):
             raise ValueError("Name must consist of only alphabetic characters, spaces, dashes, and apostrophes")
-        print(values, '\n\n\n')
+        
         if values.password is not None and not is_valid_password(values.password):
             raise ValueError("You password is invalid")
         if (values.email is not None and not is_valid_email(values.email)) or \

@@ -5,14 +5,11 @@ from validation import Account_Info
 
 
 def get_account_info_from_form(form_data: dict):
-    # form_data = form_data.copy()
 
     routes = form_data.get("routes")
-
     if routes is not None: routes = json.loads(routes)
 
     form_data["routes"] = routes
-
     account_info = Account_Info(**form_data)
 
     return account_info

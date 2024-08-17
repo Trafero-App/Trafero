@@ -141,14 +141,6 @@ async def check_phone_number(phone_number: str):
     return {"message": "Validating email complete.", "is_valid": has_proper_form and is_unused}
 
 
-
-@app.get("/check_password", status_code=status.HTTP_200_OK)
-async def check_password(password: str):
-    """Check if password has proper form"""
-    return {"message": "Validating email complete.", "is_valid": is_valid_password(password)}
-
-
-
 @app.post("/login/{account_type}", status_code=status.HTTP_200_OK)
 async def login(account_type: Literal["passenger", "driver"], form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     """Validate user credentials and provide authentication token
@@ -183,7 +175,6 @@ async def login(account_type: Literal["passenger", "driver"], form_data: Annotat
 async def get_account_info(user_info: authentication.authorize_any_account):
     """Give account info"""
     del user_info["password_hash"]
-    print("JDOE")
     if user_info["account_type"] == "driver": # user is a driver
         user_info["route_list"] = [{"route_id": route_id,
                                     "route_name": db.routes[route_id]["details"]["route_name"],
@@ -213,72 +204,6 @@ async def set_account_saved_locations(saved_locations: Annotated[List[Saved_Loca
     """Set user's saved locations"""
     await db.set_user_saved_locations(user_info["id"], saved_locations, user_info["account_type"])
     return {"message": "Successfully updated"}
-
-
-
-@app.get("/vehicle_location/{vehicle_id}", status_code=status.HTTP_200_OK)
-async def get_vehicle_location(vehicle_id: int):
-    """Get the location of the vehicle having id `vehicle_id`
-
-    Parameters:
-    - vehicle_id: id of the vehicle whose location is needed
-
-    Returns:
-    - [long, lat] representing the vehicle's coordinates
-
-    Raises:
-    - HTTPException: If the input is not in the correct structure (status code: 422)
-    - HTTPException: If the entered vehicle id doesn't correspond to a valid vehicle
-      in the database (status code: 404)
-
-    """
-    entry = await db.get_vehicle_location(vehicle_id)
-    if entry is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail={"error_code": "INVALID_VEHICLE_ID", "msg": f"'{vehicle_id}' isn't a valid vehicle id"})
-    
-    return {"message": "Coordinates found successfully.", "coordinates":[entry["longitude"], entry["latitude"]]}
-
-
-
-@app.post("/vehicle_location", status_code=status.HTTP_200_OK)
-async def post_vehicle_location(vehicle_location_data: Point, user_info : authentication.authorize_driver):
-    """Add the location of an existing vehicle to the database
-
-    Parameters:
-    - vehicle_location_data: A `Point` representing the vehicle's location
-    - user_info: user information extracted from the authentication token
-
-    Returns:
-    - Message indicating the location was succesfully added
-    
-    Raises:
-    - HTTPException: If the input is not in the correct structure (status code: 422)
-    - HTTPException: If the request doesn't include a valid vehicle account
-      unexpired access token (status code: 401)
-    - HTTPException: If the location of the vehicle has already been added (status code: 400)
-    - HTTPException: If the vehicle id is invalid (status code: 400)
-
-    Notes:
-    - Only requests with tokens corresponding to vehicle accounts may 
-      send this request.
-    - Only use this POST request to add the location of a vehicle when
-      its location hasn't been added already. To update the location
-      of a vehicle, send a PUT request to `/vehicle_location`
-    """
-    vehicle_id = await db.get_driver_vehicle_id(user_info["id"])
-    latitude, longitude = vehicle_location_data.latitude, vehicle_location_data.longitude
-    try:
-        await db.add_vehicle_location(vehicle_id, longitude=longitude, latitude=latitude)
-    except asyncpg.exceptions.UniqueViolationError:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail={"error_code": "LOCATION_ALREADY_ADDED",
-                                    "msg": "Your location has already been added. Maybe you meant to send a PUT request?"})
-    except asyncpg.exceptions.ForeignKeyViolationError:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail={"error_code": "INVALID_VEHICLE_ID",
-                                    "msg": "The vehicle id used is invalid. Try to generate another token."})
-    return {"message": "All Good."}
 
 
 
@@ -347,8 +272,8 @@ async def put_vehicle_status(new_status: Literal["active", "waiting", "unavailab
         return {"message": "Status updated successfully."}
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail={"error_code": "INVALID_VEHICLE_ID",
-                                    "msg":"Please provide a valid vehicle id"}) # to be changed
+                      detail={"error_code": "INVALID_VEHICLE_ID",
+                              "msg": "The given vehicle id is invalid"})
 
 
 
@@ -464,7 +389,7 @@ async def route(route_id: int):
                             detail={"error_code": "INVALID_ROUTE_ID",
                                     "msg": "The given route id is invalid"})
     
-    route_data = await helper.get_route_data(int(route_id), num='')
+    route_data = await helper.get_route_details(int(route_id), num='')
     return {"message" : "Successfully collected route data", "route_data": route_data}
 
 
@@ -502,7 +427,7 @@ async def route_vehicles_eta(route_id:int, pick_up_long:float, pick_up_lat:float
 
     # vehicles_eta = await helper.get_route_vehicles_eta((pick_up_long, pick_up_lat), vehicles, route_id, MAPBOX_TOKEN)
     pickup = (pick_up_long, pick_up_lat)
-    vehicles_eta = await helper.get_all_vehicles_eta_termos(pickup, vehicles, route_id, MAPBOX_TOKEN)
+    vehicles_eta = await helper.get_all_vehicles_arrival_status(pickup, vehicles, route_id, MAPBOX_TOKEN)
     return {"message" : "All Good.", "vehicles" : vehicles_eta}
     
 
@@ -541,50 +466,9 @@ async def get_vehicle(vehicle_id: int, user_info: authentication.authorize_anyon
     return {"message": "All Good", "content": vehicle_details}
 
 
-
-@app.get("/time/driving", status_code=status.HTTP_200_OK)
-async def vehicle_time(route_id:int, long1:float, lat1:float, long2:float, lat2:float, response: Response):
-    """Get the driving time from point A to point B by 
-    following a specific route
-
-    Parameters:
-    - route_id: the id of the chosen route
-    - [long1, lat1]: coordinates of the departure
-    - [long2, lat2]: coordinates of the destination
-
-    Returns:
-    - Eta of the driver
-    """
-    # Load route
-    if route_id not in app.state.routes:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail={"error_code": "INVALID_ROUTE_ID",
-                                    "msg": "The given route id is invalid"})
-    point1 = helper.project_point_on_route((long1, lat1), route_id)
-    point2 = helper.project_point_on_route((long2, lat2), route_id)
-    eta = helper.get_time_estimation(route_id, point1, point2, MAPBOX_TOKEN)
-    return {"message": "All Good.", "time_estimation" : eta}
-
-
-
-@app.get("/time/walking", status_code=status.HTTP_200_OK)
-async def vehicle_time(long1:float, lat1:float, long2:float, lat2:float, response: Response):
-    """Get the walking time from point A to point B
-
-    Parameters:
-    - [long1, lat1]: coordinates of the departure
-    - [long2, lat2]: coordinates of the destination
-
-    Returns:
-    - Eta of the walk
-    """
-    return {"message": "All Good.", "time_estimation" : helper.eta([(long1, lat1), (long2, lat2)], os.getenv("mapbox_token"), "walking")}
-
-
-
 @app.get("/vehicle_eta/{vehicle_id}")
 async def vehicle_eta(vehicle_id: int, pick_up_long:float, pick_up_lat:float):
-    res = await helper.get_vehicle_time_estimation(vehicle_id, (pick_up_long, pick_up_lat), MAPBOX_TOKEN)
+    res = await helper.get_arrival_status(vehicle_id, (pick_up_long, pick_up_lat), MAPBOX_TOKEN)
     return { "message": "All good.", "content": res}
 
 
@@ -604,13 +488,13 @@ async def nearby_routes(long:float, lat:float, radius:float,
       already
     """
     if long2 is not None and lat2 is not None and radius2 is not None:
-        close_routes = await helper.get_nearby_routes(long, lat, min(radius, 1500), long2, lat2, min(radius2, 1500), MAPBOX_TOKEN)
+        close_routes = await helper.all_nearby_routes_2_points(long, lat, min(radius, 1500), long2, lat2, min(radius2, 1500), MAPBOX_TOKEN)
         if close_routes == []:
-            close_routes = await helper.get_nearby_routes(long, lat, min(radius * 2, 1500), long2, lat2, min(radius2 * 2, 1500), MAPBOX_TOKEN)
+            close_routes = await helper.all_nearby_routes_2_points(long, lat, min(radius * 2, 1500), long2, lat2, min(radius2 * 2, 1500), MAPBOX_TOKEN)
     else:
-        close_routes = await helper.get_nearby_routes_to_1_point(long, lat, min(radius, 1500))
+        close_routes = await helper.nearby_routes_to_a_point_formated(long, lat, min(radius, 1500))
         if close_routes == []:
-            close_routes = await helper.get_nearby_routes_to_1_point(long, lat, min(radius * 2, 1500))
+            close_routes = await helper.nearby_routes_to_a_point_formated(long, lat, min(radius * 2, 1500))
         
     return {"message": "All Good.", "routes": close_routes}
 
@@ -626,7 +510,7 @@ async def search_routes(query: str):
     Returns:
     - All routes related to the query
     """
-    route_ids = helper.search_routes(query, app.state.routes_search_data)
+    route_ids = helper.search_routes(query)
     res = []
     for route_id in route_ids:
         res.append({
@@ -660,7 +544,7 @@ async def search_vehicles(query: str):
 
 # feedback path operations
 @app.post("/feedback", status_code=status.HTTP_200_OK)
-async def post_feedback(review: Passenger_Review, response: Response, user_info : authentication.authorize_passenger):
+async def post_feedback(review: Passenger_Review, user_info : authentication.authorize_passenger):
     """Add the feedback of a passenger on a vehicle
 
     Parameters:
@@ -674,7 +558,7 @@ async def post_feedback(review: Passenger_Review, response: Response, user_info 
     - HTTPException: If the input is not in the correct structure (status code: 422)
     - HTTPException: If the request doesn't include a valid passenger account
       unexpired access token (status code: 401)
-    - HTTPException: if the given passenger_id or vehicle_id doesn't exist (status_code: 404)
+    - HTTPException: if the given vehicle_id doesn't exist (status_code: 404)
     - HTTPException: if the passenger already added a previous feedback to this vehicle (status_code: 409)
     """
     passenger_id = user_info["id"]
@@ -683,24 +567,21 @@ async def post_feedback(review: Passenger_Review, response: Response, user_info 
         await db.add_feedback(review_entry)
         return {"message": "All Good."}
     except asyncpg.exceptions.UniqueViolationError:
-        response.status_code = status.HTTP_400_BAD_REQUEST
-        return {
-                "message":
-                """Error: You have attempted to add the feedback of a passenger whose feedback has
-                already been added to this vehicle. Maybe you meant to send a PUT request?"""        
-                }
+        raise HTTPException(status_code=status.HTTP_409_BAD_REQUEST,
+                            detail={"error_code": "FEEDBACK_ALREADY_ADDED",
+                                    "msg": "The feedback of this user to this vehicle has already been added"})
+    
     except asyncpg.exceptions.ForeignKeyViolationError as e:
         if "fk_vehicle" in str(e):
-            response.status_code = status.HTTP_404_BAD_REQUEST
-            return {"message": "Error: You have attempted to add the feedback of a vehicle that doesn't exist."}
-        elif "fk_passenger" in str(e):
-            response.status_code = status.HTTP_409_BAD_REQUEST
-            return {"message": "Error: You have attempted to add the feedback of a passenger that doesn't exist."}
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, 
+                                detail={"error_code": "INVALID_VEHICLE_ID", "msg": "The given vehicle id is invalid"})
+    
+    return {"message": "Feedback successfully added"}
 
 
 
 @app.put("/feedback", status_code=status.HTTP_200_OK)
-async def put_feedback(review: Passenger_Review, response: Response, user_info: authentication.authorize_passenger):
+async def put_feedback(review: Passenger_Review, user_info: authentication.authorize_passenger):
     """Update the feedback of a passenger on a vehicle
 
     Parameters:
@@ -711,8 +592,8 @@ async def put_feedback(review: Passenger_Review, response: Response, user_info: 
     - Message indicating the passenger's review was successfully updated
 
     Raises:
-    - HTTPException: if the given passenger_id or vehicle_id doesn't exist (status_code: 400)
-    - HTTPException: if the passenger disn't add a previous feedback to this vehicle (status_code: 400)
+    - HTTPException: if the given vehicle_id is invalid (status_code: 404)
+    - HTTPException: if the passenger didn't add a previous feedback to this vehicle (status_code: 404)
     """
     
     passenger_id = user_info["id"]
@@ -720,70 +601,21 @@ async def put_feedback(review: Passenger_Review, response: Response, user_info: 
     try:
         success = await db.update_feedback(review_entry)
         if not success:
-            response.status_code = status.HTTP_400_BAD_REQUEST
-            return {"message": "Feedback cannot be updated (it doesn't exist)"}
-        return {"message": "All Good."}
+            raise HTTPException(status_code=status.HTTP_404_BAD_REQUEST,
+                                detail={"error_code": "FEEDBACK_NOT_FOUND",
+                                        "msg": "This user didnt submit a feedback to this vehicle."})
     except asyncpg.exceptions.ForeignKeyViolationError as e:
         if "fk_vehicle" in str(e):
-            response.status_code = status.HTTP_400_BAD_REQUEST
-            return {"message": "Error: Invalid vehicle id"}
-        elif "fk_passenger" in str(e):
-            response.status_code = status.HTTP_400_BAD_REQUEST
-            return {"message": "Error: Invalid passenger id"}
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                        detail={"error_code": "INVALID_VEHICLE_ID",
+                                "msg": "The given vehicle id is invalid"})
         
-    return {"message": "All good."}
-
-
-
-@app.get("/my_reaction/{vehicle_id}", status_code=status.HTTP_200_OK)
-async def get_my_reaction(vehicle_id: int, response: Response, user_info: authentication.authorize_passenger):
-    """Get the reaction of a passenger on a vehicle
-
-    Parameters:
-    - Passenger_Review: conatins the review details + vehicle_id
-    - user_info: user information extracted from the authentication token
-
-    Returns:
-    - Passenger's reaction
-
-    Raises:
-    - HTTPException: if the given passenger_id or vehicle_id doesn't exist (status_code: 400)
-    - HTTPException: if the passenger already added a feedback to this vehicle (status_code: 400)
-    """
-    passenger_id = user_info["id"]
-    reaction = await db.get_passenger_reaction(passenger_id, vehicle_id)
-    if reaction: 
-        return {"message": "All good.", "reaction": reaction}
-    else:
-        response.status_code = status.HTTP_404_NOT_FOUND
-        return {"message": "Reaction doesn't exist"}
-
-
-
-@app.get("/feedback/{vehicle_id}", status_code=status.HTTP_200_OK)
-async def get_vehicle_feedback(vehicle_id: int, response: Response):
-    """Get all feedbacks related to a vehicle
-
-    Parameters:
-    - vehicle_id
-
-    Returns:
-    - All feedbacks on vehicle
-
-    Raises:
-    - HTTPException: if vehicle_id doesn't exist (status_code: 400)
-    """
-    feedbacks  = await db.get_vehicle_feedback(vehicle_id)
-    if feedbacks: 
-        return {"message": "All good.", "feedbacks": feedbacks}
-    else:
-        response.status_code = status.HTTP_404_NOT_FOUND
-        return {"message": "Vehicle doesn't exist"}
+    return {"message": "Feedback successfully updated"}
 
 
 
 @app.delete("/feedback/{vehicle_id}", status_code=status.HTTP_200_OK)
-async def delete_vehicle_feedback(vehicle_id: int, response: Response, user_info: authentication.authorize_passenger):
+async def delete_vehicle_feedback(vehicle_id: int, user_info: authentication.authorize_passenger):
     """Delete feedback of a passenger on a vehicle
 
     Parameters:
@@ -798,10 +630,11 @@ async def delete_vehicle_feedback(vehicle_id: int, response: Response, user_info
     """
     passenger_id = user_info["id"]
     success = await db.delete_feedback(passenger_id, vehicle_id)
-    if success: return {"message": "All good."}
-    else:
-        response.status_code = status.HTTP_404_NOT_FOUND
-        return {"message": "Entry doesn't exist"}
+    if not success:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail={"error_code": "FEEDBACK_NOT_FOUND",
+                                    "msg": "Feedback doesn't exist"})
+    return {"message": "Feedback successully deleted"}
 
 
 
@@ -837,7 +670,7 @@ async def get_stations():
         }
         features.append(feature)
              
-    return {"message": "All Good", "content":{
+    return {"message": "Successfully gathered info about bus stops", "content":{
         "type": "FeatureCollection",
         "features": features 
     }}
@@ -846,3 +679,43 @@ async def get_stations():
 @app.post("/app_feedback")
 async def app_feedback(feedback: Annotated[str, Body(embed=True)]):
     await db.add_app_feedback(feedback)
+
+
+@app.get("/time/driving", status_code=status.HTTP_200_OK)
+async def vehicle_time(route_id:int, long1:float, lat1:float, long2:float, lat2:float, response: Response):
+    """Get the driving time from point A to point B by 
+    following a specific route
+
+    Parameters:
+    - route_id: the id of the chosen route
+    - [long1, lat1]: coordinates of the departure
+    - [long2, lat2]: coordinates of the destination
+
+    Returns:
+    - Eta of the driver
+    """
+    # Load route
+    if route_id not in app.state.routes:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail={"error_code": "INVALID_ROUTE_ID",
+                                    "msg": "The given route id is invalid"})
+    point1 = helper.project_point_on_route((long1, lat1), route_id)
+    point2 = helper.project_point_on_route((long2, lat2), route_id)
+    eta = helper.get_time_estimation(route_id, point1, point2, MAPBOX_TOKEN)
+    return {"message": "All Good.", "time_estimation" : eta}
+
+
+
+@app.get("/time/walking", status_code=status.HTTP_200_OK)
+async def vehicle_time(long1:float, lat1:float, long2:float, lat2:float):
+    """Get the walking time from point A to point B
+
+    Parameters:
+    - [long1, lat1]: coordinates of the departure
+    - [long2, lat2]: coordinates of the destination
+
+    Returns:
+    - Eta of the walk
+    """
+    return {"message": "All Good.", "time_estimation" : helper.eta([(long1, lat1), (long2, lat2)], os.getenv("mapbox_token"), "walking")}
+
