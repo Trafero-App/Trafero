@@ -21,7 +21,7 @@ import os
 from dotenv import load_dotenv, find_dotenv
 
 from typing import Annotated, Literal, List
-from validation import is_valid_password, is_valid_email, is_valid_phone_number, Account_Info, \
+from validation import is_valid_license_plate, is_valid_email, is_valid_phone_number, Account_Info, \
     Point, Account_DB_Entry, Passenger_Review, Review_DB_Entry, Saved_Location, Saved_Vehicle
 
 import helper
@@ -151,9 +151,10 @@ async def check_phone_number(phone_number: str):
 
 @app.get("/check_license_plate", status_code=status.HTTP_200_OK)
 async def check_phone_number(license_plate: str):
-    """Check if phone number has proper form and is unused"""
+    """Check if license plate has proper form and is unused"""
+    has_proper_form = is_valid_license_plate(license_plate)
     is_unused = await db.check_license_plate_available(license_plate)
-    return {"message": "Validating license plate complete.", "is_valid": is_unused}
+    return {"message": "Validating license plate complete.", "is_valid": has_proper_form and is_unused}
 
 
 @app.post("/login/{account_type}", status_code=status.HTTP_200_OK)
@@ -461,7 +462,7 @@ async def get_vehicle(vehicle_id: int, user_info: authentication.authorize_anyon
     - HTTPException: If the input is not in the correct structure (status code: 422)
     - HTTPException: if the given route_id is invalid (status_code: 404)
     """
-    if user_info is not None and user_info["type"] == "passenger":
+    if user_info is not None and user_info["account_type"] == "passenger":
         passenger_id = user_info.get("id")
     else: passenger_id = None
     vehicle_details = await db.get_vehicle_details(vehicle_id)

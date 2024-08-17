@@ -6,7 +6,7 @@ This module defines various classes and validation functions used throughout the
 """
 from pydantic import BaseModel, model_validator
 from typing import Literal, List
-from .validation_functions import is_valid_dob, is_valid_name, is_valid_password, is_valid_email, is_valid_phone_number
+from .validation_functions import is_valid_dob, is_valid_name, is_valid_password, is_valid_email, is_valid_phone_number, is_valid_license_plate
 
 class Point(BaseModel):
     longitude: float
@@ -31,13 +31,11 @@ class Account_Info(BaseModel):
 
     @model_validator(mode="after")
     def validate_account_info(cls, values):
-        if not is_valid_dob(values.date_of_birth):
-            raise ValueError("Date of birth must be in YYYY-MM-DD format")
+        if not is_valid_dob(values.date_of_birth): raise ValueError("Date of birth must be in YYYY-MM-DD format")
         if not is_valid_name(values.first_name) or not is_valid_name(values.last_name):
             raise ValueError("Name must consist of only alphabetic characters, spaces, dashes, and apostrophes")
         
-        if values.password is not None and not is_valid_password(values.password):
-            raise ValueError("You password is invalid")
+        if values.password is not None and not is_valid_password(values.password): raise ValueError("You password is invalid")
         if (values.email is not None and not is_valid_email(values.email)) or \
            (values.phone_number and not is_valid_phone_number(values.phone_number)):
              raise ValueError("Invalid email and/or phone number")
@@ -55,6 +53,7 @@ class Account_Info(BaseModel):
             if values.brand is None: raise ValueError("Please specify the vehicle's brand")
             if values.model is None: raise ValueError("Please specify the vehicle's model")
             if values.license_plate is None: raise ValueError("Please specify your license plate")
+            if not is_valid_license_plate(values.license_plate): raise ValueError("Please provide a valid license plate")
             if values.vehicle_color is None: raise ValueError("Please specify the vehicle's color")
             if values.routes in (None, []): raise ValueError("Please provide a non-empty list of routes")
         return values

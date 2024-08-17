@@ -31,3 +31,9 @@ def is_valid_phone_number(phone_number: str):
     phone_number_regex_pattern = r"^\d{8}$"
     valid_phone_number = (re.match(phone_number_regex_pattern, phone_number) is not None)
     return valid_phone_number
+
+def is_valid_license_plate(license_plate: str):
+    """Check if phone number has a valid form"""
+    license_plate_regex_pattern = r"^[A-Z] \d{1,7}$"
+    valid_license_plate = (re.match(license_plate_regex_pattern, license_plate) is not None)
+    return valid_license_plate
