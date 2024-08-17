@@ -12,7 +12,7 @@ Functions:
 - Search-related functions
 """
 
-from fastapi import FastAPI, Response, status, Depends, HTTPException, Body, Request
+from fastapi import FastAPI, status, Depends, HTTPException, Body, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -40,19 +40,8 @@ VEHICLE_REGISTRATIONS_PATH = os.getenv("vehicle_registrations_path")
 async def lifespan(app: FastAPI):
     # Open connection to database when app starts up
     await db.connect(DB_URL)
-
-    # Load all routes for efficient access later on
-    app.state.routes = db.routes
-    app.state.routes_search_data = db.routes_search_data
     
-    # p = (35.483226, 33.882462)
-
-    # print(helper.project_point_on_route(p, 2), helper.project_point_on_route(p, 13))
-    # print(helper.project_point_on_route(p, 2, True), helper.project_point_on_route(p, 13, True))
-    # print(db.routes[2]["line"]["features"][0]["geometry"]["coordinates"][693])
-    # print(db.routes[13]["line"]["features"][0]["geometry"]["coordinates"][171])
     yield
-    # (681, 6.6235988991033565) (186, 23.000936233861424)
     
     # Close the connection to the db when the app shuts down
     await db.disconnect()
@@ -92,7 +81,7 @@ async def signup(request: Request):
     account_type = account_data.account_type
 
     if account_data.phone_number is not None:
-        is_available_phone_number = await db.check_phone_number_available(account_data.phone_number, account_type)
+        is_available_phone_number = await db.check_phone_number_available(account_data.phone_number)
         if not is_available_phone_number:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                                 detail={"error_code": "PHONE_NUM_UNAVAILABLE",
@@ -101,7 +90,7 @@ async def signup(request: Request):
                                 )
     
     if account_data.email is not None:
-        is_available_email = await db.check_email_available(account_data.email, account_type)
+        is_available_email = await db.check_email_available(account_data.email)
         if not is_available_email:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                                 detail={"error_code": "EMAIL_UNAVAILABLE",
@@ -146,11 +135,11 @@ async def check_phone_number(phone_number: str):
     """Check if phone number has proper form and is unused"""
     has_proper_form = is_valid_phone_number(phone_number)
     is_unused = await db.check_phone_number_available(phone_number)
-    return {"message": "Validating email complete.", "is_valid": has_proper_form and is_unused}
+    return {"message": "Validating phone number complete.", "is_valid": has_proper_form and is_unused}
 
 
 @app.get("/check_license_plate", status_code=status.HTTP_200_OK)
-async def check_phone_number(license_plate: str):
+async def check_license_plate(license_plate: str):
     """Check if license plate has proper form and is unused"""
     has_proper_form = is_valid_license_plate(license_plate)
     is_unused = await db.check_license_plate_available(license_plate)
@@ -281,7 +270,6 @@ async def put_vehicle_status(new_status: Literal["active", "waiting", "unavailab
     - HTTPException: If the input is not in the correct structure (status code: 422)
     - HTTPException: If no vehicle with the given id is found (status code: 404)
     """
-    
     vehicle_id = await db.get_driver_vehicle_id(user_info["id"])
     success = await db.update_status(vehicle_id, new_status)
     if success:
@@ -374,12 +362,12 @@ async def route_details(route_id: int):
     - HTTPException: If the input is not in the correct structure (status code: 422)
     - HTTPException: If the route id is invalid (status code: 404)
     """
-    if route_id not in app.state.routes:
+    if route_id not in db.routes:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail={"error_code": "INVALID_ROUTE_ID",
                                     "msg": "The given route id is invalid"})
     
-    route_data = helper.flatten_route_data(app.state.routes[route_id])
+    route_data = helper.flatten_route_data(db.routes[route_id])
 
     return {"message" : f"Successfully collected route details",
             "route_data": route_data}
@@ -400,7 +388,7 @@ async def route(route_id: int):
     - HTTPException: If the input is not in the correct structure (status code: 422)
     - HTTPException: if the given route_id is invalid (status_code: 404)
     """
-    if route_id not in app.state.routes:
+    if route_id not in db.routes:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail={"error_code": "INVALID_ROUTE_ID",
                                     "msg": "The given route id is invalid"})
@@ -432,7 +420,7 @@ async def route_vehicles_eta(route_id:int, pick_up_long:float, pick_up_lat:float
       already passed
     """
     # Load route
-    if route_id not in app.state.routes:
+    if route_id not in db.routes:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail={"error_code": "INVALID_ROUTE_ID",
                                     "msg": "The given route id is invalid"})
@@ -470,7 +458,7 @@ async def get_vehicle(vehicle_id: int, user_info: authentication.authorize_anyon
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                       detail={"error_code": "INVALID_VEHICLE_ID",
                               "msg": "The given vehicle id is invalid"})
-    vehicle_route = app.state.routes[vehicle_details["route_id"]]
+    vehicle_route = db.routes[vehicle_details["route_id"]]
     vehicle_details["route_name"] = vehicle_route["details"]["route_name"]
     if passenger_id is not None:
         vehicle_details["user_choice"] = (await db.get_passenger_reaction(passenger_id, vehicle_id))["reaction"]
@@ -531,8 +519,8 @@ async def search_routes(query: str):
     for route_id in route_ids:
         res.append({
             "route_id": route_id,
-            "route_name": app.state.routes[route_id]["details"]["route_name"],
-            "description": app.state.routes[route_id]["details"]["description"]
+            "route_name": db.routes[route_id]["details"]["route_name"],
+            "description": db.routes[route_id]["details"]["description"]
         })
     return {"message": "All good.", "routes": res}
 
@@ -583,7 +571,8 @@ async def post_feedback(review: Passenger_Review, user_info : authentication.aut
         await db.add_feedback(review_entry)
         return {"message": "All Good."}
     except asyncpg.exceptions.UniqueViolationError:
-        raise HTTPException(status_code=status.HTTP_409_BAD_REQUEST,
+        print("FOE")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                             detail={"error_code": "FEEDBACK_ALREADY_ADDED",
                                     "msg": "The feedback of this user to this vehicle has already been added"})
     
@@ -617,7 +606,7 @@ async def put_feedback(review: Passenger_Review, user_info: authentication.autho
     try:
         success = await db.update_feedback(review_entry)
         if not success:
-            raise HTTPException(status_code=status.HTTP_404_BAD_REQUEST,
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                                 detail={"error_code": "FEEDBACK_NOT_FOUND",
                                         "msg": "This user didnt submit a feedback to this vehicle."})
     except asyncpg.exceptions.ForeignKeyViolationError as e:
@@ -664,7 +653,7 @@ async def get_stations():
     result = await db.get_stations()
     features = []
     for stop in result:
-        properties = helper.flatten_route_data(app.state.routes[stop["route_id"]])
+        properties = helper.flatten_route_data(db.routes[stop["route_id"]])
         del properties["route_name"]
         del properties["description"]
         del properties["company_name"]
@@ -698,7 +687,7 @@ async def app_feedback(feedback: Annotated[str, Body(embed=True)]):
 
 
 @app.get("/time/driving", status_code=status.HTTP_200_OK)
-async def vehicle_time(route_id:int, long1:float, lat1:float, long2:float, lat2:float, response: Response):
+async def vehicle_time(route_id:int, long1:float, lat1:float, long2:float, lat2:float):
     """Get the driving time from point A to point B by 
     following a specific route
 
@@ -711,7 +700,7 @@ async def vehicle_time(route_id:int, long1:float, lat1:float, long2:float, lat2:
     - Eta of the driver
     """
     # Load route
-    if route_id not in app.state.routes:
+    if route_id not in db.routes:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail={"error_code": "INVALID_ROUTE_ID",
                                     "msg": "The given route id is invalid"})
