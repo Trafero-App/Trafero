@@ -44,7 +44,15 @@ async def lifespan(app: FastAPI):
     # Load all routes for efficient access later on
     app.state.routes = db.routes
     app.state.routes_search_data = db.routes_search_data
+    
+    # p = (35.483226, 33.882462)
+
+    # print(helper.project_point_on_route(p, 2), helper.project_point_on_route(p, 13))
+    # print(helper.project_point_on_route(p, 2, True), helper.project_point_on_route(p, 13, True))
+    # print(db.routes[2]["line"]["features"][0]["geometry"]["coordinates"][693])
+    # print(db.routes[13]["line"]["features"][0]["geometry"]["coordinates"][171])
     yield
+    # (681, 6.6235988991033565) (186, 23.000936233861424)
     
     # Close the connection to the db when the app shuts down
     await db.disconnect()
@@ -427,7 +435,7 @@ async def route_vehicles_eta(route_id:int, pick_up_long:float, pick_up_lat:float
 
     # vehicles_eta = await helper.get_route_vehicles_eta((pick_up_long, pick_up_lat), vehicles, route_id, MAPBOX_TOKEN)
     pickup = (pick_up_long, pick_up_lat)
-    vehicles_eta = await helper.get_all_vehicles_arrival_status(pickup, vehicles, route_id, MAPBOX_TOKEN)
+    vehicles_eta = await helper.get_route_vehicles_arrival_status(pickup, vehicles, route_id, MAPBOX_TOKEN)
     return {"message" : "All Good.", "vehicles" : vehicles_eta}
     
 

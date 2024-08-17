@@ -61,7 +61,7 @@ async def all_vehicles_info():
     features = []
     for vehicle in vehicle_info:
         route_id = await db.get_vehicle_route_id(vehicle["id"])
-        if vehicle["status"] != "inactive":
+        if vehicle["status"] != "unknown":
             vehicle_coords = project_point_on_route((vehicle["longitude"], vehicle["latitude"]), route_id, return_as_point=True)[0]
         else:
             vehicle_coords = (vehicle["longitude"], vehicle["latitude"])
@@ -108,6 +108,14 @@ async def get_route_vehicles_arrival_status(pick_up, vehicles, route_id, token):
     all_vehicles_etas = await get_all_etas(list(waypoints_lists.values()), token, "driving")
 
     for i, vehicle_id in enumerate(waypoints_lists.keys()):
+        if "Van" in db.routes[route_id]["details"]["route_name"]:
+            all_vehicles_etas[i] *= 1.2
+            all_vehicles_etas[i] = round(all_vehicles_etas[i])
+        else:
+            all_vehicles_etas[i] *= 2
+            all_vehicles_etas[i] = round(all_vehicles_etas[i])
+        
+
         id_to_vehicles[vehicle_id]["expected_time"] = all_vehicles_etas[i]
     
     available.sort(key=lambda x: x["expected_time"])

@@ -26,7 +26,13 @@ async def get_time_estimation(route_id, start_index, end_index, mapbox_token):
     """
     waypoints = await db.get_route_waypoints(route_id)
     trimed_waypoints = trim_waypoints(waypoints, route_id, start_index, end_index)
-    eta = get_eta(trimed_waypoints, mapbox_token, "driving")
+    eta = get_eta(trimed_waypoints, mapbox_token, "driving") 
+    if "Van" in db.routes[route_id]["details"]["route_name"]:
+        eta *= 1.2
+        eta = round(eta)
+    else:
+        eta *= 2
+        eta = round(eta)
     return eta
 
 
@@ -125,7 +131,8 @@ async def get_all_etas(waypoints_lists, token, mode):
         tasks = get_tasks(session, waypoints_lists, mode, token)
         responses = await asyncio.gather(*tasks)
         for response in responses:
-            etas.append(int((await response.json())["routes"][0]["duration"] / 60))
+            eta = int((await response.json())["routes"][0]["duration"] / 60)
+            etas.append(eta)
 
     return etas
 

@@ -4,3 +4,4 @@ from .search import search_routes, search_vehicles
 from .vehicles import off_track, get_arrival_status, all_vehicles_info, get_route_vehicles_arrival_status
 from .way_eta import get_time_estimation
 from .signup import save_files, get_files, get_account_info_from_form
+from .operations import *

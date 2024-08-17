@@ -239,5 +239,5 @@ async def all_nearby_routes_2_points(long, lat, radius, long2, lat2, radius2, ma
     close_chained_routes = await chained_routes(intersections, routes_near_A, routes_near_B, mapbox_token)
 
     all_routes = close_direct_routes + close_chained_routes
-    # all_routes.sort(key=lambda route: route["eta"])
+    all_routes.sort(key=lambda route: route["eta"])
     return all_routes
