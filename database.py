@@ -260,6 +260,13 @@ class db:
             res2 = await con.fetchrow("SELECT * FROM driver WHERE email=$1", email)
         if res1 is None and res2 is None: return True
         else: return False
+
+    @classmethod 
+    async def check_license_plate_available(cls, license_plate):
+        async with cls.db_pool.acquire() as con:
+            res = await con.fetchrow("SELECT * FROM vehicle WHERE license_plate=$1", license_plate)
+        if res is None: return True
+        else: return False
     
     @classmethod
     async def add_account(cls, account_info: Account_DB_Entry):

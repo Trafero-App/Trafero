@@ -149,6 +149,13 @@ async def check_phone_number(phone_number: str):
     return {"message": "Validating email complete.", "is_valid": has_proper_form and is_unused}
 
 
+@app.get("/check_license_plate", status_code=status.HTTP_200_OK)
+async def check_phone_number(license_plate: str):
+    """Check if phone number has proper form and is unused"""
+    is_unused = await db.check_license_plate_available(license_plate)
+    return {"message": "Validating license plate complete.", "is_valid": is_unused}
+
+
 @app.post("/login/{account_type}", status_code=status.HTTP_200_OK)
 async def login(account_type: Literal["passenger", "driver"], form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     """Validate user credentials and provide authentication token
