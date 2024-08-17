@@ -10,7 +10,7 @@ from copy import deepcopy
 from collections import namedtuple
 from typing import List
 from .operations import project_point_on_route
-from way_eta import get_time_estimation
+from .way_eta import get_time_estimation
 from .routes import get_route_data
 
 Chain = namedtuple("Chain", ["route1_id", "route1_intersection", "route2_id", "route2_intersection", "pickup_index", "dest_index"])
@@ -169,8 +169,7 @@ async def chained_routes(intersections, nearby_A, nearby_B, mapbox_token):
     chains = chainer(intersections, nearby_A, nearby_B)
     filtered_chains: List[Chain] = await filter_duplicate_chains(chains)
     chained_output = []
-
-    for chain in enumerate(filtered_chains):
+    for chain in filtered_chains:
 
         route1_id = chain.route1_id
         route1_data = await get_route_data(route1_id, 1)
@@ -192,7 +191,7 @@ async def chained_routes(intersections, nearby_A, nearby_B, mapbox_token):
               "features": [
                 {
                   "type": "Feature",
-                  "properties": {},
+                  "properties": {"order": 1},
                   "geometry": {
                     "coordinates": sliced_1,
                     "type": "LineString"
@@ -200,7 +199,7 @@ async def chained_routes(intersections, nearby_A, nearby_B, mapbox_token):
                 },
                 {
                   "type": "Feature",
-                  "properties": {},
+                  "properties": {"order": 2},
                   "geometry": {
                     "coordinates": sliced_2,
                     "type": "LineString"

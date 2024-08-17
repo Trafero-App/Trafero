@@ -6,7 +6,7 @@ This module handles all functions related to vehicles information, location and 
 """
 
 from database import db
-from way_eta import get_time_estimation
+from .way_eta import get_time_estimation
 from .operations import project_point_on_route
 
 

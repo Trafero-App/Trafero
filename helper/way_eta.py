@@ -24,7 +24,7 @@ async def get_time_estimation(route_id, start_index, end_index, mapbox_token):
     """
     waypoints = await db.get_route_waypoints(route_id)
     trimed_waypoints = trim_waypoints(waypoints, route_id, start_index, end_index)
-    eta = eta(trimed_waypoints, mapbox_token, "driving")
+    eta = get_eta(trimed_waypoints, mapbox_token, "driving")
     return eta
 
 
@@ -71,7 +71,7 @@ def trim_waypoints(waypoints, route_id, start_index, end_index):
 
 
 
-def eta(waypoints, token, mode):
+def get_eta(waypoints, token, mode):
     """
     Direct request to get estimated time of arrival (ETA) from MapBox api.
     
