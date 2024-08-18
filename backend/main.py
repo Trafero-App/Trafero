@@ -349,7 +349,7 @@ async def put_vehicle_location(
 @app.put("/vehicle_status", status_code=status.HTTP_200_OK)
 async def put_vehicle_status(
     new_status: Literal["active", "waiting", "unavailable", "inactive", "unknown"],
-    user_info: authentication.authorize_driver,
+    user_info: authentication.authorize_driver
 ):
     """Update vehicle status
 
