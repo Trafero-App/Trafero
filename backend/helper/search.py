@@ -44,7 +44,9 @@ def search_routes(query: str):
         else:
             filtered_routes_result = route_scores
     print(filtered_routes_result)
-    filtered_routes_result = sorted(filtered_routes_result.keys(), key=filtered_routes_result.get, reverse=True)
+    filtered_routes_result = sorted(
+        filtered_routes_result.keys(), key=filtered_routes_result.get, reverse=True
+    )
     print(filtered_routes_result)
     return filtered_routes_result
 
