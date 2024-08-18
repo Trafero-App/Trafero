@@ -28,11 +28,9 @@ async def get_time_estimation(route_id, start_index, end_index, mapbox_token):
     trimed_waypoints = trim_waypoints(waypoints, route_id, start_index, end_index)
     eta = get_eta(trimed_waypoints, mapbox_token, "driving") 
     if "Van" in db.routes[route_id]["details"]["route_name"]:
-        eta *= 1.2
-        eta = round(eta)
+        eta = round(eta * 1.2)
     else:
-        eta *= 2
-        eta = round(eta)
+        eta = round(eta * 2)
     return eta
 
 
@@ -95,7 +93,7 @@ def get_eta(waypoints, token, mode):
         return 0
     url, params = get_api_call_url_and_params(waypoints, mode, token)
     response = requests.get(url, params=params)
-    return round(response.json()["routes"][0]["duration"] / 60)
+    return response.json()["routes"][0]["duration"]
 
 
 def get_api_call_url_and_params(waypoints, mode, token):
@@ -131,7 +129,7 @@ async def get_all_etas(waypoints_lists, token, mode):
         tasks = get_tasks(session, waypoints_lists, mode, token)
         responses = await asyncio.gather(*tasks)
         for response in responses:
-            eta = int((await response.json())["routes"][0]["duration"] / 60)
+            eta = (await response.json())["routes"][0]["duration"]
             etas.append(eta)
 
     return etas
