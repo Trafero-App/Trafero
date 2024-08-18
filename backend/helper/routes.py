@@ -12,24 +12,24 @@ def get_remaining_route(route_id, start):
     """Get remaining part of a certain route based on a start location.
 
     Parameters:
-    - route id 
-    - start location (long, lat) 
+    - route id
+    - start location (long, lat)
 
     Returns:
     - Remaining part of a the route.
     """
     routes = db.routes
-    if start[0] is None or start[1] is None: start_index = 0
+    if start[0] is None or start[1] is None:
+        start_index = 0
     else:
         start_index = project_point_on_route(start, route_id)[0]
-    remaining_route = routes[route_id]["line"]["features"][0]["geometry"]["coordinates"][start_index:]
+    remaining_route = routes[route_id]["line"]["features"][0]["geometry"][
+        "coordinates"
+    ][start_index:]
     formated_output = {
         "type": "Feature",
         "properties": {},
-        "geometry": {
-            "type": "LineString",
-            "coordinates": remaining_route
-        }
+        "geometry": {"type": "LineString", "coordinates": remaining_route},
     }
     return formated_output
 
@@ -40,11 +40,11 @@ def flatten_route_data(route):
     return res
 
 
-async def get_route_details(route_id, num=''):
+async def get_route_details(route_id, num=""):
     """Get specific details of a certain route.
 
     Parameters:
-    - route id  
+    - route id
 
     Returns:
     - Selected details of chosen route.
@@ -54,15 +54,15 @@ async def get_route_details(route_id, num=''):
     for vehicle in route_vehicles:
         del vehicle["longitude"]
         del vehicle["latitude"]
-    
+
     route_name = routes[route_id]["details"]["route_name"]
     description = routes[route_id]["details"]["description"]
     line = routes[route_id]["line"]
     route_details = {
-                            f"route_id{num}": route_id,
-                            f"route_name{num}": route_name,
-                            f"description{num}": description,
-                            f"vehicles{num}": route_vehicles,
-                            f"line{num}": line
-                            }
+        f"route_id{num}": route_id,
+        f"route_name{num}": route_name,
+        f"description{num}": description,
+        f"vehicles{num}": route_vehicles,
+        f"line{num}": line,
+    }
     return route_details
