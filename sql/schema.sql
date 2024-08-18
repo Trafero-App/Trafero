@@ -1,4 +1,11 @@
-
+DROP TABLE IF EXISTS app_feedback;
+DROP TABLE IF EXISTS passenger_saved_route;
+DROP TABLE IF EXISTS driver_saved_route;
+DROP TABLE IF EXISTS passenger_saved_vehicle;
+DROP TABLE IF EXISTS driver_saved_vehicle;
+DROP TABLE IF EXISTS passenger_saved_location;
+DROP TABLE IF EXISTS driver_saved_location;
+DROP TABLE IF EXISTS driver;
 DROP TABLE IF EXISTS vehicle_status_history;
 DROP TABLE IF EXISTS vehicle_location_history;
 DROP TABLE IF EXISTS feedback_fixed_complaint;
@@ -7,18 +14,18 @@ DROP TABLE IF EXISTS fixed_complaint;
 DROP TABLE IF EXISTS feedback;
 DROP TABLE IF EXISTS station;
 DROP TABLE IF EXISTS intersection;
-DROP TABLE IF EXISTS vehicle_routes;
+DROP TABLE IF EXISTS vehicle_route;
 DROP TABLE IF EXISTS passenger;
 DROP TABLE IF EXISTS vehicle_location;
 DROP TABLE IF EXISTS vehicle;
 DROP TABLE IF EXISTS waypoint;
-DROP TABLE IF EXISTS route;
+DROP TABLE IF EXISTS "route";
 
 CREATE TABLE passenger (id SERIAL PRIMARY KEY,
-                        username VARCHAR(255) NOT NULL UNIQUE,
                         password_hash TEXT NOT NULL,
                         first_name VARCHAR(255) NOT NULL,
                         last_name VARCHAR(255) NOT NULL,
+                        date_of_birth VARCHAR(10) NOT NULL,
                         phone_number VARCHAR(20) UNIQUE,
                         email VARCHAR(50) UNIQUE,
                         CONSTRAINT phone_or_email
@@ -34,44 +41,46 @@ CREATE TABLE route (id SERIAL PRIMARY KEY,
                     company_name VARCHAR(50),
                     expected_price VARCHAR(50),
                     company_phone_number VARCHAR(30) DEFAULT 'company phone marc',
-                    distance DECIMAL DEFAULT 10.0,
+                    distance VARCHAR(10),
                     estimated_travel_time INT DEFAULT 100.0,
                     route_type VARCHAR(20) DEFAULT 'intercity marc'
                     );
 
 
 CREATE TABLE vehicle   (id SERIAL PRIMARY KEY,
-                        username VARCHAR(255) NOT NULL UNIQUE,
-                        password_hash TEXT NOT NULL,
-                        first_name VARCHAR(255) NOT NULL,
-                        last_name VARCHAR(255) NOT NULL,
-                        phone_number VARCHAR(20) UNIQUE,
-                        email VARCHAR(50) UNIQUE,
                         cur_route_id INT NOT NULL,
-                        status VARCHAR(20) NOT NULL,
-                        type VARCHAR(30),
-                        brand VARCHAR(30),
-                        model VARCHAR(30),
+                        "status" VARCHAR(20) NOT NULL DEFAULT 'inactive',
+                        "type" VARCHAR(30) NOT NULL,
+                        brand VARCHAR(30) NOT NULL,
+                        model VARCHAR(30) NOT NULL,
                         license_plate VARCHAR(30) NOT NULL,
-                        color VARCHAR(20),
+                        color VARCHAR(20) NOT NULL,
                         CONSTRAINT fk_route
                             FOREIGN KEY(cur_route_id) REFERENCES route(id),
                         CONSTRAINT legal_statuses
-                        CHECK (status IN ('active', 'waiting', 'unavailable', 'inactive', 'unknown')),
-                        CONSTRAINT phone_or_email
-                        CHECK ((phone_number IS NOT NULL) OR (email IS NOT NULL))
+                        CHECK (status IN ('active', 'waiting', 'unavailable', 'inactive', 'unknown'))
                         );
 
-CREATE TABLE vehicle_routes (
+CREATE TABLE driver (id SERIAL PRIMARY KEY,
+                    password_hash TEXT NOT NULL,
+                    first_name VARCHAR(255) NOT NULL,
+                    last_name VARCHAR(255) NOT NULL,
+                    date_of_birth VARCHAR(10) NOT NULL,
+                    phone_number VARCHAR(20) UNIQUE NOT NULL,
+                    email VARCHAR(50) UNIQUE,
+                    vehicle_id INT NOT NULL REFERENCES vehicle(id));
+
+CREATE TABLE vehicle_route (
                         vehicle_id INT NOT NULL,
                         route_id INT NOT NULL,
                         CONSTRAINT fk_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicle(id),
                         CONSTRAINT fk_route FOREIGN KEY (route_id) REFERENCES route(id),
                         CONSTRAINT vehicle_routes_pk PRIMARY KEY (vehicle_id, route_id)
                         );
+
 CREATE TABLE vehicle_location (id SERIAL PRIMARY KEY,
-                            longitude DECIMAL NOT NULL,
-                            latitude DECIMAL NOT NULL,
+                            longitude DECIMAL,
+                            latitude DECIMAL,
                             vehicle_id INT NOT NULL UNIQUE,
                             CONSTRAINT fk_vehicle
                                     FOREIGN KEY(vehicle_id) 
@@ -133,8 +142,8 @@ CREATE TABLE station   (id SERIAL PRIMARY KEY,
 CREATE TABLE vehicle_location_history (id SERIAL PRIMARY KEY,
                                        time_stamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                        vehicle_id INT NOT NULL,
-                                       old_lat DECIMAL NOT NULL,
-                                       old_long DECIMAL NOT NULL,
+                                       old_lat DECIMAL,
+                                       old_long DECIMAL,
                                        new_lat DECIMAL NOT NULL,
                                        new_long DECIMAL NOT NULL,
                                        CONSTRAINT vehicle_fk FOREIGN KEY (vehicle_id) REFERENCES vehicle(id)
@@ -153,10 +162,41 @@ CREATE TABLE vehicle_status_history (id SERIAL PRIMARY KEY,
                                       ); 
 CREATE TABLE intersection (id SERIAL PRIMARY KEY,
                             route_id INT NOT NULL,
-                            local_index DECIMAL NOT NULL,
+                            local_index INT NOT NULL,
                             auxiliary_route INT NOT NULL,
-                            auxiliary_index DECIMAL NOT NULL,
+                            auxiliary_index INT NOT NULL,
                                 CONSTRAINT fk_route
                                     FOREIGN KEY(route_id)
                                         REFERENCES route(id)
                             );
+
+
+CREATE TABLE passenger_saved_route (passenger_id INT NOT NULL REFERENCES passenger(id),
+                                     route_id INt NOT NULL REFERENCES route(id));
+
+CREATE TABLE driver_saved_route (driver_id INt NOT NULL REFERENCES driver(id),
+                                     route_id INt NOT NULL REFERENCES route(id));
+
+CREATE TABLE passenger_saved_vehicle (passenger_id INt NOT NULL REFERENCES passenger(id),
+                                       vehicle_id INt NOT NULL REFERENCES vehicle(id),
+                                       nickname VARCHAR(50) NOT NULL);
+
+CREATE TABLE driver_saved_vehicle (driver_id INt NOT NULL REFERENCES driver(id),
+                                       vehicle_id INt NOT NULL REFERENCES vehicle(id),
+                                       nickname VARCHAR(50) NOT NULL);
+
+CREATE TABLE passenger_saved_location (passenger_id INt NOT NULL REFERENCES passenger(id),
+                                       longitude DECIMAL NOT NULL,
+                                       latitude DECIMAL NOT NULL,
+                                       "name" VARCHAR(20) NOT NULL,
+                                       icon VARCHAR(10) NOT NULL);
+
+CREATE TABLE driver_saved_location (driver_id INt NOT NULL REFERENCES driver(id),
+                                       longitude DECIMAL NOT NULL,
+                                       latitude DECIMAL NOT NULL,
+                                       "name" VARCHAR(20) NOT NULL,
+                                       icon VARCHAR(10) NOT NULL);
+
+
+CREATE TABLE app_feedback (id SERIAL PRIMARY KEY,
+                            feedback VARCHAR(1000) NOT NULL)
