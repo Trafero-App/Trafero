@@ -956,6 +956,11 @@ const MapOverlay = () => {
     }
   },[busData,chosenBusIds, singleChosenBusId, chosenRoute])
 
+  const chosenBusDataRef = useRef(chosenBusData)
+  useEffect(() => {
+    chosenBusDataRef.current=chosenBusData
+  },[chosenBusData])
+
   //this function handles a click on remaining route
   const handleRemainingRouteClick = (e) => {
     if(!isOnMapPageRef.current) return;
@@ -964,7 +969,7 @@ const MapOverlay = () => {
     //this will trigger as long no other click happens (dbl click maybe)
     clickTimeout = setTimeout(() => {
       //takes line and point, and returns closest point on that line
-      const nearest= turf.nearestPointOnLine(chosenBusData.remaining_route,{type: "Point",coordinates: [e.lngLat.lng,e.lngLat.lat]})        
+      const nearest= turf.nearestPointOnLine(chosenBusDataRef.current.remaining_route,{type: "Point",coordinates: [e.lngLat.lng,e.lngLat.lat]})        
       //pickup point is added initially but with no point, so we set data
       map.getSource('pickup-point').setData({
         type: 'FeatureCollection',
@@ -1056,7 +1061,7 @@ const MapOverlay = () => {
             }, 
             paint: {
                 "line-color": "#4050DE",
-                "line-width": 20,
+                "line-width": 30,
                 "line-opacity": 0.01 //barely visible
             }
           },'remaining-route-top-layer')//put this layer beneath the visible layer
@@ -1322,7 +1327,7 @@ const MapOverlay = () => {
           }, 
           paint: {
               "line-color": "#4050DE",
-              "line-width": 20,
+              "line-width": 30,
               "line-opacity": 0.01 //barely visible
           }
         },'chosen-route-top-layer')//put this layer beneath the visible layer
@@ -1330,6 +1335,7 @@ const MapOverlay = () => {
         if(!addedListener2.current){
           //listens to click on hitbox layer
           map.on("click","chosen-route-bottom-layer",handleChosenRouteClick)
+          addedListener2.current=true
         }  
 
         // zoom out in a way that shows the whole route
