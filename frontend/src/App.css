@@ -1,0 +1,41 @@
+@font-face{
+  font-family: 'Inter';
+  src: url('./../Inter.ttf')
+}
+
+*{
+  font-family: 'Inter';
+  font-display: swap; /* to avoid Flash Of Unstyled Text*/
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html, body, #root{
+  overflow: hidden;
+  height: 100dvh;
+  width: 100vw;
+}
+
+/* removes watermark lol*/
+.mapboxgl-ctrl-bottom-left{
+  display: none;
+}
+
+.top-shadow{
+  box-shadow: 0 -4px 0px 0px rgb(0 0 0 / 0.02);
+}
+
+.scrollable {
+  height: 168px;
+  overflow-y: scroll;
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #f1f1f1;
+  border-radius: 6px;
+}
