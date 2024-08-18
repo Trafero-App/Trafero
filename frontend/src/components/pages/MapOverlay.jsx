@@ -118,6 +118,8 @@ const MapOverlay = () => {
         if(directionsResultsRef.current) directionsResultsRef.current.forEach((route) => {
           const id = `route-${route.route_id}-layer`
           if(map.getLayer(id)) map.setLayoutProperty(id,'visibility','visible')
+          const layerId2=`route-${route.route_id}-between-layer`
+          if(map.getLayer(layerId2)) map.setLayoutProperty(layerId2,'visibility','visible')
         })
         if(document.getElementById('marker')) document.getElementById('marker').style.visibility='visible'
         if(document.getElementById('start-marker')) document.getElementById('start-marker').style.visibility='visible'
@@ -140,6 +142,8 @@ const MapOverlay = () => {
         if(directionsResultsRef.current) directionsResultsRef.current.forEach((route) => {
           const id = `route-${route.route_id}-layer`
           if(map.getLayer(id)) map.setLayoutProperty(id,'visibility','none')
+          const layerId2=`route-${route.route_id}-between-layer`
+          if(map.getLayer(layerId2)) map.setLayoutProperty(layerId2,'visibility','none')
         })
         if(document.getElementById('marker')) document.getElementById('marker').style.visibility='hidden'
         if(document.getElementById('start-marker')) document.getElementById('start-marker').style.visibility='hidden'
@@ -773,6 +777,8 @@ const MapOverlay = () => {
         directionsResults.forEach((e) => {
           if(map.getLayer(`route-${e.route_id}-layer`)) map.removeLayer(`route-${e.route_id}-layer`)
           if(map.getSource(`route-${e.route_id}`)) map.removeSource(`route-${e.route_id}`)
+          if(map.getLayer(`route-${e.route_id}-between-layer`)) map.removeLayer(`route-${e.route_id}-between-layer`)
+          if(map.getSource(`route-${e.route_id}-between`)) map.removeSource(`route-${e.route_id}-between`)
         })
       }
       //delete all the data
@@ -819,6 +825,8 @@ const MapOverlay = () => {
         directionsResults.forEach((route) => {
           const layerId=`route-${route.route_id}-layer`
           if(map.getLayer(layerId)) map.setLayoutProperty(layerId,'visibility','none')
+          const layerId2=`route-${route.route_id}-between-layer`
+          if(map.getLayer(layerId2)) map.setLayoutProperty(layerId2,'visibility','none')
         })
       }
 
@@ -1079,7 +1087,8 @@ const MapOverlay = () => {
             type: 'symbol',
             source: 'pickup-point',
             layout: {
-              'icon-image': 'static-blue-dot'
+              'icon-image': 'static-blue-dot',
+              "icon-allow-overlap": true
             }
           },'bus-stops-layer')
 
@@ -1274,6 +1283,8 @@ const MapOverlay = () => {
         directionsResults.forEach((route) => {
           const layerId=`route-${route.route_id}-layer`
           if(map.getLayer(layerId)) map.setLayoutProperty(layerId,'visibility','none')
+          const layerId2=`route-${route.route_id}-between-layer`
+          if(map.getLayer(layerId2)) map.setLayoutProperty(layerId2,'visibility','none')
         })
       }
 
@@ -1292,7 +1303,8 @@ const MapOverlay = () => {
           type: 'symbol',
           source: 'pickup-point2',
           layout: {
-            'icon-image': 'static-blue-dot'
+            'icon-image': 'static-blue-dot',
+            "icon-allow-overlap": true
           }
         },'bus-stops-layer')
 

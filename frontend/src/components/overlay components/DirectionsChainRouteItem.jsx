@@ -68,6 +68,33 @@ const DirectionsChainRouteItem = ({
                     "line-width": 4 // thin line
                 }
             },'bus-stops-layer')
+            // #486AD4
+            map.addSource(`${id}-between`,{
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: [{
+                        properties: {},
+                        geometry: {
+                            coordinates: [
+                                routeData.line.features[0].geometry.coordinates[routeData.line.features[0].geometry.coordinates.length-1], routeData.line.features[1].geometry.coordinates[0]
+                            ],
+                            type: "LineString"
+                        }
+                    }]
+                }
+            })
+            map.addLayer({
+                id: `${id}-between-layer`,
+                type: "line",
+                source: `${id}-between`,
+                paint: {
+                    "line-color": '#486AD4',
+                    "line-width": 6,
+                    "line-dasharray": [0.7,0.7]
+                }
+            })
+            
             if(!previewedIds.includes(routeData.route_id)){
                 setChosenBusIds(chosenBusIds.concat(vehicle_ids))
                 setPreviewedIds(previewedIds.concat([routeData.route_id]))
@@ -77,6 +104,8 @@ const DirectionsChainRouteItem = ({
             //hides line
             if(map.getLayer( `${id}-layer`)) map.removeLayer( `${id}-layer`)
             if(map.getSource(id)) map.removeSource(id)
+            if(map.getLayer( `${id}-between-layer`)) map.removeLayer( `${id}-layer`)
+            if(map.getSource(`${id}-between`)) map.removeSource(id)
             if(chosenBusIds) setChosenBusIds(chosenBusIds.filter((e) => !vehicle_ids.includes(e)))
             setPreviewedIds(previewedIds.filter((e) => e!=routeData.route_id))
         }
