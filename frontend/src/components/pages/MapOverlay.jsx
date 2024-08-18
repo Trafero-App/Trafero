@@ -900,7 +900,8 @@ const MapOverlay = () => {
               'waiting', 'static-yellow-dot',
               'unavailable', 'static-red-dot',
               'static-grey-dot'
-            ]
+            ],
+            "icon-allow-overlap": true
           }
         })
 

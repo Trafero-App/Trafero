@@ -25,8 +25,8 @@ const AboutUsPage = () => {
                 <div className='px-6 min-h-20 py-3.5 flex items-center border-b-2 border-gray2 w-full h-fit'>
                     <h1 className='text-5xl font-bold'>About Us</h1>
                 </div>
-                <h1 className='px-6 pt-5 pb-3 font-bold text-xl'>Welcome to [App Name]</h1>
-                <h1 className='font-semibold px-6'>At [App Name], we believe that navigating public transportation should be
+                <h1 className='px-6 pt-5 pb-3 font-bold text-xl'>Welcome to Trafero</h1>
+                <h1 className='font-semibold px-6'>At Trafero, we believe that navigating public transportation should be
                 seamless, efficient, and stress-free. Our mission is to address the
                 longstanding challenges faced by commuters and bus drivers in Lebanon by
                 providing a cutting-edge solution that enhances the public transportation
