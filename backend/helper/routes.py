@@ -19,7 +19,9 @@ def get_remaining_route(route_id, start):
     - Remaining part of a the route.
     """
     routes = db.routes
-    start_index = project_point_on_route(start, route_id)[0]
+    if start[0] is None or start[1] is None: start_index = 0
+    else:
+        start_index = project_point_on_route(start, route_id)[0]
     remaining_route = routes[route_id]["line"]["features"][0]["geometry"]["coordinates"][start_index:]
     formated_output = {
         "type": "Feature",

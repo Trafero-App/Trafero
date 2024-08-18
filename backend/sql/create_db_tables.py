@@ -8,7 +8,7 @@ async def recreate_tables():
 
     db = await asyncpg.connect(os.getenv("db_url"))
 
-    await db.execute(open("sql/schema.sql").read())    
+    await db.execute(open("backend/sql/schema.sql").read())    
     
     await db.close()
 

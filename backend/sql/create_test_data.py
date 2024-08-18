@@ -15,7 +15,7 @@ async def main():
 
     print("Entering test data...")
     
-    await db.execute(open("sql/test_data.sql").read())    
+    await db.execute(open("backend/sql/test_data.sql").read())    
     
     print("Done")
 
