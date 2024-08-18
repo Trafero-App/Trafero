@@ -4,8 +4,10 @@ search.py
 This module handles all functions related to searching.
 
 """
+
 from fuzzywuzzy import fuzz, process
 from database import db
+
 
 def search_routes(query: str):
     """Get routes based on a query
@@ -22,7 +24,10 @@ def search_routes(query: str):
     routes_search_data = db.routes_search_data
     for route_search_data in routes_search_data:
         score1 = (process.extract(query, route_search_data[1:]))[0][-1]
-        score2 = max(fuzz.partial_ratio(query, route_search_data) for route_search_data in routes_search_data)
+        score2 = max(
+            fuzz.partial_ratio(query, route_search_data)
+            for route_search_data in routes_search_data
+        )
 
         score = max(score1, score2)
         if score >= 80:
@@ -33,7 +38,11 @@ def search_routes(query: str):
     if route_scores != {}:
         max_score = max(route_scores.values())
         if max_score >= 90:
-            filtered_routes_result = list(filter(lambda route_id: route_scores[route_id] >= 90, route_scores.keys()))
+            filtered_routes_result = list(
+                filter(
+                    lambda route_id: route_scores[route_id] >= 90, route_scores.keys()
+                )
+            )
         else:
             filtered_routes_result = list(route_scores.keys())
 
@@ -44,7 +53,7 @@ def search_vehicles(query: str, vehicles_info):
     """Get vehicles based on a search query
 
     Parameters:
-    - Query: license plate 
+    - Query: license plate
     - All vehicles info
     Returns:
     - Vehicle that holds the license plate
@@ -52,7 +61,7 @@ def search_vehicles(query: str, vehicles_info):
     result = []
     for i, element in enumerate(vehicles_info):
         score1 = fuzz.partial_ratio(query, element[1])
-        score2 = process.extract(query, (element[1],''))[0][-1]
+        score2 = process.extract(query, (element[1], ""))[0][-1]
         score = max(score1, score2)
         if score >= 90:
             result.append(i)

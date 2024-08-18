@@ -15,16 +15,30 @@ import os
 from database import db
 
 from validation import Account_Info
+
 load_dotenv(find_dotenv())
 JWT_ALGORITHM = os.getenv("jwt_algorithm")
 AUTHENTICATION_SECRET_KEY = os.getenv("auth_secret_key")
-ACCESS_TOKEN_VALIDITY_TIME_IN_MINUTES = int(os.getenv("access_token_validity_time_in_minutes"))
+ACCESS_TOKEN_VALIDITY_TIME_IN_MINUTES = int(
+    os.getenv("access_token_validity_time_in_minutes")
+)
+
 
 # Used to catch these specific errors
-class Unauthorized_Exception(HTTPException): pass
-class Expired_Token_Exception(HTTPException): pass
-unauthorizzed_error = Unauthorized_Exception(status_code=status.HTTP_401_UNAUTHORIZED, detail="Please provide a valid token")
-expired_token_error = Expired_Token_Exception(status_code=status.HTTP_401_UNAUTHORIZED, detail="expired token")
+class Unauthorized_Exception(HTTPException):
+    pass
+
+
+class Expired_Token_Exception(HTTPException):
+    pass
+
+
+unauthorizzed_error = Unauthorized_Exception(
+    status_code=status.HTTP_401_UNAUTHORIZED, detail="Please provide a valid token"
+)
+expired_token_error = Expired_Token_Exception(
+    status_code=status.HTTP_401_UNAUTHORIZED, detail="expired token"
+)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
@@ -36,18 +50,22 @@ oauth2_scheme_optional_token = OAuth2PasswordBearer(tokenUrl="login", auto_error
 # that require authentication
 async def decode_token(token):
     try:
-        payload = jwt.decode(token, AUTHENTICATION_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(
+            token, AUTHENTICATION_SECRET_KEY, algorithms=[JWT_ALGORITHM]
+        )
     except jwt.ExpiredSignatureError:
         raise expired_token_error
     except InvalidTokenError:
         raise unauthorizzed_error
     return payload
 
+
 async def check_role(token, role):
     payload = await decode_token(token)
     user_id: str | None = payload.get("sub")
     account_type: Literal["passenger", "driver"] | None = payload.get("type")
-    if user_id is None or account_type is None: return None
+    if user_id is None or account_type is None:
+        return None
     user_info = await db.get_account_info_by_id(user_id, account_type)
     if user_info is None:
         raise unauthorizzed_error
@@ -55,11 +73,24 @@ async def check_role(token, role):
         raise unauthorizzed_error
     return user_info
 
-async def check_authorization_passenger(token: Annotated[str, Depends(oauth2_scheme)]): return await check_role(token, "passenger")
-async def check_authorization_driver(token: Annotated[str, Depends(oauth2_scheme)]): return await check_role(token, "driver")
-async def check_authorization_any_account(token: Annotated[str, Depends(oauth2_scheme)]): return await check_role(token, "*")
 
-async def check_authorization_anyone(token: Annotated[str | None, Depends(oauth2_scheme_optional_token)]= None): 
+async def check_authorization_passenger(token: Annotated[str, Depends(oauth2_scheme)]):
+    return await check_role(token, "passenger")
+
+
+async def check_authorization_driver(token: Annotated[str, Depends(oauth2_scheme)]):
+    return await check_role(token, "driver")
+
+
+async def check_authorization_any_account(
+    token: Annotated[str, Depends(oauth2_scheme)]
+):
+    return await check_role(token, "*")
+
+
+async def check_authorization_anyone(
+    token: Annotated[str | None, Depends(oauth2_scheme_optional_token)] = None
+):
     try:
         user = await check_role(token, "*")
     except Unauthorized_Exception:
@@ -67,6 +98,7 @@ async def check_authorization_anyone(token: Annotated[str | None, Depends(oauth2
     except Expired_Token_Exception:
         return None
     return user
+
 
 authorize_passenger = Annotated[dict, Depends(check_authorization_passenger)]
 authorize_driver = Annotated[dict, Depends(check_authorization_driver)]
@@ -83,8 +115,13 @@ def hash_password(plain_password):
 def verify_password(plain_password, password_hash):
     return pwd_context.verify(plain_password, password_hash)
 
-async def check_user_credentials(username: str, password: str, account_type: Literal["passenger", "driver"],
-                                 login_method: Literal["email", "phone_number"]):
+
+async def check_user_credentials(
+    username: str,
+    password: str,
+    account_type: Literal["passenger", "driver"],
+    login_method: Literal["email", "phone_number"],
+):
     if login_method == "email":
         user = await db.get_account_info_by_email(username, account_type)
     elif login_method == "phone_number":
@@ -96,11 +133,15 @@ async def check_user_credentials(username: str, password: str, account_type: Lit
         return None
     return user
 
+
 def create_access_token(user_id, account_type):
     token_data = {
         "sub": user_id,
         "type": account_type,
-        "exp": datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_VALIDITY_TIME_IN_MINUTES)
+        "exp": datetime.now(timezone.utc)
+        + timedelta(minutes=ACCESS_TOKEN_VALIDITY_TIME_IN_MINUTES),
     }
-    encoded_jwt = jwt.encode(token_data, AUTHENTICATION_SECRET_KEY, algorithm=JWT_ALGORITHM)
+    encoded_jwt = jwt.encode(
+        token_data, AUTHENTICATION_SECRET_KEY, algorithm=JWT_ALGORITHM
+    )
     return encoded_jwt
