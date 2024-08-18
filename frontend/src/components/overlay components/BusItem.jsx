@@ -21,7 +21,11 @@ const BusItem = ({vehicle, setChosenBusIntervalId}) => {
     const map=value.mapRef.current
     const {busData, setSingleChosenBusId, setChosenBusDataLoading, setLookingAtBus,fetchChosenBusData} = value
 
-    const handleBusItemClick = () => {
+    const handleBusItemClick = () => {  
+        if(busData.filter((e) => e.properties.id == vehicle.id).length==0){
+            //bus is no longer on the map
+            return;
+        }
         setLookingAtBus(true)
         const clickedBus = busData.filter((e) => e.properties.id == vehicle.id)[0] //this is the feature object that was clicked on
         map.flyTo({center: clickedBus.geometry.coordinates, zoom: Math.max(16, map.getZoom())})//flyTo without setting the zoom keeps original zoom
