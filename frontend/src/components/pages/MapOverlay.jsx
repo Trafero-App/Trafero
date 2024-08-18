@@ -118,6 +118,8 @@ const MapOverlay = () => {
         if(directionsResultsRef.current) directionsResultsRef.current.forEach((route) => {
           const id = `route-${route.route_id}-layer`
           if(map.getLayer(id)) map.setLayoutProperty(id,'visibility','visible')
+          const layerId2=`route-${route.route_id}-between-layer`
+          if(map.getLayer(layerId2)) map.setLayoutProperty(layerId2,'visibility','visible')
         })
         if(document.getElementById('marker')) document.getElementById('marker').style.visibility='visible'
         if(document.getElementById('start-marker')) document.getElementById('start-marker').style.visibility='visible'
@@ -140,6 +142,8 @@ const MapOverlay = () => {
         if(directionsResultsRef.current) directionsResultsRef.current.forEach((route) => {
           const id = `route-${route.route_id}-layer`
           if(map.getLayer(id)) map.setLayoutProperty(id,'visibility','none')
+          const layerId2=`route-${route.route_id}-between-layer`
+          if(map.getLayer(layerId2)) map.setLayoutProperty(layerId2,'visibility','none')
         })
         if(document.getElementById('marker')) document.getElementById('marker').style.visibility='hidden'
         if(document.getElementById('start-marker')) document.getElementById('start-marker').style.visibility='hidden'
@@ -296,6 +300,9 @@ const MapOverlay = () => {
       //starts showing busses
       setShowingBusses(true)
 
+      //fetches bus stops from API
+      setBusStops()
+
       //listens to click and adds marker
       map.on("click", (e) => {
         if(!isOnMapPageRef.current) return;
@@ -440,9 +447,6 @@ const MapOverlay = () => {
           }
         },350)
       })
-
-      //fetches bus stops from API
-      setBusStops()
     }
   
   },[isMapLoaded])
@@ -773,6 +777,8 @@ const MapOverlay = () => {
         directionsResults.forEach((e) => {
           if(map.getLayer(`route-${e.route_id}-layer`)) map.removeLayer(`route-${e.route_id}-layer`)
           if(map.getSource(`route-${e.route_id}`)) map.removeSource(`route-${e.route_id}`)
+          if(map.getLayer(`route-${e.route_id}-between-layer`)) map.removeLayer(`route-${e.route_id}-between-layer`)
+          if(map.getSource(`route-${e.route_id}-between`)) map.removeSource(`route-${e.route_id}-between`)
         })
       }
       //delete all the data
@@ -819,6 +825,8 @@ const MapOverlay = () => {
         directionsResults.forEach((route) => {
           const layerId=`route-${route.route_id}-layer`
           if(map.getLayer(layerId)) map.setLayoutProperty(layerId,'visibility','none')
+          const layerId2=`route-${route.route_id}-between-layer`
+          if(map.getLayer(layerId2)) map.setLayoutProperty(layerId2,'visibility','none')
         })
       }
 
@@ -956,6 +964,11 @@ const MapOverlay = () => {
     }
   },[busData,chosenBusIds, singleChosenBusId, chosenRoute])
 
+  const chosenBusDataRef = useRef(chosenBusData)
+  useEffect(() => {
+    chosenBusDataRef.current=chosenBusData
+  },[chosenBusData])
+
   //this function handles a click on remaining route
   const handleRemainingRouteClick = (e) => {
     if(!isOnMapPageRef.current) return;
@@ -964,7 +977,7 @@ const MapOverlay = () => {
     //this will trigger as long no other click happens (dbl click maybe)
     clickTimeout = setTimeout(() => {
       //takes line and point, and returns closest point on that line
-      const nearest= turf.nearestPointOnLine(chosenBusData.remaining_route,{type: "Point",coordinates: [e.lngLat.lng,e.lngLat.lat]})        
+      const nearest= turf.nearestPointOnLine(chosenBusDataRef.current.remaining_route,{type: "Point",coordinates: [e.lngLat.lng,e.lngLat.lat]})        
       //pickup point is added initially but with no point, so we set data
       map.getSource('pickup-point').setData({
         type: 'FeatureCollection',
@@ -1056,7 +1069,7 @@ const MapOverlay = () => {
             }, 
             paint: {
                 "line-color": "#4050DE",
-                "line-width": 20,
+                "line-width": 30,
                 "line-opacity": 0.01 //barely visible
             }
           },'remaining-route-top-layer')//put this layer beneath the visible layer
@@ -1074,7 +1087,8 @@ const MapOverlay = () => {
             type: 'symbol',
             source: 'pickup-point',
             layout: {
-              'icon-image': 'static-blue-dot'
+              'icon-image': 'static-blue-dot',
+              "icon-allow-overlap": true
             }
           },'bus-stops-layer')
 
@@ -1141,7 +1155,11 @@ const MapOverlay = () => {
     })
     .then((res) => {
         if(res.status==200){
-          setDirectionsResults(res.data.routes)
+          setDirectionsResults(res.data.routes.map((routeData) => {
+            if(routeData.chain==false) return routeData
+            return {...routeData, route_id:routeData.route_id1+"+"+routeData.route_id2,
+              vehicles: routeData.vehicles1.concat(routeData.vehicles2)}
+          }))
           setDirectionsResultsLoading(false)
         }
       }
@@ -1269,6 +1287,8 @@ const MapOverlay = () => {
         directionsResults.forEach((route) => {
           const layerId=`route-${route.route_id}-layer`
           if(map.getLayer(layerId)) map.setLayoutProperty(layerId,'visibility','none')
+          const layerId2=`route-${route.route_id}-between-layer`
+          if(map.getLayer(layerId2)) map.setLayoutProperty(layerId2,'visibility','none')
         })
       }
 
@@ -1287,7 +1307,8 @@ const MapOverlay = () => {
           type: 'symbol',
           source: 'pickup-point2',
           layout: {
-            'icon-image': 'static-blue-dot'
+            'icon-image': 'static-blue-dot',
+            "icon-allow-overlap": true
           }
         },'bus-stops-layer')
 
@@ -1322,7 +1343,7 @@ const MapOverlay = () => {
           }, 
           paint: {
               "line-color": "#4050DE",
-              "line-width": 20,
+              "line-width": 30,
               "line-opacity": 0.01 //barely visible
           }
         },'chosen-route-top-layer')//put this layer beneath the visible layer
@@ -1330,6 +1351,7 @@ const MapOverlay = () => {
         if(!addedListener2.current){
           //listens to click on hitbox layer
           map.on("click","chosen-route-bottom-layer",handleChosenRouteClick)
+          addedListener2.current=true
         }  
 
         // zoom out in a way that shows the whole route
