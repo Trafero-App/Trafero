@@ -28,9 +28,9 @@ async def get_time_estimation(route_id, start_index, end_index, mapbox_token):
     trimed_waypoints = trim_waypoints(waypoints, route_id, start_index, end_index)
     eta = get_eta(trimed_waypoints, mapbox_token, "driving") 
     if "Van" in db.routes[route_id]["details"]["route_name"]:
-        eta = round(eta * 1.2)
+        eta = round(eta * 1.2 / 60)
     else:
-        eta = round(eta * 2)
+        eta = round(eta * 2 / 60)
     return eta
 
 
