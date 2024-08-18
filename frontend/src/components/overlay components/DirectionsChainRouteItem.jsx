@@ -104,8 +104,8 @@ const DirectionsChainRouteItem = ({
             //hides line
             if(map.getLayer( `${id}-layer`)) map.removeLayer( `${id}-layer`)
             if(map.getSource(id)) map.removeSource(id)
-            if(map.getLayer( `${id}-between-layer`)) map.removeLayer( `${id}-layer`)
-            if(map.getSource(`${id}-between`)) map.removeSource(id)
+            if(map.getLayer( `${id}-between-layer`)) map.removeLayer( `${id}-between-layer`)
+            if(map.getSource(`${id}-between`)) map.removeSource(`${id}-between`)
             if(chosenBusIds) setChosenBusIds(chosenBusIds.filter((e) => !vehicle_ids.includes(e)))
             setPreviewedIds(previewedIds.filter((e) => e!=routeData.route_id))
         }
