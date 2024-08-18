@@ -1,6 +1,7 @@
 import { useContext } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { MapContext } from '../App';
+import Image from '../../Icon.png'
 
 const SignInLayout = () => {
 
@@ -34,9 +35,10 @@ const SignInLayout = () => {
     </div>
     :
     <div className="absolute h-full w-full flex flex-col md:flex-row md:justify-around items-center justify-center p-3 backdrop-blur-sm bg-black bg-opacity-10">
-        <div className='hidden w-full md:flex flex-col items-center text-white'>
-          <h1 className='mb-6 text-2xl font-bold'>APP LOGO AND NAME</h1>
-          <h1 className='text-2xl font-semibold'>SLOGAN HERE</h1>
+        <div className='hidden w-full md:flex flex-col items-center justify-center text-white'>
+            <img src={Image} className='h-96 w-96'/>
+            <h1 className='mb-6 text-5xl font-bold'>Trafero</h1>
+            <h1 className='text-2xl font-semibold'>Simpler, Smarter, Safer</h1>
         </div>
         <Outlet/>
     </div>
