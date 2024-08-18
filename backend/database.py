@@ -95,14 +95,18 @@ class db:
             del route_data["details"]["file_name"]
             route_data["line"] = route_geojson
             routes[route_data["details"]["route_id"]] = route_data
-
+            name = route_data["details"]["route_name"]
+            name = name.split(' - ')
+            name[0] = name[0].split(' (')
+            name[1] = name[1].split(')')
             routes_search_data.append(
                 (
                     (route_data["details"]["route_id"],)
                     + tuple(route_data["details"]["description"].split(" - "))
-                    + tuple(route_data["details"]["route_name"].split())
+                    + tuple(name[0]) + (name[1][0],)
                 )
             )
+        print(routes_search_data[0])
         cls.routes = routes
         cls.routes_search_data = routes_search_data
 

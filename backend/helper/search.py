@@ -33,19 +33,19 @@ def search_routes(query: str):
         if score >= 80:
             route_scores[route_search_data[0]] = score
 
-    filtered_routes_result = []
+    filtered_routes_result = {}
     # If some routes have a high score, ignore ones with a low score
     if route_scores != {}:
         max_score = max(route_scores.values())
         if max_score >= 90:
-            filtered_routes_result = list(
-                filter(
-                    lambda route_id: route_scores[route_id] >= 90, route_scores.keys()
-                )
-            )
+            for route_id, score in route_scores.items():
+                if score >= 90:
+                    filtered_routes_result[route_id] = score
         else:
-            filtered_routes_result = list(route_scores.keys())
-
+            filtered_routes_result = route_scores
+    print(filtered_routes_result)
+    filtered_routes_result = sorted(filtered_routes_result.keys(), key=filtered_routes_result.get, reverse=True)
+    print(filtered_routes_result)
     return filtered_routes_result
 
 
