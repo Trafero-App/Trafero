@@ -511,8 +511,8 @@ const BusInfoPage = () => {
                             <>
                             <h1 className='font-semibold px-4 pb-1'>Common complaints by users: </h1>
                             <div className='pl-4 pr-3 flex flex-wrap w-full h-full'>
-                                {data.complaints.map( e => 
-                                    <div className='flex px-3 mb-1 mr-1 bg-gray1 rounded-xl'>
+                                {data.complaints.map( (e,i) => 
+                                    <div key={i} className='flex px-3 mb-1 mr-1 bg-gray1 rounded-xl'>
                                         <h1 className='pr-1 font-medium'>{e.complaint}</h1>
                                         <h1>{e.count}</h1>
                                     </div>

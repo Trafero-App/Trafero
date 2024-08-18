@@ -300,6 +300,9 @@ const MapOverlay = () => {
       //starts showing busses
       setShowingBusses(true)
 
+      //fetches bus stops from API
+      setBusStops()
+
       //listens to click and adds marker
       map.on("click", (e) => {
         if(!isOnMapPageRef.current) return;
@@ -444,9 +447,6 @@ const MapOverlay = () => {
           }
         },350)
       })
-
-      //fetches bus stops from API
-      setBusStops()
     }
   
   },[isMapLoaded])
@@ -1155,7 +1155,11 @@ const MapOverlay = () => {
     })
     .then((res) => {
         if(res.status==200){
-          setDirectionsResults(res.data.routes)
+          setDirectionsResults(res.data.routes.map((routeData) => {
+            if(routeData.chain==false) return routeData
+            return {...routeData, route_id:routeData.route_id1+"+"+routeData.route_id2,
+              vehicles: routeData.vehicles1.concat(routeData.vehicles2)}
+          }))
           setDirectionsResultsLoading(false)
         }
       }
