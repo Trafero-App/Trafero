@@ -119,6 +119,18 @@ function App() {
     })
     .then((res) => {
         if(res.status==200){
+          if(res.data.content.status!='inactive'){
+            setBusData(busData.filter((e) => e.properties.id!=res.data.content.id).concat([{
+              properties: {
+                id: res.data.content.id,
+                status: res.data.content.status
+              },
+              geometry: {
+                coordinates: res.data.content.coordinates,
+                type:'Point'
+              }
+            }]))
+          }   
           setChosenBusData(res.data.content)
           setChosenBusDataLoading(false)
         }
