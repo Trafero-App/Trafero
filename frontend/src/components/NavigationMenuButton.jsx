@@ -14,7 +14,7 @@ const NavigationMenuButton = ({
                 <div className='rounded-[3.5rem] w-14 h-7 md:rounded-[3rem] md:w-12 md:h-6 flex justify-center items-center mb-1 transition duration-200'>
                     <Icon className={`${isActive && 'text-blue4'} w-5 h-5 text-black transition duration-200`}/>
                 </div>
-                <h1 className='text-sm md:text-xs transition duration-200'>{text}</h1>
+                <h1 className='pointer-events-none select-none text-sm md:text-xs transition duration-200'>{text}</h1>
             </div>
             }
         </NavLink>

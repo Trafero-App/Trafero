@@ -34,11 +34,11 @@ const SignInLayout = () => {
         </div>
     </div>
     :
-    <div className="absolute h-full w-full flex flex-col md:flex-row md:justify-around items-center justify-center p-3 backdrop-blur-sm bg-black bg-opacity-10">
+    <div className="absolute h-full w-full flex flex-col md:flex-row md:justify-around items-center justify-center p-3 backdrop-blur-sm bg-black bg-opacity-[0.25]">
         <div className='hidden w-full md:flex flex-col items-center justify-center text-white'>
             <img src={Image} className='w-56 pb-6'/>
             <h1 className='mb-6 text-5xl font-bold'>Trafero</h1>
-            <h1 className='text-2xl font-semibold'>Simpler, Smarter, Safer</h1>
+            <h1 className='text-2xl font-semibold'>Safer, Simpler, Smarter</h1>
         </div>
         <Outlet/>
     </div>
