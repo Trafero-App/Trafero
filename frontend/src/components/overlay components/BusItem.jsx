@@ -50,7 +50,7 @@ const BusItem = ({vehicle, setChosenBusIntervalId}) => {
                 <div className='flex flex-col justify-center'>
                     <h1 className='font-bold'>{license_plate}</h1>
                     {vehicle.passed!=undefined &&
-                    <h1 className={`px-2 text-white rounded-md ${status=='active' ? 'bg-active-green' : status=='unavailable' ? 'bg-unavailable-red' : status=='waiting' ? 'bg-waiting-yellow' : status=='inactive' ? 'bg-black' : 'bg-gray4'}`}>{capitalizeFirstLetter(status)}</h1>
+                    <h1 className={`flex-shrink-0 px-2 text-white rounded-md ${status=='active' ? 'bg-active-green' : status=='unavailable' ? 'bg-unavailable-red' : status=='waiting' ? 'bg-waiting-yellow' : status=='inactive' ? 'bg-black' : 'bg-gray4'}`}>{capitalizeFirstLetter(status)}</h1>
                     }
                 </div>
             </div>
