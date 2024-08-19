@@ -1,7 +1,7 @@
 import { useContext } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { MapContext } from '../App';
-import Image from '../../Icon.png'
+import Image from '../../logo.png'
 
 const SignInLayout = () => {
 
@@ -36,7 +36,7 @@ const SignInLayout = () => {
     :
     <div className="absolute h-full w-full flex flex-col md:flex-row md:justify-around items-center justify-center p-3 backdrop-blur-sm bg-black bg-opacity-10">
         <div className='hidden w-full md:flex flex-col items-center justify-center text-white'>
-            <img src={Image} className='h-96 w-96'/>
+            <img src={Image} className='w-56 pb-6'/>
             <h1 className='mb-6 text-5xl font-bold'>Trafero</h1>
             <h1 className='text-2xl font-semibold'>Simpler, Smarter, Safer</h1>
         </div>

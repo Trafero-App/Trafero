@@ -163,6 +163,30 @@ function App() {
     })
   }
 
+  const checkToken = async (accessToken) => {
+    await axios({
+      method: 'get',
+      url: `/api/check_token?token=${accessToken}`,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    .then((res) => {
+      if(res.status==200){
+        if(res.data.is_valid){
+          setAuthenticationToken(accessToken)
+          setLoggedIn(true)
+        }
+        else{
+          localStorage.setItem('authentication-token','')
+        }
+      }
+    })
+    .catch((e) => {
+      localStorage.setItem('authentication-token','')
+    })
+  }
+
   //runs on render, adds history items and authentication token to local storage
   useEffect(() => {
     //can only have strings as values
@@ -170,10 +194,10 @@ function App() {
     if(!localStorage.getItem('busses-history') || localStorage.getItem('busses-history').length==0) localStorage.setItem('busses-history',JSON.stringify([]))
     if(!localStorage.getItem('authentication-token') || localStorage.getItem('authentication-token').length==0) localStorage.setItem('authentication-token','')
     const accessToken = localStorage.getItem('authentication-token')
-    setAuthenticationToken(accessToken)
-    if(accessToken && accessToken!=''){
-      setLoggedIn(true)
+    if(accessToken!=''){
+      checkToken(accessToken)
     }
+    
   },[])
 
   const fetchUserInfo = async () => {
