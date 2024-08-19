@@ -589,6 +589,12 @@ async def get_vehicle(vehicle_id: int, user_info: authentication.authorize_anyon
         )
     vehicle_route = db.routes[vehicle_details["route_id"]]
     vehicle_details["route_name"] = vehicle_route["details"]["route_name"]
+    if vehicle_details["status"] in ("active", "unavailable", "waiting"):
+        vehicle_details["coordinates"] = helper.project_point_on_route(
+            vehicle_details["coordinates"],
+            vehicle_details["route_id"],
+            return_as_point=True,
+        )[0]
     if passenger_id is not None:
         vehicle_details["user_choice"] = (
             await db.get_passenger_reaction(passenger_id, vehicle_id)
