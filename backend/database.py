@@ -107,7 +107,6 @@ class db:
                     + (name[1][0],)
                 )
             )
-        print(routes_search_data[0])
         cls.routes = routes
         cls.routes_search_data = routes_search_data
 
@@ -491,7 +490,6 @@ class db:
     @classmethod
     async def add_feedback(cls, review_data: Review_DB_Entry):
         async with cls.db_pool.acquire() as con:
-            print(review_data)
             feedback_id = await con.fetch(
                 """INSERT INTO feedback (passenger_id, vehicle_id, reaction) VALUES ($1, $2, $3) RETURNING id""",
                 review_data.passenger_id,

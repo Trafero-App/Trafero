@@ -149,6 +149,23 @@ async def signup(request: Request):
     }
 
 
+@app.get("/check_token")
+async def check_token(token: str):
+    try:
+        await authentication.decode_token(token)
+    except Exception as e:
+        if type(e) in (
+            authentication.Unauthorized_Exception,
+            authentication.Expired_Token_Exception
+        ):
+            is_valid = False
+        else:
+            raise e
+    is_valid = True
+
+    return {"message": "Token was successfully checked", "is_valid": is_valid}
+
+
 @app.get("/check_email", status_code=status.HTTP_200_OK)
 async def check_email(email: str):
     """Check if email has proper form and is unused"""
@@ -737,7 +754,6 @@ async def post_feedback(
         await db.add_feedback(review_entry)
         return {"message": "All Good."}
     except asyncpg.exceptions.UniqueViolationError:
-        print("FOE")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
