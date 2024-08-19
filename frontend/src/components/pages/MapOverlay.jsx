@@ -182,117 +182,6 @@ const MapOverlay = () => {
   //doing setChosenBusIds(null) leads to removing all lines that were set as visible
   //NOTE: before fetching data, check if was loading or not
 
-  //this functions fetches bus stops data and adds layers (has been changed)
-  const setBusStops = async () => {
-    if(map.getSource('bus-stops')) return;
-    await axios.get('/api/station',{
-      headers:{
-        'Content-Type': 'application/json'
-      }
-    })
-    .then((res) => {
-        const data=res.data.content
-        //adds source for bus stops
-        map.addSource('bus-stops',{
-          type: 'geojson',
-          data: data
-        })
-        //gives it a layer
-        map.addLayer({
-          id: 'bus-stops-layer',
-          type: 'symbol',
-          source: 'bus-stops',
-          minzoom: 10,
-          layout: {
-            'icon-image': 'bus'
-          }
-        })
-        //listens to clicks on a bus stop
-        map.on("click", "bus-stops-layer", (e) => {
-          if(!isOnMapPageRef.current) return;
-          //clear the previous timeout if it exists
-          if(clickTimeout){
-            clearTimeout(clickTimeout)
-          }
-
-          const clickedBusStop = e.features[0]
-          //set a new timeout
-          clickTimeout = setTimeout(() => {
-            //if we were searching for routes or on vehicle info section or on busstop section
-            if(singleBusRef.current || nearbyRoutesRef.current || chosenRouteRef.current){
-              setSingleChosenBusId(null)
-              setChosenBusIds(null)
-              setChosenRoute(null)
-            }
-            //we are on directions page so we're choosing start or destination
-            else if(isUsingDirectionsRef.current){
-              if(!startingPointRef.current){
-                setStartingPoint({
-                  name: clickedBusStop.properties.stop_name,
-                  coordinates: clickedBusStop.geometry.coordinates
-                })
-              }
-              else if(!destinationRef.current){
-                setDestination({
-                  name: clickedBusStop.properties.stop_name,
-                  coordinates: clickedBusStop.geometry.coordinates
-                })
-              }
-              else{
-                //both are chosen
-                if(directionsResultsRef.current || areDirectionsResultsLoading){
-                  //we searched for routes, lets go back to picking start and end (to be changed)(because i want to cancel fetching of data)
-                  setChosenBusIds(null)
-                  setDirectionsResultsLoading(false)
-                }
-                else{
-                  //didnt even search for routes so it takes you back to search
-                  setUsingDirections(false)
-                }
-              }
-            }
-            else{
-              //these happen if we weren't on a specific page
-              map.flyTo({center: clickedBusStop.geometry.coordinates})
-              if(chosenBusStop==clickedBusStop.properties){
-                //if this the same bus stop that was already selected
-                return
-              }
-              else if(chosenBusStopRef.current!=null){
-                //we changed bus stops
-                map.removeLayer('bus-stop-route-layer')
-                map.removeSource('bus-stop-route')
-              }
-              setChosenBusStop(clickedBusStop.properties)
-
-              //adds source for route related to this bus stop
-              map.addSource("bus-stop-route",{
-                type:'geojson',
-                //objects as values of a property are JSON.stringified automatically
-                data: JSON.parse(clickedBusStop.properties.line)
-              })
-              //gives it a layer
-              map.addLayer({
-                id: 'bus-stop-route-layer',
-                type: "line",
-                source: 'bus-stop-route',
-                layout: {
-                    "line-join": "round",
-                    "line-cap": "round"
-                }, 
-                paint: {
-                    "line-color": "#5474d4", // same color as bus stop
-                    "line-width": 4 // thin line
-                }
-              },'bus-stops-layer')
-            }
-          },350)
-        })
-      }
-    )
-    .catch()
-  }
-
   //this useEffect waits for map to load and sets default event listeners
   useEffect(() => {
     if(isMapLoaded){
@@ -300,8 +189,87 @@ const MapOverlay = () => {
       //starts showing busses
       setShowingBusses(true)
 
-      //fetches bus stops from API
-      setBusStops()
+      //listens to clicks on a bus stop
+      map.on("click", "bus-stops-layer", (e) => {
+        if(!isOnMapPageRef.current) return;
+        //clear the previous timeout if it exists
+        if(clickTimeout){
+          clearTimeout(clickTimeout)
+        }
+
+        const clickedBusStop = e.features[0]
+        //set a new timeout
+        clickTimeout = setTimeout(() => {
+          //if we were searching for routes or on vehicle info section or on busstop section
+          if(singleBusRef.current || nearbyRoutesRef.current || chosenRouteRef.current){
+            setSingleChosenBusId(null)
+            setChosenBusIds(null)
+            setChosenRoute(null)
+          }
+          //we are on directions page so we're choosing start or destination
+          else if(isUsingDirectionsRef.current){
+            if(!startingPointRef.current){
+              setStartingPoint({
+                name: clickedBusStop.properties.stop_name,
+                coordinates: clickedBusStop.geometry.coordinates
+              })
+            }
+            else if(!destinationRef.current){
+              setDestination({
+                name: clickedBusStop.properties.stop_name,
+                coordinates: clickedBusStop.geometry.coordinates
+              })
+            }
+            else{
+              //both are chosen
+              if(directionsResultsRef.current || areDirectionsResultsLoading){
+                //we searched for routes, lets go back to picking start and end (to be changed)(because i want to cancel fetching of data)
+                setChosenBusIds(null)
+                setDirectionsResultsLoading(false)
+              }
+              else{
+                //didnt even search for routes so it takes you back to search
+                setUsingDirections(false)
+              }
+            }
+          }
+          else{
+            //these happen if we weren't on a specific page
+            map.flyTo({center: clickedBusStop.geometry.coordinates})
+            if(chosenBusStop==clickedBusStop.properties){
+              //if this the same bus stop that was already selected
+              return
+            }
+            else if(chosenBusStopRef.current!=null){
+              //we changed bus stops
+              map.removeLayer('bus-stop-route-layer')
+              map.removeSource('bus-stop-route')
+            }
+            setChosenBusStop(clickedBusStop.properties)
+
+            //adds source for route related to this bus stop
+            map.addSource("bus-stop-route",{
+              type:'geojson',
+              //objects as values of a property are JSON.stringified automatically
+              data: JSON.parse(clickedBusStop.properties.line)
+            })
+            //gives it a layer
+            map.addLayer({
+              id: 'bus-stop-route-layer',
+              type: "line",
+              source: 'bus-stop-route',
+              layout: {
+                  "line-join": "round",
+                  "line-cap": "round"
+              }, 
+              paint: {
+                  "line-color": "#5474d4", // same color as bus stop
+                  "line-width": 4 // thin line
+              }
+            },'bus-stops-layer')
+          }
+        },350)
+      })
 
       //listens to click and adds marker
       map.on("click", (e) => {
@@ -875,7 +843,7 @@ const MapOverlay = () => {
           if(chosenBusIntervalId) clearInterval(chosenBusIntervalId)
           const id = setInterval(() => {
             fetchChosenBusData(singleChosenBusId)
-          },2000)
+          },1000)
           setChosenBusIntervalId(id)
         }
       }
@@ -1220,15 +1188,19 @@ const MapOverlay = () => {
         //we were on a route, we went to a bus on another route and viewed that bus' full route
         //remove the old route
         setChosenRoute(null)
-        //wait 100 ms so the effects of setting chosen route to null take place
-        setTimeout(() => {
+        clearInterval(chosenRouteIntervalId)
+        //keep waiting 100 ms so the effects of setting chosen route to null take place
+        const wait = setInterval(() => {
+          if(chosenRouteRef.current!=null || map.getSource('chosen-route')){
+            return;
+          }
           setChosenRouteLoading(true)
           fetchRouteData(route_id)
           setChosenRouteIntervalId(setInterval(() => {
             fetchRouteData(route_id)
           },2000))
+          clearInterval(wait)
         },100)
-        
       }
     }
   }
@@ -1315,7 +1287,7 @@ const MapOverlay = () => {
         //add Source
         map.addSource('chosen-route',{
           type: 'geojson',
-          data: chosenRoute.line
+          data: chosenRouteRef.current.line
         })
         //visible layer
         map.addLayer({
