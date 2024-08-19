@@ -7,8 +7,6 @@ front_end
 Routes_data
 Manipulating_geojson_files/
 .venv/
-user_data
-sql/test_data.sql
-sql/create_test_data.py
+user_data/
 routes/
 routes_and_waypoints/
