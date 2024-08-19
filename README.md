@@ -29,7 +29,7 @@ You should have received a `Trafero.zip` file from the WIE team. Please unzip th
 
 	Make sure you are in the root `Trafero` directory and run:
 	```bash
-	./setup.bat
+	start setup.bat
 	```
 	This should add necessary files, and directories to the project. It should also install dependencies and populate the database with tables and test data.
    
