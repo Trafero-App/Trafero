@@ -1,6 +1,7 @@
 import mapboxgl, { Marker } from "mapbox-gl";
 import React, { useEffect, useContext, useState } from "react";
 import {MapContext} from '../App'
+import axios from 'axios'
 import style from '../../style/style.json'//for later
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_GL_API_KEY
@@ -25,13 +26,43 @@ function Map() {
         attributionControl: false,
     }
 
+     //fetches bus stops and sets map loaded to true
+  const fetchBusStops = async (map) => {
+    await axios.get('/api/station',{
+      headers:{
+        'Content-Type': 'application/json'
+      }
+    })
+    .then((res) => {
+        const data=res.data.content
+        //adds source for bus stops
+        map.addSource('bus-stops',{
+          type: 'geojson',
+          data: data
+        })
+        //gives it a layer
+        map.addLayer({
+          id: 'bus-stops-layer',
+          type: 'symbol',
+          source: 'bus-stops',
+          minzoom: 10,
+          layout: {
+            'icon-image': 'bus'
+          }
+        })
+        setMapLoaded(true)
+      }
+    )
+    .catch()
+  }
+
     //this useEffect will run on render
     useEffect(() => {
         if(mapRef.current) return;
         //creates map
         const map = mapRef.current = new mapboxgl.Map(options);
         map.once("style.load",() => {
-            setMapLoaded(true)
+            fetchBusStops(map)
             //removes all transit labels except for airportd
             map.setFilter('transit-label', ['==', 'type', 'airport']);
         })
