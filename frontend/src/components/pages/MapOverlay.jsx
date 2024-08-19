@@ -704,6 +704,10 @@ const MapOverlay = () => {
 
   //fetches ETA from every bus on route to pickup point in minutes (to be changed)
   const fetchETAs = async (route_id, pickup_point) => {
+    if(singleBusRef.current){
+      setExpectedTimeLoading(false)
+      return
+    }
     const [lng, lat] = pickup_point.geometry.coordinates
     await axios.get(`/api/route_vehicles_eta/${route_id}?pick_up_long=${lng}&pick_up_lat=${lat}`,{
       headers: {
@@ -711,7 +715,10 @@ const MapOverlay = () => {
       }
     })
     .then((res) => {
-        if(res.status==200){
+      if(singleBusRef.current){
+        setExpectedTimesLoading(false)
+      }
+      else if(res.status==200){
           setExpectedTimes(res.data.vehicles)
           setExpectedTimesLoading(false)
         }
