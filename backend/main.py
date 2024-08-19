@@ -154,6 +154,7 @@ async def check_token(token: str):
     if token == "":
         is_valid = False
     else:
+        is_valid = True
         try:
             await authentication.decode_token(token)
         except Exception as e:
@@ -164,7 +165,6 @@ async def check_token(token: str):
                 is_valid = False
             else:
                 raise e
-        is_valid = True
 
     return {"message": "Token was successfully checked", "is_valid": is_valid}
 
