@@ -1228,10 +1228,12 @@ const MapOverlay = () => {
   //this function handles a click on chosen route
   const handleChosenRouteClick = (e) => {
     if(!isOnMapPageRef.current) return;
+    if(singleBusRef.current) return;
     //anything a click would've normally triggered is stopped
     if(clickTimeout) clearTimeout(clickTimeout)
     //this will trigger as long no other click happens (dbl click maybe)
     clickTimeout = setTimeout(() => {
+      if(singleBusRef.current) return;
       //takes line and point, and returns closest point on that line
       const nearest= turf.nearestPointOnLine(chosenRouteRef.current.line,{type: "Point",coordinates: [e.lngLat.lng,e.lngLat.lat]})        
       //pickup point is added initially but with no point, so we set data
