@@ -5,7 +5,7 @@ cd user_data
 mkdir drivers_licenses
 mkdir vehicle_registrations
 cd ..
-:: pip install -r requirements.txt
+pip install -r requirements.txt
 cd ..
 cd trafero_data
 python create_db_tables.py
@@ -30,6 +30,6 @@ copy "14bus_24_2.geojson" "../../backend/routes/14bus_24_2.geojson"
 cd ..
 cd ..
 cd frontend
-:: npm i
+npm i
 cd ..
 

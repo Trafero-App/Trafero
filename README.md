@@ -1,7 +1,6 @@
-
+<img src="https://drive.google.com/uc?export=view&id=1urRby1Hpqy77XbfAm9v1gwl2VB2TbLQ_" style="width: 130px; max-width: 60%; height: auto;" title="Click to enlarge picture"/>
 
 # Trafero
-
 **Trafero** is the best way to navigate public transportation in Lebanon. It offers real-time tracking, estimated time of arrivals (ETAs), and a convenient way to find and chain routes to get you to your destination.
 
 ## Motivation
@@ -26,23 +25,13 @@ To set up Trafero locally, follow these steps:
    ```
 
 2. **Set Up the Data:**
-You should have received a `Trafero.zip` file from the WIE team. Please unzip the file, and add the folder `trafero_data` to the `Trafero` directory. If you run:
-	```bash
-	ls
-	```
-	You should see:
-	```bash
-	d----- 8/20/2024 12:18 AM backend
-	d----- 8/20/2024 12:15 AM frontend
-	d----- 8/19/2024 11:59 PM trafero_data
-	```
+You should have received a `Trafero.zip` file from the WIE team. Please unzip the file, and add the folder `trafero_data` to the `Trafero` directory. 
 
-	These 3 directories. None of them should be contained within the other. Note that you might have more directories (if you're running a virtual environment for example).
-Make sure you are in the root `Trafero` directory and run:
+	Make sure you are in the root `Trafero` directory and run:
 	```bash
 	./setup.bat
 	```
-This should add necessary files, and directories to the project. It should also install dependencies and populate the database with tables and test data.
+	This should add necessary files, and directories to the project. It should also install dependencies and populate the database with tables and test data.
    
 3. **Start the Backend Server:**
    Run the FastAPI backend.
