@@ -25,7 +25,7 @@ To set up Trafero locally, follow these steps:
    ```
 
 2. **Set Up the Data:**
-You should have received a `Trafero.zip` file from the WIE team. Please unzip the file, and add the folder `trafero_data` to the `Trafero` directory. 
+You should have received a `Trafero.zip` file. Please unzip the file, and add the folder `trafero_data` to the `Trafero` directory. 
 
 	Make sure you are in the root `Trafero` directory and run:
 	```bash
@@ -33,13 +33,13 @@ You should have received a `Trafero.zip` file from the WIE team. Please unzip th
 	```
 	This should add necessary files, and directories to the project. It should also install dependencies and populate the database with tables and test data.
    
-3. **Start the Backend Server:**
+1. **Start the Backend Server:**
    Run the FastAPI backend.
    ```bash
    cd backend
    uvicorn main:app --reload
    ```
-4. **Set Up the Frontend:**
+2. **Set Up the Frontend:**
    In another terminal, navigate to the frontend directory and install the necessary npm packages.
    ```bash
    cd frontend
