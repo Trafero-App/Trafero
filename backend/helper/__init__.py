@@ -8,5 +8,5 @@ from .vehicles import (
     get_route_vehicles_arrival_status,
 )
 from .way_eta import get_time_estimation
-from .signup import save_files, get_files, get_account_info_from_form
+from .signup import save_files, get_files, get_account_info_from_form, get_age
 from .operations import *

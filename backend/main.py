@@ -33,7 +33,7 @@ from validation import (
     Saved_Location,
     Saved_Vehicle,
 )
-
+from pydantic import ValidationError
 import helper
 import authentication
 from database import db
@@ -85,7 +85,13 @@ async def signup(request: Request):
     - HTTPException: If email or phone number is already in use. (status code: 409)
     """
     form_data = dict(await request.form())
-    account_data: Account_Info = helper.get_account_info_from_form(form_data)
+    try:
+        account_data: Account_Info = helper.get_account_info_from_form(form_data)
+    except ValidationError:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail={"error_code": "INVALID_ACCOUNT_INFO",
+                                    "msg": "The entered account info is invalid"})
+    
     account_type = account_data.account_type
 
     if account_data.phone_number is not None:
@@ -100,7 +106,6 @@ async def signup(request: Request):
                     "msg": "The phone number you attempted to sign-up with is already used by another user.",
                 },
             )
-
     if account_data.email is not None:
         is_available_email = await db.check_email_available(account_data.email)
         if not is_available_email:
@@ -111,7 +116,14 @@ async def signup(request: Request):
                     "msg": "The email you attempted to sign-up with is already used by another user.",
                 },
             )
-
+    if helper.get_age(account_data.date_of_birth) < 18:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail= {
+                "error_msg": "AGE_FORBIDDEN",
+                "msg": "Users must be 18+ years of age."
+            }
+        )
     if account_type == "driver":
         drivers_license_file, vehicle_registration_file = helper.get_files(form_data)
         if drivers_license_file is None or vehicle_registration_file is None:

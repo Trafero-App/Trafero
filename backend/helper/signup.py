@@ -9,6 +9,7 @@ import shutil
 
 from validation import Account_Info
 
+from datetime import datetime, timezone
 
 def get_account_info_from_form(form_data: dict):
     """Get an `Account_Info` object form the data in the form"""
@@ -17,6 +18,7 @@ def get_account_info_from_form(form_data: dict):
         routes = json.loads(routes)
 
     form_data["routes"] = routes
+    print(form_data)
     account_info = Account_Info(**form_data)
 
     return account_info
@@ -41,3 +43,9 @@ def save_files(form_data, drivers_license_file_path, vehicle_registration_file_p
         shutil.copyfileobj(
             vehicle_registration_uploaded_file.file, vehicle_registration_file
         )
+
+def get_age(dob: str):
+    dob_obj = datetime.strptime(dob, "%Y-%m-%d")
+    today = datetime.now(timezone.utc)
+    return today.year - dob_obj.year - ((today.month, today.day) < (dob_obj.month, dob_obj.day))
+
