@@ -25,7 +25,7 @@ To set up Trafero locally, follow these steps:
    ```
 
 2. **Set Up the Data:**
-You should have received a `Trafero.zip` file. Please unzip the file, and add the folder `trafero_data` to the `Trafero` directory. 
+You should have received a `trafero_data.zip` file. Please unzip the file, and add the folder `trafero_data` to the `Trafero` directory. 
 
 	Make sure you are in the root `Trafero` directory and run:
 	```bash
