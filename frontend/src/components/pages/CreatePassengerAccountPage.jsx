@@ -279,7 +279,7 @@ const CreatePassengerAccountPage = () => {
             onSubmit={handleCreateAccountClick}
             >
                 <div className='flex flex-col items-center mb-6'>
-                    <h1 className='font-semibold text-2xl mb-3'>Sign Up for _</h1>
+                    <h1 className='font-semibold text-2xl mb-3'>Sign Up for Trafero</h1>
                     <h1>Create a free account or <span className='text-blue3 cursor-pointer' onClick={() => navigate('/sign-in')}>sign in</span></h1>
                 </div>
                 <input 

@@ -492,7 +492,7 @@ const CreateDriverAccountPage = () => {
         onSubmit={handleContinueClick1}
         className="bg-white p-6 rounded-xl shadow-md w-full max-w-96">
             <div className='flex flex-col items-center mb-6'>
-                <h1 className='font-semibold text-2xl mb-3'>Sign Up for _</h1>
+                <h1 className='font-semibold text-2xl mb-3'>Sign Up for Trafero</h1>
                 <h1>Register as a driver or <span className='text-blue3 cursor-pointer' onClick={() => navigate('/sign-in')}>sign in</span></h1>
             </div>
             <input 
