@@ -46,7 +46,7 @@ You should have received a `trafero_data.zip` file. Please unzip the file, and a
    npm run dev
    ```
 ## Usage
-
+ 
 Once everything is set up, you can access the **Trafero** platform via your local development server:
 
 - **Backend:** FastAPI serves the API at `http://localhost:8000`.
