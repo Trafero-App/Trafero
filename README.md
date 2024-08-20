@@ -43,7 +43,6 @@ You should have received a `trafero_data.zip` file. Please unzip the file, and a
    In another terminal, navigate to the frontend directory and install the necessary npm packages.
    ```bash
    cd frontend
-   npm i
    npm run dev
    ```
 ## Usage
